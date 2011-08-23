@@ -72,7 +72,7 @@ def slice(d, markers_to_class, offsets):
   feat_shape = (end_off - start_off,) + d.feat_shape
 
   cl_lab = sorted(set(markers_to_class.values()))
-  events, events_i = markers_to_events(d.ys.flat)
+  events, events_i, events_d = markers_to_events(d.ys.flat)
   for (mark, cl) in markers_to_class.items():
     cl_i = cl_lab.index(cl)
     for i in events_i[events==mark]: # fails if there is *ONE* event

@@ -9,7 +9,9 @@ def markers_to_events(marker_array):
   markers = np.asarray(marker_array, int)
   change_ids = np.flatnonzero(np.concatenate([[1], np.diff(markers)]))
   events = markers[change_ids]
-  return (events[np.nonzero(events)], change_ids[np.nonzero(events)])
+  durations = np.diff( np.concatenate([change_ids, [len(markers)]]) )
+
+  return (events[np.nonzero(events)], change_ids[np.nonzero(events)], durations[np.nonzero(events)])
 
 def biosemi_find_ghost_markers(ys):
   '''
@@ -20,7 +22,7 @@ def biosemi_find_ghost_markers(ys):
   THIS FUNCTION IS DANGEROUS!
   '''
   ys = np.asarray(ys)
-  e, ei = markers_to_events(ys)
+  e, ei, ed = markers_to_events(ys)
   if len(ei) < 3:
     return np.zeros(0)
 
@@ -45,21 +47,24 @@ def resample_markers(markers, newlen, max_delay=0):
   many frames the markers can be delayed in *target frames*. 
   '''
   factor = float(newlen)/len(markers)
-  e, ei = markers_to_events(markers)
+  e, ei, ed = markers_to_events(markers)
   ei = (ei * factor).astype(int)
   old_ei = ei.copy()
   
   for i in range(1, len(ei)):
     if e[i] == e[i-1]:
-      ei[i] = max(ei[i], ei[i-1] + 2)
+      ei[i] = max(ei[i], ei[i-1]+ed[i-1] + 1)
     else:
-      ei[i] = max(ei[i], ei[i-1] + 1)
+      ei[i] = max(ei[i], ei[i-1]+ed[i-1])
       
   if len(ei) > 0:
     assert np.max(np.abs(ei - old_ei)) <= max_delay, \
       'Markers are delayed too much'
-    assert max(ei) < newlen, 'Delayed markers out of bounds'
+    assert max(ei)+ed[np.argmax(ei)]-1 < newlen, 'Delayed markers out of bounds'
   ys = np.zeros(newlen)
-  ys[ei] = e
+
+  for i in range( len(ei) ):
+    ys[ei[i]:ei[i]+ed[i]] = e[i]
+  
   return ys
 
