@@ -34,7 +34,7 @@ class OnlineSlice(Slice):
     self.cl_lab = sorted(set(self.mdict.values()))
 
   def apply_(self, d):
-    slices = None
+    slices = d[:0] # initialize to empty dataset
     codes, onsets, durations = markers_to_events(d.Y.flat)
     if self.buffer != None: 
       onsets = list( np.array(onsets) + self.buffer.ninstances )
@@ -58,13 +58,10 @@ class OnlineSlice(Slice):
       Y[self.cl_lab.index(self.mdict[code]), 0] = 1
       I = np.atleast_2d(d.I[:,onset])
       s = golem.DataSet(X=np.atleast_3d(xs).reshape(-1,1),
-                            Y=Y, I=I, feat_shape=xs.shape,
-                            feat_dim_lab=['samples', 'channels'],
-                            cl_lab=self.cl_lab)
-      if slices == None:
-        slices = s
-      else:
-        slices += s
+                        Y=Y, I=I, feat_shape=xs.shape,
+                        feat_dim_lab=['samples', 'channels'],
+                        cl_lab=self.cl_lab)
+      slices += s
 
     if len(events) == 0:
       # All slices were extracted
