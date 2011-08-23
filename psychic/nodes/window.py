@@ -10,6 +10,9 @@ class SlidingWindow(BaseNode):
     self.win_step = win_step
     self.ref_frame = int(float(ref_point) * (self.win_size - 1))
 
+  def reset(self):
+    self.buffer = None
+
   def apply_(self, d):
     wsize, wstep, refi = self.win_size, self.win_step, self.ref_frame
 
