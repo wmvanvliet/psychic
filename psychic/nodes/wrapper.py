@@ -20,7 +20,7 @@ class Slice(BaseNode):
                             int(self.offsets[1]*self.sample_rate))
 
   def apply_(self, d):
-    return slice(d, self.mdict, (self.offsets * self.sample_rate).astype(int))
+    return slice(d, self.mdict, self.offsets_samples)
 
 class OnlineSlice(Slice):
   def __init__(self, mark_to_cl, offsets):
@@ -34,7 +34,17 @@ class OnlineSlice(Slice):
     self.cl_lab = sorted(set(self.mdict.values()))
 
   def apply_(self, d):
-    slices = d[:0] # initialize to empty dataset
+    # Initialize datasset
+    feat_shape = (self.offsets_samples[1]-self.offsets_samples[0],d.nfeatures)
+    slices = golem.DataSet(
+      X=np.empty(( feat_shape[0]*feat_shape[1],0 )),
+      Y=np.empty(( len(self.cl_lab),0 )),
+      I=np.empty(( 1,0 )),
+      feat_shape=feat_shape,
+      feat_dim_lab=['samples', 'channels'],
+      cl_lab=self.cl_lab
+    )
+
     codes, onsets, durations = markers_to_events(d.Y.flat)
     if self.buffer != None: 
       onsets = list( np.array(onsets) + self.buffer.ninstances )
@@ -58,9 +68,7 @@ class OnlineSlice(Slice):
       Y[self.cl_lab.index(self.mdict[code]), 0] = 1
       I = np.atleast_2d(d.I[:,onset])
       s = golem.DataSet(X=np.atleast_3d(xs).reshape(-1,1),
-                        Y=Y, I=I, feat_shape=xs.shape,
-                        feat_dim_lab=['samples', 'channels'],
-                        cl_lab=self.cl_lab)
+                        Y=Y, I=I, default=slices)
       slices += s
 
     if len(events) == 0:
