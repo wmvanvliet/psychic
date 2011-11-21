@@ -3,6 +3,7 @@ from scipy import signal
 from golem import DataSet
 from golem.nodes import BaseNode
 from psychic.utils import get_samplerate
+from psychic.markers import resample_markers
 
 class Filter(BaseNode):
   def __init__(self, filt_design_func):
@@ -59,3 +60,109 @@ class Winsorize(BaseNode):
   def apply_(self, d):
     return DataSet(xs=np.clip(d.xs, self.lims[0,:], self.lims[1:]),
       default=d)
+
+class FFTFilter(BaseNode) :
+	""" Node that applies a bandpass filter by using (inverse) Fast Fourier Transform.
+	This is usually slower than using an IIR filter, but one does not have to worry
+	about filter orders and such.
+	
+	Expected input:
+	instances: samples
+	features: channels
+
+	Output:
+	instances: samples
+	features: channels
+	"""
+	
+	def __init__(self, lowcut, highcut):
+		""" Create a new FFTFilter node.
+
+		Required parameters:
+		lowcut: Lower cutoff frequency (in Hz)
+		highcut: Upper cutoff frequency (in Hz)
+		"""
+
+		BaseNode.__init__(self)
+		self.lowcut = lowcut
+		self.highcut = highcut
+
+	def train_(self, d):
+		self.samplerate = get_samplerate(d)
+
+	def apply_(self, d):
+		# Frequency vector
+		fv = np.arange(0,d.xs.shape[0]) * ( self.samplerate / float(d.xs.shape[0]) );
+		fv = fv.reshape(d.xs.shape[0],1)
+
+		# Find the frequencies closest to the cutoff range
+		if self.lowcut != 0:
+			idxl = np.argmin( np.abs(fv-self.lowcut) )
+		else:
+			idxl = 0;
+
+		if self.highcut != 0:
+			idxh = np.argmin( np.abs(fv-self.highcut) )
+		else:
+			idxh = 0;
+
+		# Filter the data
+		xs = []
+
+		for channel in range(d.nfeatures):
+			X = np.fft.fft(d.xs[:,channel])
+
+			X[0:idxl] = 0
+			X[-idxl:] = 0
+			X[idxh:] = 0
+
+			x = 2 * np.real( np.fft.ifft(X) )
+			xs.append( x.reshape(-1,1) )
+
+		return DataSet(xs=np.hstack(xs), default=d)
+
+class Resample(BaseNode) :
+    """ Resamples the signal. """
+    def __init__(self, new_samplerate, max_marker_delay=0):
+        """
+        Construct a new Resample node.
+
+        required parameters:
+        new_samplerate: Samplerate to resample the signal to.
+
+        optional parameters:
+        max_marker_delay: Maximum number of samples the markers are allowed
+                          to be delayed because of resampling. Generates error
+                          if exeeded. [0]
+        """
+
+        BaseNode.__init__(self)
+        self.new_samplerate = new_samplerate
+        self.max_marker_delay = max_marker_delay
+
+    def train_(self, d):
+        self.old_samplerate = get_samplerate(d)
+
+    def apply_(self, d):
+        if self.old_samplerate == self.new_samplerate:
+            return d
+
+        new_len = int(d.ninstances * self.new_samplerate/float(self.old_samplerate))
+        idx = np.linspace(0, d.ninstances-1, new_len)
+        idx_floored = np.array( np.floor(idx), dtype=np.int )
+
+        ys = resample_markers(d.ys.flatten(), new_len, self.max_marker_delay)
+
+        # Method 1 (fast) use linear subsampling
+        xs = [];
+        for channel in range(d.nfeatures):
+            xs.append( np.interp(idx, range(d.ninstances), d.X[channel,:]) )
+
+        I = np.interp(idx, range(d.ninstances), d.I[0,:])
+
+        return DataSet(X=np.vstack(xs), ys=ys, I=I, default=d )
+        
+        # # Method 2 (slow) use scipy's resampling, which also applies FFT tricks
+        # xs, ids = signal.resample(d.xs, new_len, t=d.ids)
+
+        # return DataSet( xs, ys, ids.reshape(-1,1), default=d )
