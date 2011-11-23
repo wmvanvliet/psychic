@@ -6,5 +6,5 @@ setup(name='psychic',
   url='http://www.borisreuderink.nl',
   author='Boris Reuderink',
   author_email='b.reuderink@gmail.com',
-  packages=['psychic', 'psychic.nodes', 'psychic.tests'],
+  packages=['psychic', 'psychic.nodes', 'psychic.tests', 'psychic.dataformats'],
   )
