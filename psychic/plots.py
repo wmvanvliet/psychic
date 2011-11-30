@@ -1,22 +1,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import scalpplot
 from scalpplot import plot_scalp
 from positions import POS_10_5
-from scipy import signal
 import golem
 import psychic
 import scipy
 import matplotlib
 import matplotlib.pyplot as plot
 import matplotlib.ticker as ticker
-from matplotlib.patches import PathPatch
-from matplotlib.path import Path
 from matplotlib.lines import Line2D
+from matplotlib import mlab
 import matplotlib.transforms as transforms
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import math
-import erp
+import erp_util
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -160,10 +157,13 @@ def plot_spectogram(data, samplerate, spec_channel=0, freq_range=[0, 50], show_y
     if samplerate == None:
         samplerate = psychic.get_samplerate(data)
 
-    P,v1,v2,v3 = plot.specgram(data.xs[:,spec_channel], Fs=samplerate, NFFT=samplerate, noverlap=0)
-    #plot.clim(np.min(P[:,freq_range]), np.max(P[:, freq_range]))
-    plot.ylim(freq_range)
+    S, freqs, time = psychic.s_trans(data.X[spec_channel,:], freq_range[0], freq_range[1], samplerate) 
 
+
+    # Plot PSD on a log10 scale
+    fig = plot.imshow(S, aspect='auto', extent=(0, np.amax(time), freqs[0], freqs[-1]))
+
+    # Decorate the plot
     if data.feat_lab:
         plot.title(data.feat_lab[spec_channel])
     
@@ -187,9 +187,7 @@ def plot_erp_spectogram(data, samplerate, classes=None, spec_channel=0, freq_ran
     X2 = data.ndX[:,:,classes[1]].T
     X = X1-X2
 
-    print X.shape
-    print spec_channel
-    P = plot.specgram(X[spec_channel,:].T, Fs=samplerate, NFFT=samplerate, noverlap=0)
+    Pxx, freqs, bins = mlab.specgram(data.ndX[spec_channel,:, classes[0]].T, Fs=samplerate, NFFT=samplerate, noverlap=0)
     #plot.clim(np.min(P), np.max(P))
     plot.ylim(freq_range)
 
@@ -221,7 +219,7 @@ def plot_spectograms(data, samplerate=None, freq_range=[0, 50], fig=None):
         num_cols = 2
 
     for channel in range(data.nfeatures):
-        axes = plot.subplot(num_rows, num_cols, channel+1)
+        plot.subplot(num_rows, num_cols, channel+1)
         plot_spectogram(data, samplerate, channel, freq_range, fig=fig, show_xlabel=False, show_ylabel=False)
 
     return fig
@@ -242,20 +240,24 @@ def plot_erp_spectograms(data, samplerate, classes=None, freq_range=[0, 50], fig
         num_cols = 2
 
     for channel in range(num_channels):
-        axes = plot.subplot(num_rows, num_cols, channel+1)
+        plot.subplot(num_rows, num_cols, channel+1)
         plot_erp_spectogram(data, samplerate, classes, channel, freq_range, fig=fig, show_xlabel=False, show_ylabel=False)
 
     return fig
 
 def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=None, cl_lab=None, feat_lab=None, start=0, colors=['b', 'r', 'g', 'c', 'm', 'y', 'k'], fig=None, pval=0.05, enforce_equal_n=True, mirror_y=False):
-    ''' Create an Event Related Potential plot which aims to be as informative as possible.
-    It baselines, averages and performs ttests on the given data.'''
+    '''
+    Create an Event Related Potential plot which aims to be as informative as possible.
+    It baselines, averages and performs ttests on the given data.
+    '''
 
     assert data.nd_xs.ndim == 3
 
     num_samples = data.nd_xs.shape[1]
     num_channels = data.nd_xs.shape[2]
 
+    # Determine properties of the data that weren't explicitly supplied as
+    # arguments.
     if classes == None:
         classes = np.flatnonzero(np.array(data.ninstances_per_class))
 
@@ -263,13 +265,16 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         cl_lab = data.cl_lab if data.cl_lab else ['class %d' % cl for cl in classes]
 
     if feat_lab == None:
-        feat_lab = data.feat_nd_lab[1]
+        if data.feat_nd_lab != None:
+            feat_lab = data.feat_nd_lab[1]
+        else:
+            feat_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
     num_classes = len(classes)
 
-    # Baseline data
+    # Baseline data if requested
     if baseline_period != None:
-        data = erp.baseline(data, baseline_period)
+        data = erp_util.baseline(data, baseline_period)
 
     # Determine number of trials
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
@@ -282,7 +287,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         ttest_performed = False
 
     # Calculate ERP
-    data = erp.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Spread out the channels
     if vspace == None:
@@ -292,11 +297,13 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     bases = bases[::-1]
     to_plot = (data.nd_xs if not mirror_y else -1*data.nd_xs) + bases
 
-    # Calculate timeline
-    if samplerate == None:
+    # Calculate timeline, using the best information available
+    if samplerate != None:
+        ids = np.arange(num_samples) / float(samplerate) - start
+    elif data.feat_nd_lab != None:
         ids = np.array(data.feat_nd_lab[0], dtype=float) - start
     else:
-        ids = np.arange(num_samples) / float(samplerate) - start
+        ids = np.arange(num_samples)
 
     # Plot ERP
     if fig == None:
@@ -309,6 +316,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(num_channels)], colors=colors[cl%len(colors)], label=cl_lab[classes[cl]] )
         axes.add_collection(traces)
 
+    # Color significant differences
     if ttest_performed:
         for channel in range(num_channels):
             significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[:,channel] < pval, [False]))) ).reshape(-1,2)
@@ -324,10 +332,10 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
     _draw_eeg_frame(bases, vspace, ids, feat_lab, mirror_y)
     plot.axvline(0, 0, 1, color='k')
-    plot.grid()
-    plot.legend(loc='best')
+    plot.legend(loc='upper left')
     plot.title('Event Related Potential (n=%d)' % num_trials)
     plot.xlabel('Time (s)')
     plot.ylabel('Channels')
+    plot.grid() # Why isn't this working?
 
     return fig

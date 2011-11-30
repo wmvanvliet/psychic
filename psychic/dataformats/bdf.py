@@ -89,7 +89,7 @@ class BaseBDFReader:
     self.gain = np.array([(h['physical_max'][n] - h['physical_min'][n]) / 
       float(h['digital_max'][n] - h['digital_min'][n]) for n in channels], 
       np.float32)
-    self.offset = np.array([h['physical_min'][n] for n in channels])
+    self.offset = np.array([h['physical_min'][n] - self.gain[n]*h['digital_min'][n] for n in channels])
     return self.header
   
   def read_record(self):
@@ -238,6 +238,18 @@ class BDFWriter:
         if not 'Status' in self.label:
             self.append_status_channel()
 
+        # Sanity checks on lengths
+        assert len(self.label) == n_channels
+        assert len(self.transducer_type) == n_channels
+        assert len(self.units) == n_channels
+        assert len(self.physical_min) == n_channels
+        assert len(self.physical_max) == n_channels
+        assert len(self.digital_min) == n_channels
+        assert len(self.digital_max) == n_channels
+        assert len(self.prefiltering) == n_channels
+        assert len(self.n_samples_per_record) == n_channels
+        assert len(self.reserved) == n_channels
+
         self.header_written = False
 
     def append_status_channel(self):
@@ -255,6 +267,19 @@ class BDFWriter:
 
     def write_header(self):
         """ Write the BDF file header, settings things such as the number of channels and samplerate. """
+
+        # Sanity checks on lengths
+        assert len(self.label) == self.n_channels+1 
+        assert len(self.transducer_type) == self.n_channels+1
+        assert len(self.units) == self.n_channels+1
+        assert len(self.physical_min) == self.n_channels+1
+        assert len(self.physical_max) == self.n_channels+1
+        assert len(self.digital_min) == self.n_channels+1
+        assert len(self.digital_max) == self.n_channels+1
+        assert len(self.prefiltering) == self.n_channels+1
+        assert len(self.n_samples_per_record) == self.n_channels+1
+        assert len(self.reserved) == self.n_channels+1
+
         try:
             # Seek back to the beginning of the file
             self.f.seek(0,0)
@@ -307,7 +332,7 @@ class BDFWriter:
         num_samples, num_channels = dataset.xs.shape
 
         inv_gain = np.array( [ (self.digital_max[n] - self.digital_min[n]) / float(self.physical_max[n] - self.physical_min[n]) for n in range(num_channels)] )
-        offset = np.array( [self.physical_min[n] for n in range(num_channels)] )
+        offset = np.array( [self.physical_min[n] * inv_gain[n] - self.digital_min[n] for n in range(num_channels)] )
 
         self.write_raw( golem.DataSet( xs=((dataset.xs-offset)*inv_gain).astype(np.int32), default=dataset ) )
 
