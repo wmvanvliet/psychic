@@ -1,4 +1,4 @@
-from spatialfilter import CAR, Whitening, SymWhitening, CSP, Deflate
+from spatialfilter import CAR, Whitening, SymWhitening, CSP, Deflate, SpatialBlur
 from timefreq import TFC
 from filter import Filter, OnlineFilter, Winsorize, FFTFilter, Resample
 from window import SlidingWindow, OnlineSlidingWindow 

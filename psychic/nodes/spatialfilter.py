@@ -1,8 +1,10 @@
 import itertools
 import numpy as np
+import scipy
 from numpy import linalg as la
 from golem import DataSet
 from golem.nodes import BaseNode
+from ..positions import POS_10_5
 
 # TODO: change to trials of [channels x time] to conform to standard math
 # notation, change spatial filters
@@ -141,6 +143,26 @@ class Deflate(BaseSpatialFilter):
       feat_lab = [d.feat_lab[i] for i in range(d.nfeatures) if not 
         self.noise_selector[i]]
     return DataSet(feat_lab=feat_lab, default=BaseSpatialFilter.apply_(self, d))
+
+class SpatialBlur(BaseSpatialFilter):
+  def __init__(self, sigma, ftype=PLAIN):
+    BaseSpatialFilter.__init__(self, ftype)
+    self.sigma = sigma
+
+  def train_(self, d):
+    if self.ftype == PLAIN:
+      positions = d.feat_lab
+    elif self.ftype == TRIAL:
+      positions = d.feat_nd_lab[1]
+  
+    # Calculate distances for each electrode pair
+    distances = np.array([
+      [la.norm(np.array(POS_10_5[pos1]) - np.array(POS_10_5[pos2]))
+       for pos2 in positions] for pos1 in positions])
+  
+    # Apply a gaussian distribution based on electrode distance
+    W = scipy.stats.norm.pdf(distances, 0, self.sigma)
+    self.W = (W.T / np.sum(W, axis=1)).T
 
 def car(n):
   '''Return a common average reference spatial filter for n channels'''
