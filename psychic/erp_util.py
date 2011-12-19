@@ -97,6 +97,7 @@ def random_groups(d, size):
         ngroups = int(d_cl.ninstances / size)
 
         idx = np.random.permutation(d_cl.ninstances)[:ngroups*size].reshape(size,-1)
+        print idx
         d_grouped = golem.DataSet(
             X = d_cl.ndX[:,:,idx].reshape(-1, ngroups),
             Y = d_cl.Y[:,idx[0,:]],
@@ -136,7 +137,7 @@ def reject_trials(d, cutoff=100, range=None):
 
     reject = np.any(
                np.any(
-                 np.abs(d.ndX[:,range[0]:range[1],:]) > self.cutoff,
+                 np.abs(d.ndX[:,range[0]:range[1],:]) > cutoff,
                  axis=0),
                axis=0)
 
