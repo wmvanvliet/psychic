@@ -97,7 +97,6 @@ def random_groups(d, size):
         ngroups = int(d_cl.ninstances / size)
 
         idx = np.random.permutation(d_cl.ninstances)[:ngroups*size].reshape(size,-1)
-        print idx
         d_grouped = golem.DataSet(
             X = d_cl.ndX[:,:,idx].reshape(-1, ngroups),
             Y = d_cl.Y[:,idx[0,:]],

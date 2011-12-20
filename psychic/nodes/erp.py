@@ -1,7 +1,7 @@
 import golem
 from golem.nodes import BaseNode
 import numpy as np
-from ..erp import reject_trials
+from ..erp_util import reject_trials
 import inspect
 
 class Mean(BaseNode):
@@ -109,6 +109,7 @@ class RejectTrials(BaseNode):
     Wrapper around psychic.reject_trials()
     """
     def __init__(self, cutoff=0, range=None):
+        BaseNode.__init__(self)
         self.cutoff = cutoff
         self.range = range
 

@@ -1,22 +1,19 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import scalpplot
 from scalpplot import plot_scalp
 from positions import POS_10_5
-from scipy import signal
 import golem
 import psychic
 import scipy
 import matplotlib
 import matplotlib.pyplot as plot
 import matplotlib.ticker as ticker
-from matplotlib.patches import PathPatch
-from matplotlib.path import Path
 from matplotlib.lines import Line2D
+from matplotlib import mlab
 import matplotlib.transforms as transforms
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import math
-import erp
+import erp_util
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -160,10 +157,22 @@ def plot_spectogram(data, samplerate, spec_channel=0, freq_range=[0, 50], show_y
     if samplerate == None:
         samplerate = psychic.get_samplerate(data)
 
-    P,v1,v2,v3 = plot.specgram(data.xs[:,spec_channel], Fs=samplerate, NFFT=samplerate, noverlap=0)
-    #plot.clim(np.min(P[:,freq_range]), np.max(P[:, freq_range]))
-    plot.ylim(freq_range)
+    Pxx, freqs, bins = mlab.specgram(data.X[spec_channel,:], Fs=samplerate, NFFT=samplerate, noverlap=0)
 
+    # Limit to frequency range
+    min_freq_idx = np.searchsorted(freqs, freq_range[0])
+    max_freq_idx = np.searchsorted(freqs, freq_range[1])+1
+    Pxx = Pxx[min_freq_idx:max_freq_idx, :]
+    freqs = freqs[min_freq_idx:max_freq_idx]
+
+    # Plot PSD on a log10 scale
+    Z = 10. * np.log10(Pxx)
+    Z = np.flipud(Z)
+    fig = plot.imshow(Z, extent=(0, np.amax(bins), freqs[0], freqs[-1]))
+    plot.axis('auto')
+    plot.ylim(freqs[0], freqs[-1])
+
+    # Decorate the plot
     if data.feat_lab:
         plot.title(data.feat_lab[spec_channel])
     
@@ -187,9 +196,7 @@ def plot_erp_spectogram(data, samplerate, classes=None, spec_channel=0, freq_ran
     X2 = data.ndX[:,:,classes[1]].T
     X = X1-X2
 
-    print X.shape
-    print spec_channel
-    P = plot.specgram(X[spec_channel,:].T, Fs=samplerate, NFFT=samplerate, noverlap=0)
+    Pxx, freqs, bins = mlab.specgram(data.ndX[spec_channel,:, classes[0]].T, Fs=samplerate, NFFT=samplerate, noverlap=0)
     #plot.clim(np.min(P), np.max(P))
     plot.ylim(freq_range)
 
@@ -256,6 +263,8 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     num_samples = data.nd_xs.shape[1]
     num_channels = data.nd_xs.shape[2]
 
+    # Determine properties of the data that weren't explicitly supplied as
+    # arguments.
     if classes == None:
         classes = np.flatnonzero(np.array(data.ninstances_per_class))
 
@@ -267,7 +276,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
     num_classes = len(classes)
 
-    # Baseline data
+    # Baseline data if requested
     if baseline_period != None:
         data = erp.baseline(data, baseline_period)
 
@@ -309,6 +318,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(num_channels)], colors=colors[cl%len(colors)], label=cl_lab[classes[cl]] )
         axes.add_collection(traces)
 
+    # Color significant differences
     if ttest_performed:
         for channel in range(num_channels):
             significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[:,channel] < pval, [False]))) ).reshape(-1,2)
@@ -324,10 +334,10 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
     _draw_eeg_frame(bases, vspace, ids, feat_lab, mirror_y)
     plot.axvline(0, 0, 1, color='k')
-    plot.grid()
     plot.legend(loc='best')
     plot.title('Event Related Potential (n=%d)' % num_trials)
     plot.xlabel('Time (s)')
     plot.ylabel('Channels')
+    plot.grid() # Why isn't this working?
 
     return fig
