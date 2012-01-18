@@ -86,9 +86,11 @@ class Blowup(BaseNode):
                 combinations.append(X[:,:,idx[:to_go]])
                 reverse_idxs.append(reverse_idx[idx[:to_go]])
 
-            xs.append( np.concatenate(combinations, axis=2).reshape(d.nfeatures, -1) )
+            xs.append( np.rollaxis(np.array(combinations), 0, 4).reshape(d.nfeatures, -1) )
+            #xs.append( np.concatenate(combinations, axis=2).reshape(d.nfeatures, -1) )
 
-        
+        #ndX = np.concatenate(xs, axis=3)
+        #X = ndX.reshape(-1, ndX.shape[-1])
         X = np.hstack(xs)
 
         # Construct Y
@@ -100,7 +102,7 @@ class Blowup(BaseNode):
         # Construct I
         I=np.arange(X.shape[1])
 
-        self.reverse_idx = np.hstack(reverse_idxs).reshape(num_repetitions, -1)
+        self.reverse_idx = np.vstack(reverse_idxs)
         return golem.DataSet(X=X, Y=Y, I=I, cl_lab=cl_lab, default=d)
 
 class RejectTrials(BaseNode):
