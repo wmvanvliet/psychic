@@ -102,8 +102,8 @@ def random_groups(d, size):
             Y = d_cl.Y[:,idx[0,:]],
             I = d_cl.I[:,idx[0,:]],
             feat_shape = d_cl.feat_shape + (size,),
-            feat_dim_lab = d_cl.feat_dim_lab + ['trials'],
-            feat_nd_lab = d_cl.feat_nd_lab + [range(size)],
+            feat_dim_lab = d_cl.feat_dim_lab + ['trials'] if d_cl.feat_dim_lab else None,
+            feat_nd_lab = d_cl.feat_nd_lab + [range(size)] if d_cl.feat_nd_lab else None,
             default = d_cl
         )
 

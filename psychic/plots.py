@@ -272,13 +272,16 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         cl_lab = data.cl_lab if data.cl_lab else ['class %d' % cl for cl in classes]
 
     if feat_lab == None:
-        feat_lab = data.feat_nd_lab[1]
+        if data.feat_nd_lab != None:
+            feat_lab = data.feat_nd_lab[1]
+        else:
+            feat_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
     num_classes = len(classes)
 
     # Baseline data if requested
     if baseline_period != None:
-        data = erp.baseline(data, baseline_period)
+        data = erp_util.baseline(data, baseline_period)
 
     # Determine number of trials
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
@@ -291,7 +294,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         ttest_performed = False
 
     # Calculate ERP
-    data = erp.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Spread out the channels
     if vspace == None:
@@ -303,7 +306,10 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
     # Calculate timeline
     if samplerate == None:
-        ids = np.array(data.feat_nd_lab[0], dtype=float) - start
+        if data.feat_nd_lab != None:
+            ids = np.array(data.feat_nd_lab[0], dtype=float) - start
+        else:
+            ids = np.arange(num_samples)
     else:
         ids = np.arange(num_samples) / float(samplerate) - start
 
@@ -334,7 +340,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
     _draw_eeg_frame(bases, vspace, ids, feat_lab, mirror_y)
     plot.axvline(0, 0, 1, color='k')
-    plot.legend(loc='best')
+    plot.legend(loc='upper left')
     plot.title('Event Related Potential (n=%d)' % num_trials)
     plot.xlabel('Time (s)')
     plot.ylabel('Channels')
