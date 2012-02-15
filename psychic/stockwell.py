@@ -1,17 +1,26 @@
 ﻿import numpy as np
 
-def g_window(length, freq, factor):
+def _g_window(length, freq, factor):
+    ''' Computes a gaussion window. '''
     vector = np.vstack((np.arange(length), np.arange(-length,0))).T
     vector = vector ** 2;    
     vector = vector * (-factor*2*np.pi**2/float(freq)**2)
 
-    # Compute the Gaussion window
     return np.sum( np.exp(vector), axis=1 )
 
 def strans(timeseries, minfreq, maxfreq, samplingrate, freqsamplingrate,
         factor, analytic_signal=True, remove_edge=True):
+    '''
+    Computes the Stockwell transform [1] of the timeseries. Adapted from the
+    matlab implementation of Robert Glenn Stockwell.
 
-    # calculate the sampled time and frequency values from the two sampling rates
+    [1] Stockwell R. G., "Localization of the Complex Spectrum: The S
+    Transform", IEEE Transactions on Signal Processing, vol. 44, number 4,
+    1996, pp. 998-1001.
+    '''
+
+    # calculate the sampled time and frequency values from the two sampling
+    # rates
     t = np.arange(len(timeseries)) * samplingrate
     spe_nelements = np.ceil( (maxfreq - minfreq + 1) / float(freqsamplingrate) )
     f = ( (minfreq + np.arange(spe_nelements) * freqsamplingrate) /
@@ -48,23 +57,28 @@ def strans(timeseries, minfreq, maxfreq, samplingrate, freqsamplingrate,
     timeseries[-half_window:] = timeseries[-half_window:] * wn[-half_window:];
 
     # Compute FFT's
+    print 'Computing FFT...'
     vector_fft = np.fft.fft(timeseries)
     vector_fft = np.hstack((vector_fft, vector_fft))
+    print 'done!'
 
     # Preallocate the STOutput matrix
-    st = np.zeros(( np.ceil((maxfreq - minfreq+1)/freqsamplingrate), n ), dtype=np.complex128)
+    st = np.zeros(( np.ceil((maxfreq - minfreq+1)/freqsamplingrate), n ),
+            dtype=np.complex128)
 
     # Compute S-transform value for the first voice
+    print 'Step %d of %d...' % (minfreq, maxfreq-minfreq+1)
     if minfreq == 0:
         st[0,:] = np.mean(np.real(timeseries))
     else:
         st[0,:] = np.fft.ifft( vector_fft[minfreq:minfreq+n] *
-                               g_window(n,minfreq,factor) )
+                               _g_window(n,minfreq,factor) )
 
     # Compute S-transform value for 1 ... ceil(n/2+1)-1 frequency points
     for freqpoint in range(freqsamplingrate,maxfreq-minfreq+1,freqsamplingrate):
+        print 'Step %d of %d...' % (freqpoint, maxfreq-minfreq+1)
         st[freqpoint/freqsamplingrate-1,:] = np.fft.ifft(
             vector_fft[minfreq+freqpoint:minfreq+freqpoint+n] *
-            g_window(n,minfreq+freqpoint,factor));
+            _g_window(n,minfreq+freqpoint,factor));
 
     return (st,t,f)

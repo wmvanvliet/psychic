@@ -141,3 +141,18 @@ def reject_trials(d, cutoff=100, range=None):
                axis=0)
 
     return d[np.logical_not(reject)]
+
+def concatenate_trials(d):
+    ''' Concatenate trials into a single stream of EEG '''
+
+    nchannels = d.ndX.shape[1]
+    trial_length = d.ndX.shape[0]
+    ninstances = trial_length * d.ninstances
+    
+    X = np.rollaxis(d.ndX, 2).reshape((-1, nchannels)).T
+    Y = np.zeros((1, ninstances))
+    Y[0, np.arange(0, ninstances, trial_length)] = d.Y[0,:] + 1
+    I = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_nd_lab[0]])) )
+    feat_lab = d.feat_nd_lab[1]
+
+    return golem.DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)

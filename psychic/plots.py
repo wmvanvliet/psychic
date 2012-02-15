@@ -157,20 +157,11 @@ def plot_spectogram(data, samplerate, spec_channel=0, freq_range=[0, 50], show_y
     if samplerate == None:
         samplerate = psychic.get_samplerate(data)
 
-    Pxx, freqs, bins = mlab.specgram(data.X[spec_channel,:], Fs=samplerate, NFFT=samplerate, noverlap=0)
+    S, freqs, time = psychic.s_trans(data.X[spec_channel,:], freq_range[0], freq_range[1], samplerate) 
 
-    # Limit to frequency range
-    min_freq_idx = np.searchsorted(freqs, freq_range[0])
-    max_freq_idx = np.searchsorted(freqs, freq_range[1])+1
-    Pxx = Pxx[min_freq_idx:max_freq_idx, :]
-    freqs = freqs[min_freq_idx:max_freq_idx]
 
     # Plot PSD on a log10 scale
-    Z = 10. * np.log10(Pxx)
-    Z = np.flipud(Z)
-    fig = plot.imshow(Z, extent=(0, np.amax(bins), freqs[0], freqs[-1]))
-    plot.axis('auto')
-    plot.ylim(freqs[0], freqs[-1])
+    fig = plot.imshow(S, aspect='auto', extent=(0, np.amax(time), freqs[0], freqs[-1]))
 
     # Decorate the plot
     if data.feat_lab:
@@ -228,7 +219,7 @@ def plot_spectograms(data, samplerate=None, freq_range=[0, 50], fig=None):
         num_cols = 2
 
     for channel in range(data.nfeatures):
-        axes = plot.subplot(num_rows, num_cols, channel+1)
+        plot.subplot(num_rows, num_cols, channel+1)
         plot_spectogram(data, samplerate, channel, freq_range, fig=fig, show_xlabel=False, show_ylabel=False)
 
     return fig
@@ -249,14 +240,16 @@ def plot_erp_spectograms(data, samplerate, classes=None, freq_range=[0, 50], fig
         num_cols = 2
 
     for channel in range(num_channels):
-        axes = plot.subplot(num_rows, num_cols, channel+1)
+        plot.subplot(num_rows, num_cols, channel+1)
         plot_erp_spectogram(data, samplerate, classes, channel, freq_range, fig=fig, show_xlabel=False, show_ylabel=False)
 
     return fig
 
 def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=None, cl_lab=None, feat_lab=None, start=0, colors=['b', 'r', 'g', 'c', 'm', 'y', 'k'], fig=None, pval=0.05, enforce_equal_n=True, mirror_y=False):
-    ''' Create an Event Related Potential plot which aims to be as informative as possible.
-    It baselines, averages and performs ttests on the given data.'''
+    '''
+    Create an Event Related Potential plot which aims to be as informative as possible.
+    It baselines, averages and performs ttests on the given data.
+    '''
 
     assert data.nd_xs.ndim == 3
 
@@ -304,14 +297,13 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     bases = bases[::-1]
     to_plot = (data.nd_xs if not mirror_y else -1*data.nd_xs) + bases
 
-    # Calculate timeline
-    if samplerate == None:
-        if data.feat_nd_lab != None:
-            ids = np.array(data.feat_nd_lab[0], dtype=float) - start
-        else:
-            ids = np.arange(num_samples)
-    else:
+    # Calculate timeline, using the best information available
+    if samplerate != None:
         ids = np.arange(num_samples) / float(samplerate) - start
+    elif data.feat_nd_lab != None:
+        ids = np.array(data.feat_nd_lab[0], dtype=float) - start
+    else:
+        ids = np.arange(num_samples)
 
     # Plot ERP
     if fig == None:
