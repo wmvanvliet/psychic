@@ -240,16 +240,16 @@ class BDFWriter:
 
 
         # Sanity checks on lengths
-        assert len(self.label) == n_channels+1 
-        assert len(self.transducer_type) == n_channels+1
-        assert len(self.units) == n_channels+1
-        assert len(self.physical_min) == n_channels+1
-        assert len(self.physical_max) == n_channels+1
-        assert len(self.digital_min) == n_channels+1
-        assert len(self.digital_max) == n_channels+1
-        assert len(self.prefiltering) == n_channels+1
-        assert len(self.n_samples_per_record) == n_channels+1
-        assert len(self.reserved) == n_channels+1
+        assert len(self.label) == n_channels
+        assert len(self.transducer_type) == n_channels
+        assert len(self.units) == n_channels
+        assert len(self.physical_min) == n_channels
+        assert len(self.physical_max) == n_channels
+        assert len(self.digital_min) == n_channels
+        assert len(self.digital_max) == n_channels
+        assert len(self.prefiltering) == n_channels
+        assert len(self.n_samples_per_record) == n_channels
+        assert len(self.reserved) == n_channels
 
         self.header_written = False
 
@@ -320,7 +320,7 @@ class BDFWriter:
         num_samples, num_channels = dataset.xs.shape
 
         inv_gain = np.array( [ (self.digital_max[n] - self.digital_min[n]) / float(self.physical_max[n] - self.physical_min[n]) for n in range(num_channels)] )
-        offset = np.array( [self.physical_min[n] for n in range(num_channels)] )
+        offset = np.array( [self.physical_min[n] * inv_gain[n] - self.digital_min[n] for n in range(num_channels)] )
 
         self.write_raw( golem.DataSet( xs=((dataset.xs-offset)*inv_gain).astype(np.int32), default=dataset ) )
 
