@@ -89,7 +89,7 @@ class BaseBDFReader:
     self.gain = np.array([(h['physical_max'][n] - h['physical_min'][n]) / 
       float(h['digital_max'][n] - h['digital_min'][n]) for n in channels], 
       np.float32)
-    self.offset = np.array([h['physical_min'][n] for n in channels])
+    self.offset = np.array([h['physical_min'][n] - self.gain[n]*h['digital_min'][n] for n in channels])
     return self.header
   
   def read_record(self):
@@ -237,6 +237,19 @@ class BDFWriter:
         # Append status channel if necessary
         if not 'Status' in self.label:
             self.append_status_channel()
+
+
+        # Sanity checks on lengths
+        assert len(self.label) == n_channels+1 
+        assert len(self.transducer_type) == n_channels+1
+        assert len(self.units) == n_channels+1
+        assert len(self.physical_min) == n_channels+1
+        assert len(self.physical_max) == n_channels+1
+        assert len(self.digital_min) == n_channels+1
+        assert len(self.digital_max) == n_channels+1
+        assert len(self.prefiltering) == n_channels+1
+        assert len(self.n_samples_per_record) == n_channels+1
+        assert len(self.reserved) == n_channels+1
 
         self.header_written = False
 
