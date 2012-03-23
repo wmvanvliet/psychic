@@ -66,7 +66,7 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
 
   return subplots
 
-def _draw_eeg_frame(bases, vspace, timeline, feat_lab=None, mirror_y=False):
+def _draw_eeg_frame(bases, vspace, timeline, feat_lab=None, mirror_y=False, draw_scale=True):
     axes = plot.gca()
 
     plot.xlim([np.min(timeline), np.max(timeline)])
@@ -80,22 +80,23 @@ def _draw_eeg_frame(bases, vspace, timeline, feat_lab=None, mirror_y=False):
         majorFormatter = ticker.FixedFormatter(feat_lab)
         axes.yaxis.set_major_formatter(majorFormatter)
 
-    # Draw scale
-    trans = transforms.blended_transform_factory(axes.transAxes, axes.transData)
-    scale_top = vspace/2.0 + bases[-1]     # In data coordinates
-    scale_bottom = -vspace/2.0 + bases[-1] # In data coordinates
-    scale_xpos = 1.02                     # In figure coordinates
+    if draw_scale:
+        # Draw scale
+        trans = transforms.blended_transform_factory(axes.transAxes, axes.transData)
+        scale_top = vspace/2.0 + bases[-1]     # In data coordinates
+        scale_bottom = -vspace/2.0 + bases[-1] # In data coordinates
+        scale_xpos = 1.02                     # In figure coordinates
 
-    scale = Line2D(
-            [scale_xpos-0.01, scale_xpos+0.01, scale_xpos, scale_xpos, scale_xpos-0.01, scale_xpos+0.01],
-            [scale_top, scale_top, scale_top, scale_bottom, scale_bottom, scale_bottom],
-            transform=trans, linewidth=1, color='k')
-    scale.set_clip_on(False)
-    axes.add_line(scale)
-    axes.text(scale_xpos+0.02, bases[-1], u'%.4g \u00B5V' % vspace,
-            transform=trans, va='center')
-    axes.text(scale_xpos+0.02, scale_top, '+' if not mirror_y else '-', transform=trans, va='center')
-    axes.text(scale_xpos+0.02, scale_bottom, '-' if not mirror_y else '+', transform=trans, va='center')
+        scale = Line2D(
+                [scale_xpos-0.01, scale_xpos+0.01, scale_xpos, scale_xpos, scale_xpos-0.01, scale_xpos+0.01],
+                [scale_top, scale_top, scale_top, scale_bottom, scale_bottom, scale_bottom],
+                transform=trans, linewidth=1, color='k')
+        scale.set_clip_on(False)
+        axes.add_line(scale)
+        axes.text(scale_xpos+0.02, bases[-1], u'%.4g \u00B5V' % vspace,
+                transform=trans, va='center')
+        axes.text(scale_xpos+0.02, scale_top, '+' if not mirror_y else '-', transform=trans, va='center')
+        axes.text(scale_xpos+0.02, scale_bottom, '-' if not mirror_y else '+', transform=trans, va='center')
 
 def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=True, draw_spectogram=False, spec_channel=0, freq_range=[0, 50], mirror_y=False, fig=None, start=0):
     ''' Plot EEG data contained in a golem dataset. '''
@@ -280,8 +281,10 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
     # Calculate significance (if appropriate)
-    if num_classes == 2 and enforce_equal_n and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
-        ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs, axis=0)
+    #if num_classes == 2 and enforce_equal_n and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
+    if np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
+        #ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs, axis=0)
+        fs, ps = scipy.stats.f_oneway(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs)
         ttest_performed = True
     else:
         ttest_performed = False
@@ -289,13 +292,10 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     # Calculate ERP
     data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
-    # Spread out the channels
+    # Calculate a sane vspace
     if vspace == None:
         vspace = (np.max(data.xs) - np.min(data.xs)) 
 
-    bases = vspace * np.arange(0, num_channels) - np.mean(np.mean(data.nd_xs, axis=0), axis=0)
-    bases = bases[::-1]
-    to_plot = (data.nd_xs if not mirror_y else -1*data.nd_xs) + bases
 
     # Calculate timeline, using the best information available
     if samplerate != None:
@@ -310,32 +310,52 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
         fig = plot.figure()
 
     fig.subplots_adjust(right=0.85)
-    axes = plot.subplot(111)
 
-    for cl in range(num_classes):
-        traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(num_channels)], colors=colors[cl%len(colors)], label=cl_lab[classes[cl]] )
-        axes.add_collection(traces)
+    num_subplots = max(1, num_channels/15)
+    channels_per_subplot = int(np.ceil(num_channels / float(num_subplots)))
 
-    # Color significant differences
-    if ttest_performed:
-        for channel in range(num_channels):
-            significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[:,channel] < pval, [False]))) ).reshape(-1,2)
+    for subplot in range(num_subplots):
+        axes = plot.subplot(1, num_subplots, subplot+1)
 
-            for i in range( significant_parts.shape[0] ):
-                x = range(significant_parts[i,0], significant_parts[i,1])
-                y1 = to_plot[0,x,channel]
-                y2 = to_plot[1,x,channel]
-                x = np.concatenate( (ids[x], ids[x[::-1]]) )
-                y = np.concatenate((y1, y2[::-1]))
+        # Determine channels to plot
+        channels = np.arange(
+                       subplot * channels_per_subplot,
+                       min(num_channels, (subplot+1) * channels_per_subplot),
+                       dtype = np.int
+                   )
 
-                p = plot.fill(x, y, facecolor='g', alpha=0.5)
+        # Spread out the channels with vspace
+        bases = vspace * np.arange(0, len(channels)) - np.mean(np.mean(data.nd_xs[:,:,channels], axis=0), axis=0)
+        bases = bases[::-1]
+        to_plot = (data.nd_xs[:,:,channels] if not mirror_y else -1*data.nd_xs[:,:,channels]) + bases
+        
+        # Plot each class
+        for cl in range(num_classes):
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(len(channels))], colors=colors[cl%len(colors)], label=cl_lab[classes[cl]] )
+            axes.add_collection(traces)
 
-    _draw_eeg_frame(bases, vspace, ids, feat_lab, mirror_y)
-    plot.axvline(0, 0, 1, color='k')
-    plot.legend(loc='upper left')
-    plot.title('Event Related Potential (n=%d)' % num_trials)
-    plot.xlabel('Time (s)')
-    plot.ylabel('Channels')
-    plot.grid() # Why isn't this working?
+        # Color significant differences
+        if ttest_performed:
+            for c,channel in enumerate(channels):
+                significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[:,channel] < pval, [False]))) ).reshape(-1,2)
+
+                for i in range( significant_parts.shape[0] ):
+                    x = range(significant_parts[i,0], significant_parts[i,1])
+                    y1 = np.min(to_plot[:,x,c], axis=0)
+                    y2 = np.max(to_plot[:,x,c], axis=0)
+                    x = np.concatenate( (ids[x], ids[x[::-1]]) )
+                    y = np.concatenate((y1, y2[::-1]))
+
+                    p = plot.fill(x, y, facecolor='g', alpha=0.2)
+
+        _draw_eeg_frame(bases, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y)
+        plot.grid() # Why isn't this working?
+        plot.axvline(0, 0, 1, color='k')
+
+        plot.xlabel('Time (s)')
+        if subplot == 0:
+            plot.legend(loc='upper left')
+            plot.title('Event Related Potential (n=%d)' % num_trials)
+            plot.ylabel('Channels')
 
     return fig
