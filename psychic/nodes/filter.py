@@ -62,64 +62,64 @@ class Winsorize(BaseNode):
       default=d)
 
 class FFTFilter(BaseNode) :
-	""" Node that applies a bandpass filter by using (inverse) Fast Fourier Transform.
-	This is usually slower than using an IIR filter, but one does not have to worry
-	about filter orders and such.
-	
-	Expected input:
-	instances: samples
-	features: channels
+    """ Node that applies a bandpass filter by using (inverse) Fast Fourier Transform.
+    This is usually slower than using an IIR filter, but one does not have to worry
+    about filter orders and such.
+    
+    Expected input:
+    instances: samples
+    features: channels
 
-	Output:
-	instances: samples
-	features: channels
-	"""
-	
-	def __init__(self, lowcut, highcut):
-		""" Create a new FFTFilter node.
+    Output:
+    instances: samples
+    features: channels
+    """
+    
+    def __init__(self, lowcut, highcut):
+        """ Create a new FFTFilter node.
 
-		Required parameters:
-		lowcut: Lower cutoff frequency (in Hz)
-		highcut: Upper cutoff frequency (in Hz)
-		"""
+        Required parameters:
+        lowcut: Lower cutoff frequency (in Hz)
+        highcut: Upper cutoff frequency (in Hz)
+        """
 
-		BaseNode.__init__(self)
-		self.lowcut = lowcut
-		self.highcut = highcut
+        BaseNode.__init__(self)
+        self.lowcut = lowcut
+        self.highcut = highcut
 
-	def train_(self, d):
-		self.samplerate = get_samplerate(d)
+    def train_(self, d):
+        self.samplerate = get_samplerate(d)
 
-	def apply_(self, d):
-		# Frequency vector
-		fv = np.arange(0,d.xs.shape[0]) * ( self.samplerate / float(d.xs.shape[0]) );
-		fv = fv.reshape(d.xs.shape[0],1)
+    def apply_(self, d):
+        # Frequency vector
+        fv = np.arange(0,d.xs.shape[0]) * ( self.samplerate / float(d.xs.shape[0]) );
+        fv = fv.reshape(d.xs.shape[0],1)
 
-		# Find the frequencies closest to the cutoff range
-		if self.lowcut != 0:
-			idxl = np.argmin( np.abs(fv-self.lowcut) )
-		else:
-			idxl = 0;
+        # Find the frequencies closest to the cutoff range
+        if self.lowcut != 0:
+            idxl = np.argmin( np.abs(fv-self.lowcut) )
+        else:
+            idxl = 0;
 
-		if self.highcut != 0:
-			idxh = np.argmin( np.abs(fv-self.highcut) )
-		else:
-			idxh = 0;
+        if self.highcut != 0:
+            idxh = np.argmin( np.abs(fv-self.highcut) )
+        else:
+            idxh = 0;
 
-		# Filter the data
-		xs = []
+        # Filter the data
+        xs = []
 
-		for channel in range(d.nfeatures):
-			X = np.fft.fft(d.xs[:,channel])
+        for channel in range(d.nfeatures):
+            X = np.fft.fft(d.xs[:,channel])
 
-			X[0:idxl] = 0
-			X[-idxl:] = 0
-			X[idxh:] = 0
+            X[0:idxl] = 0
+            X[-idxl:] = 0
+            X[idxh:] = 0
 
-			x = 2 * np.real( np.fft.ifft(X) )
-			xs.append( x.reshape(-1,1) )
+            x = 2 * np.real( np.fft.ifft(X) )
+            xs.append( x.reshape(-1,1) )
 
-		return DataSet(xs=np.hstack(xs), default=d)
+        return DataSet(xs=np.hstack(xs), default=d)
 
 class Resample(BaseNode) :
     """ Resamples the signal. """
@@ -149,9 +149,10 @@ class Resample(BaseNode) :
 
         new_len = int(d.ninstances * self.new_samplerate/float(self.old_samplerate))
         idx = np.linspace(0, d.ninstances-1, new_len)
-        idx_floored = np.array( np.floor(idx), dtype=np.int )
 
-        ys = resample_markers(d.ys.flatten(), new_len, self.max_marker_delay)
+        ys = [];
+        for cl in range(d.Y.shape[0]):
+            ys.append(resample_markers(d.Y[cl,:], new_len, self.max_marker_delay))
 
         # Method 1 (fast) use linear subsampling
         xs = [];
@@ -160,7 +161,7 @@ class Resample(BaseNode) :
 
         I = np.interp(idx, range(d.ninstances), d.I[0,:])
 
-        return DataSet(X=np.vstack(xs), ys=ys, I=I, default=d )
+        return DataSet(X=np.vstack(xs), Y=np.vstack(ys), I=I, default=d )
         
         # # Method 2 (slow) use scipy's resampling, which also applies FFT tricks
         # xs, ids = signal.resample(d.xs, new_len, t=d.ids)

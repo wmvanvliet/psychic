@@ -49,14 +49,12 @@ def resample_markers(markers, newlen, max_delay=0):
   factor = float(newlen)/len(markers)
   e, ei, ed = markers_to_events(markers)
   ei = (ei * factor).astype(int)
+  ed = (ed * factor).astype(int)
   old_ei = ei.copy()
-  
+
   for i in range(1, len(ei)):
-    if e[i] == e[i-1]:
-      ei[i] = max(ei[i], ei[i-1]+ed[i-1] + 1)
-    else:
-      ei[i] = max(ei[i], ei[i-1]+ed[i-1])
-      
+    ei[i] = max(ei[i], ei[i-1]+ed[i-1])
+
   if len(ei) > 0:
     assert np.max(np.abs(ei - old_ei)) <= max_delay, \
       'Markers are delayed too much'
@@ -65,6 +63,6 @@ def resample_markers(markers, newlen, max_delay=0):
 
   for i in range( len(ei) ):
     ys[ei[i]:ei[i]+ed[i]] = e[i]
-  
+
   return ys
 

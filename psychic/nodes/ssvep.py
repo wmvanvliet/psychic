@@ -115,7 +115,6 @@ class SSVEPNoiseReduce(BaseNode):
         self.freq = freq
         self.retain = retain
         self.ssvep_class = ssvep_class
-
         self.num_components = 5
 
     def train_(self, d):
@@ -131,7 +130,7 @@ class SSVEPNoiseReduce(BaseNode):
         A[:,0] = np.sin(A[:,0])
         A[:,1] = np.cos(A[:,1])
 
-        # Store a spatial filter that will remote all SSVEP related signals
+        # Store a spatial filter that will remove all SSVEP related signals
         self.SSVEPRemovalMatrix = np.eye(window_size) - A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
 
     def apply_(self, d):
@@ -168,3 +167,32 @@ class SSVEPNoiseReduce(BaseNode):
             #filtered_xs[window,:,:] = np.atleast_2d( d.nd_xs[window,:,:].dot(weights.T) )
 
         return DataSet(filtered_xs.reshape(num_windows,-1), feat_shape=(window_size,self.num_components), default=d)
+
+class MCD(BaseNode):
+    def __init__(self, frequencies, samplerate, harmonics=2, nFFT=1000, AR_parameter=10):
+        self.frequencies = np.asarray(frequencies)
+        self.harmonics = np.arange(len(harmonics))
+        self.samplerate = samplerate
+        self.nFFT = nFFT
+        self.AR_parameter = AR_parameter
+
+    
+    def train_(self, d):
+        (window_size, num_channels, num_windows) = d.ndX.shape
+
+        # Create array with two columns: [sin(2*PI*freq*sample), cos(2*Pi*freq*sample)]
+        self.log.debug("Constructing Pa")
+
+        # Calculate the projection matrix Pa to estimate useful signals
+        A = np.atleast_2d( np.arange(window_size, dtype=np.double) ).repeat(2, axis=0).T
+        A /= self.samplerate
+        A *= 2*np.pi*self.frequencies.dot(self.harmonics)
+        A[:,0] = np.sin(A[:,0])
+        A[:,1] = np.cos(A[:,1])
+
+        # Store a spatial filter that will remove all SSVEP related signals
+        self.M = A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
+        self.SSVEPRemovalMatrix = np.eye(window_size) - self.M
+
+    def apply_(self, data):
+        return data
