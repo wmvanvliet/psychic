@@ -66,14 +66,14 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
 
   return subplots
 
-def _draw_eeg_frame(bases, vspace, timeline, feat_lab=None, mirror_y=False, draw_scale=True):
+def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=False, draw_scale=True):
     axes = plot.gca()
 
     plot.xlim([np.min(timeline), np.max(timeline)])
-    plot.ylim([bases[-1]-vspace, bases[0]+vspace])
+    plot.ylim([-vspace, num_channels*vspace])
     plot.grid()
 
-    majorLocator = ticker.FixedLocator(bases)
+    majorLocator = ticker.FixedLocator(vspace*np.arange(num_channels))
     axes.yaxis.set_major_locator(majorLocator)
 
     if feat_lab:
@@ -83,9 +83,9 @@ def _draw_eeg_frame(bases, vspace, timeline, feat_lab=None, mirror_y=False, draw
     if draw_scale:
         # Draw scale
         trans = transforms.blended_transform_factory(axes.transAxes, axes.transData)
-        scale_top = vspace/2.0 + bases[-1]     # In data coordinates
-        scale_bottom = -vspace/2.0 + bases[-1] # In data coordinates
-        scale_xpos = 1.02                     # In figure coordinates
+        scale_top = vspace/2.0     # In data coordinates
+        scale_bottom = -vspace/2.0 # In data coordinates
+        scale_xpos = 1.02          # In figure coordinates
 
         scale = Line2D(
                 [scale_xpos-0.01, scale_xpos+0.01, scale_xpos, scale_xpos, scale_xpos-0.01, scale_xpos+0.01],
@@ -93,10 +93,13 @@ def _draw_eeg_frame(bases, vspace, timeline, feat_lab=None, mirror_y=False, draw
                 transform=trans, linewidth=1, color='k')
         scale.set_clip_on(False)
         axes.add_line(scale)
-        axes.text(scale_xpos+0.02, bases[-1], u'%.4g \u00B5V' % vspace,
+        axes.text(scale_xpos+0.02, 0, u'%.4g \u00B5V' % vspace,
                 transform=trans, va='center')
         axes.text(scale_xpos+0.02, scale_top, '+' if not mirror_y else '-', transform=trans, va='center')
         axes.text(scale_xpos+0.02, scale_bottom, '-' if not mirror_y else '+', transform=trans, va='center')
+
+    #plot.tight_layout()
+    plot.gcf().subplots_adjust(right=0.85)
 
 def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=True, draw_spectogram=False, spec_channel=0, freq_range=[0, 50], mirror_y=False, fig=None, start=0):
     ''' Plot EEG data contained in a golem dataset. '''
@@ -115,8 +118,7 @@ def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=Tru
     if vspace == None:
         vspace = np.max(to_plot) - np.min(to_plot)
 
-    bases = vspace * np.arange(0, num_channels)
-    bases = bases[::-1]
+    bases = vspace * np.arange(0, num_channels)[::-1] - np.mean(data.X, axis=1)
     to_plot = to_plot + np.tile( bases, (num_samples,1) ).T
 
     if fig == None:
@@ -125,7 +127,7 @@ def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=Tru
     # Plot EEG
     fig.subplots_adjust(right=0.85)
     axes = plot.subplot(211) if draw_spectogram else plot.subplot(111)
-    _draw_eeg_frame(bases, vspace, data.ids+start, data.feat_lab, mirror_y)
+    _draw_eeg_frame(num_channels, vspace, data.ids+start, data.feat_lab, mirror_y)
     plot.plot(data.I.T, to_plot.T)
     plot.ylabel('Channels')
 
@@ -309,7 +311,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     if fig == None:
         fig = plot.figure()
 
-    fig.subplots_adjust(right=0.85)
+    #fig.subplots_adjust(right=0.85)
 
     num_subplots = max(1, num_channels/15)
     channels_per_subplot = int(np.ceil(num_channels / float(num_subplots)))
@@ -325,8 +327,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
                    )
 
         # Spread out the channels with vspace
-        bases = vspace * np.arange(0, len(channels)) - np.mean(np.mean(data.nd_xs[:,:,channels], axis=0), axis=0)
-        bases = bases[::-1]
+        bases = vspace * np.arange(len(channels))[::-1] - np.mean(np.mean(data.nd_xs[:,:,channels], axis=0), axis=0)
         to_plot = (data.nd_xs[:,:,channels] if not mirror_y else -1*data.nd_xs[:,:,channels]) + bases
         
         # Plot each class
@@ -348,7 +349,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
-        _draw_eeg_frame(bases, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y)
+        _draw_eeg_frame(num_channels, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y)
         plot.grid() # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
