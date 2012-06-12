@@ -58,10 +58,10 @@ def erp(data, n=0, classes=None, enforce_equal_n=True, n_offset=0):
             erp[i,:,:] = np.mean(trials, axis=0)
 
     xs = erp.reshape(len(classes), -1)
-    ys = np.atleast_2d(classes).T
+    ys = golem.helpers.to_one_of_n(classes).astype(np.bool)
     ids = np.atleast_2d(classes).T
     feat_shape = (num_samples, num_channels)
-    cl_lab = []
+    cl_lab = [lab for i,lab in enumerate(data.cl_lab) if i in classes]
 
     return golem.DataSet(xs=xs, ys=ys, ids=ids, feat_shape=feat_shape, cl_lab=cl_lab, default=data)
 

@@ -349,7 +349,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
-        _draw_eeg_frame(num_channels, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y)
+        _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y)
         plot.grid() # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
