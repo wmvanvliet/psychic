@@ -77,7 +77,7 @@ def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=Fals
     axes.yaxis.set_major_locator(majorLocator)
 
     if feat_lab:
-        majorFormatter = ticker.FixedFormatter(feat_lab)
+        majorFormatter = ticker.FixedFormatter(feat_lab[::-1])
         axes.yaxis.set_major_formatter(majorFormatter)
 
     if draw_scale:

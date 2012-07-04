@@ -49,7 +49,7 @@ def resample_markers(markers, newlen, max_delay=0):
   factor = float(newlen)/len(markers)
   e, ei, ed = markers_to_events(markers)
   ei = (ei * factor).astype(int)
-  ed = (ed * factor).astype(int)
+  ed = np.ceil(ed * factor).astype(int)
   old_ei = ei.copy()
 
   for i in range(1, len(ei)):
