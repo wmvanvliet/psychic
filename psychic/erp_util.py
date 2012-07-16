@@ -151,7 +151,7 @@ def concatenate_trials(d):
     
     X = np.rollaxis(d.ndX, 2).reshape((-1, nchannels)).T
     Y = np.zeros((1, ninstances))
-    Y[0, np.arange(0, ninstances, trial_length)] = d.Y[0,:] + 1
+    Y[:, np.arange(0, ninstances, trial_length)] = [np.flatnonzero(d.Y[:,i])[0] + 1 for i in range(d.ninstances)]
     I = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_nd_lab[0]])) )
     feat_lab = d.feat_nd_lab[1]
 
