@@ -98,6 +98,9 @@ def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=Fals
         axes.text(scale_xpos+0.02, scale_top, '+' if not mirror_y else '-', transform=trans, va='center')
         axes.text(scale_xpos+0.02, scale_bottom, '-' if not mirror_y else '+', transform=trans, va='center')
 
+    for y in (vspace * np.arange(num_channels)):
+        plot.axhline(y, color='k', linewidth=1, alpha=0.25)
+
     #plot.tight_layout()
     plot.gcf().subplots_adjust(right=0.85)
 
@@ -283,9 +286,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
     # Calculate significance (if appropriate)
-    #if num_classes == 2 and enforce_equal_n and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
     if np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
-        #ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs, axis=0)
         fs, ps = scipy.stats.f_oneway(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs)
         ttest_performed = True
     else:
@@ -310,8 +311,6 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
     # Plot ERP
     if fig == None:
         fig = plot.figure()
-
-    #fig.subplots_adjust(right=0.85)
 
     num_subplots = max(1, num_channels/15)
     channels_per_subplot = int(np.ceil(num_channels / float(num_subplots)))
@@ -349,7 +348,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
-        _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y)
+        _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y, draw_scale=(subplot == num_subplots-1))
         plot.grid() # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
