@@ -44,8 +44,10 @@ class SRDecomp(BaseNode):
             E[:,i] = np.exp(-1j * 2 * np.pi * np.arange(nsamples) * self.rt[i] / complex(nsamples)) # Formula 5 in paper
 
         # Preconstruct the denominator
-        D = E.copy()
-        D[0] = 1 # To prevent dividing by 0
+        D = np.zeros((nsamples, ntrials), dtype=np.complex)
+        for i in range(ntrials):
+            D[:,i] = E[:,i] - self.E_bar
+        D[0,:] = 1 # To prevent dividing by 0
 
         # Estimate the stimulus locked component
         sc = np.zeros(d.ndX.shape)
