@@ -112,7 +112,7 @@ def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=Tru
     num_channels, num_samples = data.X.shape
 
     # Make data start at 0s
-    data = golem.DataSet(I=data.I-data.I[0,0], default=data)
+    #data = golem.DataSet(I=data.I-data.I[0,0], default=data)
 
     # Baseline the data if needed
     to_plot = data.X - np.tile( np.mean(data.X, axis=1), (num_samples,1) ).T if baseline else data.X
@@ -152,6 +152,8 @@ def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=Tru
     if draw_spectogram:
         axes2 = plot.subplot(212, sharex=axes)
         plot_spectogram(data, samplerate, spec_channel, freq_range, show_xlabel=False, fig=fig)
+
+    plot.xlim(np.min(data.I), np.max(data.I))
 
     return fig
 

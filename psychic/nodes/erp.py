@@ -86,12 +86,9 @@ class Blowup(BaseNode):
                 combinations.append(X[:,:,idx[:to_go]])
                 reverse_idxs.append(reverse_idx[idx[:to_go]])
 
-            combinations = np.concatenate(combinations, axis=2).reshape(d.feat_shape + (-1,))
-            xs.append( np.rollaxis(combinations, 0, 4).reshape(d.nfeatures, -1) )
-            #xs.append( np.concatenate(combinations, axis=2).reshape(d.nfeatures, -1) )
+            xs.append( np.concatenate(combinations, axis=2).reshape(d.nfeatures, -1) )
 
-        #ndX = np.concatenate(xs, axis=3)
-        #X = ndX.reshape(-1, ndX.shape[-1])
+        
         X = np.hstack(xs)
 
         # Construct Y
