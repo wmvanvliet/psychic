@@ -26,7 +26,7 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
 
 
 def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
-  clim=None, cmap=None, titles=None):
+  clim=None, cmap=None, titles=None, smark='k.'):
   '''
   Plots a grid with scalpplots. Scalps contains the different scalps in the
   rows, sensors contains the names for the columns of scalps, locs is a dict
@@ -55,7 +55,7 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
   plt.clf()
   for i in range(nscalps):
     subplots.append(plt.subplot(height, width, i + 1))
-    plot_scalp(scalps[i], sensors, locs, clim=clim, cmap=cmap)
+    plot_scalp(scalps[i], sensors, locs, clim=clim, cmap=cmap, smark=smark)
     if titles:
       plt.title(titles[i])
 
@@ -251,7 +251,7 @@ def plot_erp_spectograms(data, samplerate, classes=None, freq_range=[0, 50], fig
 
     return fig
 
-def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=None, cl_lab=None, feat_lab=None, start=0, colors=['b', 'r', 'g', 'c', 'm', 'y', 'k'], fig=None, pval=0.05, enforce_equal_n=True, mirror_y=False):
+def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=None, cl_lab=None, feat_lab=None, start=0, colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'], fig=None, pval=0.05, enforce_equal_n=True, mirror_y=False):
     '''
     Create an Event Related Potential plot which aims to be as informative as possible.
     It baselines, averages and performs ttests on the given data.
