@@ -7,3 +7,4 @@ from nonstat import SlowSphering
 from erp import Mean, Blowup, RejectTrials
 from ssvep import Slic, SSVEPNoiseReduce
 from sr_decomp import SRDecomp
+from eogcorr import EOGCorr
