@@ -70,7 +70,7 @@ def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=Fals
     axes = plot.gca()
 
     plot.xlim([np.min(timeline), np.max(timeline)])
-    plot.ylim([-vspace, num_channels*vspace])
+    plot.ylim([-0.75*vspace, num_channels*vspace - 0.25*vspace])
     plot.grid()
 
     majorLocator = ticker.FixedLocator(vspace*np.arange(num_channels))
@@ -253,10 +253,53 @@ def plot_erp_spectograms(data, samplerate, classes=None, freq_range=[0, 50], fig
 
     return fig
 
-def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=None, cl_lab=None, feat_lab=None, start=0, colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'], fig=None, pval=0.05, enforce_equal_n=True, mirror_y=False):
+def plot_erp(
+        data,
+        samplerate=None,
+        baseline_period=(0,0),
+        vspace=None,
+        cl_lab=None,
+        ch_lab=None,
+        draw_scale=True,
+        start=0,
+        fig=None,
+        pval=0.05,
+        mirror_y=False,
+        colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
+        linestyles=['-','-','-','-','-','-','-','-'],
+        linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
+        **kwargs
+    ):
     '''
-    Create an Event Related Potential plot which aims to be as informative as possible.
-    It baselines, averages and performs ttests on the given data.
+    Create an Event Related Potential plot which aims to be as informative as
+    possible. The result is aimed to be a publication ready figure, therefore
+    this function supplies a lot of customization.
+
+    Required arguments:
+    data - A sliced Golem dataset that will be displayed
+
+    Optional arguments:
+    samplerate      - By default determined through data.feat_nd_lab[0], but can be
+                      specified when missing.
+    vspace          - Amount of vertical space between the ERP traces, by default
+                      the minumum value so traces don't overlap.
+    cl_lab          - List with a label for each class, by default taken from
+                      data.cl_lab, but can be specified if missing.
+    ch_lab          - List of channel labels, by default taken from data.feat_nd_lab[1], 
+                      but can be specified if missing.
+    draw_scale      - Whether to draw a scale next to the plot (defaults to True).
+    start           - Time used as T0, by default timing is taken from
+                      data.feat_nd_lab[0], but can be specified if missing.
+    fig             - If speficied, a reference to the figure in which to draw
+                      the ERP plot. By default a new figure is created.
+    pval            - Minimum p-value at which to color significant regions, set
+                      to 0 to disable it completely.
+
+    In addition, keyword arguments for psychic.erp and
+    matplotlib.collections.LineCollection are passed along.
+
+    Returns:
+    A handle to the matplotlib figure.
     '''
 
     assert data.nd_xs.ndim == 3
@@ -266,41 +309,41 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
-    if classes == None:
-        classes = np.flatnonzero(np.array(data.ninstances_per_class))
-
     if cl_lab == None:
         cl_lab = data.cl_lab if data.cl_lab else ['class %d' % cl for cl in classes]
 
-    if feat_lab == None:
+    if ch_lab == None:
         if data.feat_nd_lab != None:
-            feat_lab = data.feat_nd_lab[1]
+            ch_lab = data.feat_nd_lab[1]
         else:
-            feat_lab = ['CH %d' % (x+1) for x in range(num_channels)]
+            ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
+
+    classes = kwargs.get('classes', None)
+    if classes == None:
+        classes = range(data.nclasses)
 
     num_classes = len(classes)
 
     # Baseline data if requested
-    if baseline_period != None:
+    if baseline_period != None and (baseline_period[1]-baseline_period[0]) > 0:
         data = erp_util.baseline(data, baseline_period)
 
     # Determine number of trials
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
     # Calculate significance (if appropriate)
-    if np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
+    if num_classes >= 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
         fs, ps = scipy.stats.f_oneway(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs)
         ttest_performed = True
     else:
         ttest_performed = False
 
     # Calculate ERP
-    data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    data = erp_util.erp(data, **kwargs)
 
     # Calculate a sane vspace
     if vspace == None:
         vspace = (np.max(data.xs) - np.min(data.xs)) 
-
 
     # Calculate timeline, using the best information available
     if samplerate != None:
@@ -328,12 +371,18 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
                    )
 
         # Spread out the channels with vspace
-        bases = vspace * np.arange(len(channels))[::-1] - np.mean(np.mean(data.nd_xs[:,:,channels], axis=0), axis=0)
+        bases = vspace * np.arange(len(channels))[::-1]
+        
+        if baseline_period != None:
+            bases -= np.mean(np.mean(data.nd_xs[:,:,channels], axis=0), axis=0)
+        else:
+            print 'no baselining!'
+
         to_plot = (data.nd_xs[:,:,channels] if not mirror_y else -1*data.nd_xs[:,:,channels]) + bases
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(len(channels))], colors=colors[cl%len(colors)], label=cl_lab[classes[cl]] )
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl]], linestyle=[linestyles[cl]], linewidth=[linewidths[cl]], **kwargs )
             axes.add_collection(traces)
 
         # Color significant differences
@@ -350,7 +399,7 @@ def plot_erp(data, samplerate=None, baseline_period=None, classes=None, vspace=N
 
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
-        _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(feat_lab)[channels].tolist(), mirror_y, draw_scale=(subplot == num_subplots-1))
+        _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == num_subplots-1)))
         plot.grid() # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 

@@ -8,7 +8,7 @@ from matplotlib.patches import PathPatch, Circle
 import positions
 
 def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5, 
-  plot_sensors=True, cmap=plt.cm.jet, clim=None):
+  plot_sensors=True, cmap=plt.cm.jet, clim=None, smark='k.'):
 
   # add densities
   if clim == None:
@@ -29,7 +29,7 @@ def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5,
   # add details
   add_head()
   if plot_sensors:
-    add_sensors(sensors, locs)
+    add_sensors(sensors, locs, smark)
  
 def add_head():
   '''Draw head outline'''
@@ -53,12 +53,12 @@ def add_head():
     ax.add_patch(PathPatch(Path(verts, code), fill=False, linewidth=LINEWIDTH))
 
 
-def add_sensors(labels, locs):
+def add_sensors(labels, locs, smark='k.'):
   '''Adds sensor names and markers'''
   for (label, (x, y)) in zip(labels, locs):
     if len(labels) < 32:
       plt.text(x, y + .03, label, fontsize=8, ha='center')
-    plt.plot(x, y, 'k.', ms=2.)
+    plt.plot(x, y, smark, ms=2.)
 
 def add_density(dens, locs, cmap=plt.cm.jet, clim=None):
   '''
