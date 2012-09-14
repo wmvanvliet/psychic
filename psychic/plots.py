@@ -302,10 +302,9 @@ def plot_erp(
     A handle to the matplotlib figure.
     '''
 
-    assert data.nd_xs.ndim == 3
+    assert data.ndX.ndim == 3, 'Expecting slices data'
 
-    num_samples = data.nd_xs.shape[1]
-    num_channels = data.nd_xs.shape[2]
+    num_channels, num_samples = data.ndX.shape[:2]
 
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
@@ -314,7 +313,7 @@ def plot_erp(
 
     if ch_lab == None:
         if data.feat_nd_lab != None:
-            ch_lab = data.feat_nd_lab[1]
+            ch_lab = data.feat_nd_lab[0]
         else:
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
@@ -332,8 +331,8 @@ def plot_erp(
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
     # Calculate significance (if appropriate)
-    if num_classes >= 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
-        fs, ps = scipy.stats.f_oneway(data.get_class(classes[0]).nd_xs, data.get_class(classes[1]).nd_xs)
+    if num_classes == 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
+        fs, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
         ttest_performed = True
     else:
         ttest_performed = False
@@ -343,13 +342,13 @@ def plot_erp(
 
     # Calculate a sane vspace
     if vspace == None:
-        vspace = (np.max(data.xs) - np.min(data.xs)) 
+        vspace = (np.max(data.X) - np.min(data.X)) 
 
     # Calculate timeline, using the best information available
     if samplerate != None:
         ids = np.arange(num_samples) / float(samplerate) - start
     elif data.feat_nd_lab != None:
-        ids = np.array(data.feat_nd_lab[0], dtype=float) - start
+        ids = np.array(data.feat_nd_lab[1], dtype=float) - start
     else:
         ids = np.arange(num_samples)
 
@@ -374,29 +373,28 @@ def plot_erp(
         bases = vspace * np.arange(len(channels))[::-1]
         
         if baseline_period != None:
-            bases -= np.mean(np.mean(data.nd_xs[:,:,channels], axis=0), axis=0)
-        else:
-            print 'no baselining!'
+            bases -= np.mean(np.mean(data.ndX[channels,:,:], axis=1), axis=1)
 
-        to_plot = (data.nd_xs[:,:,channels] if not mirror_y else -1*data.nd_xs[:,:,channels]) + bases
+        to_plot = np.zeros((len(channels), num_samples, num_classes))
+        for i in range(len(channels)):
+            to_plot[i,:,:] = (data.ndX[i,:,:] if not mirror_y else -1*data.ndX[i,:,:]) + bases[i]
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[cl,:,y]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl]], linestyle=[linestyles[cl]], linewidth=[linewidths[cl]], **kwargs )
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl]], linestyle=[linestyles[cl]], linewidth=[linewidths[cl]], **kwargs )
             axes.add_collection(traces)
 
         # Color significant differences
         if ttest_performed:
             for c,channel in enumerate(channels):
-                significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[:,channel] < pval, [False]))) ).reshape(-1,2)
+                significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[c,:] < pval, [False]))) ).reshape(-1,2)
 
                 for i in range( significant_parts.shape[0] ):
                     x = range(significant_parts[i,0], significant_parts[i,1])
-                    y1 = np.min(to_plot[:,x,c], axis=0)
-                    y2 = np.max(to_plot[:,x,c], axis=0)
+                    y1 = np.min(to_plot[c,x,:], axis=1)
+                    y2 = np.max(to_plot[c,x,:], axis=1)
                     x = np.concatenate( (ids[x], ids[x[::-1]]) )
                     y = np.concatenate((y1, y2[::-1]))
-
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
         _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == num_subplots-1)))
