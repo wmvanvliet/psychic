@@ -1,9 +1,8 @@
-import logging, operator, warnings
+import logging
 import numpy as np
 from golem import DataSet, helpers
-from scipy import signal
 
-from markers import markers_to_events, biosemi_find_ghost_markers
+from markers import markers_to_events
 
 def sliding_window_indices(window_size, window_step, sig_len):
   '''Returns indices for a sliding window with shape [nwindows x window_size]'''
@@ -58,49 +57,6 @@ def spectrogram(signal, nfft, stepsize):
 def get_samplerate(d):
   '''Derive the sample rate from the timestamps d.I[0]'''
   return np.round(1./np.median(np.diff(d.I[0])))
-
-def slice(d, markers_to_class, offsets):
-  '''
-  Slice function, used to extract fixed-length segments of EEG from a recording.
-  Returns [segment x frames x channel]
-  '''
-  assert len(d.feat_shape) == 1
-  assert d.nclasses == 1
-  start_off, end_off = offsets
-  xs, ys, ids = [], [], []
-
-  feat_shape = (end_off - start_off,) + d.feat_shape
-
-  cl_lab = sorted(set(markers_to_class.values()))
-  events, events_i, events_d = markers_to_events(d.ys.flat)
-  for (mark, cl) in markers_to_class.items():
-    cl_i = cl_lab.index(cl)
-    for i in events_i[events==mark]: # fails if there is *ONE* event
-      (start, end) = i + start_off, i + end_off
-      if start < 0 or end > d.ninstances:
-        logging.getLogger('psychic.utils.slice').warning(
-          'Cannot extract slice [%d, %d] for class %s' % (start, end, cl))
-        continue
-      dslice = d[start:end]
-      xs.append(dslice.xs)
-      ys.append(cl_i)
-      ids.append(d.ids[i, :])
-
-  m = len(xs)
-  xs = np.asarray(xs).reshape(m, np.prod(feat_shape))
-  ys = np.asarray(ys)
-  ys = helpers.to_one_of_n(ys.T, class_rows=range(len(cl_lab))).T
-  ids = np.asarray(ids).reshape(m, d.ids.shape[1])
-
-  event_time = np.arange(start_off, end_off) / float(get_samplerate(d))
-  time_lab = ['%.3f' % ti for ti in event_time]
-  feat_nd_lab = [time_lab, d.feat_lab if d.feat_lab 
-    else ['f%d' % i for i in range(d.nfeatures)]]
-  feat_dim_lab = ['time', 'channels']
-  d = DataSet(xs=xs, ys=ys, ids=ids, cl_lab=cl_lab, 
-    feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
-    feat_dim_lab=feat_dim_lab, default=d)
-  return d.sorted()
 
 def find_segments(events, event_indices, start_mark, end_mark):
   '''Helper to find matching start/end markers in an event array'''

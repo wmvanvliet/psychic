@@ -1,33 +1,40 @@
 ﻿import golem
-import psychic
 import numpy as np
 import scipy
 import logging
-import inspect
+import psychic
 
 def baseline(data, baseline_period=None):
+    '''
+    Remove the mean calculated over a certain period from the data.
+    '''
     if baseline_period:
         assert len(baseline_period) == 2, 'Specify a begin and end point for the baseline period (in samples)'
     else:
         baseline_period = (0, data.ninstances)
 
-    assert data.nd_xs.ndim <= 3
+    assert data.ndX.ndim <= 3
 
-    if data.nd_xs.ndim == 2:
+    if data.ndX.ndim == 2:
         num_samples = data.ninstances
-        xs = data.xs - np.tile( np.mean(xs[baseline_period[0]:baseline_period[1],:], axis=0), (num_samples, 1) )
+        X = data.X - np.tile( np.mean(data.X[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
 
     else:
-        num_samples = data.nd_xs.shape[1]
-        xs = np.zeros(data.nd_xs.shape, dtype=data.xs.dtype)
+        num_samples = data.ndX.shape[1]
+        ndX = np.zeros(data.ndX.shape, dtype=data.X.dtype)
 
-        for i in range(data.nd_xs.shape[0]):
-            xs[i,:,:] = data.nd_xs[i,:,:] - np.tile( np.mean(data.nd_xs[i,baseline_period[0]:baseline_period[1],:], axis=0), (num_samples, 1) )
+        for i in range(data.ninstances):
+            ndX[:,:,i] = data.ndX[:,:,i] - np.tile( np.mean(data.ndX[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
+        X = ndX.reshape(data.X.shape)
 
-    return golem.DataSet(xs=xs.reshape(data.xs.shape), default=data)
+    return golem.DataSet(X=X, default=data)
 
 def erp(data, n=0, classes=None, enforce_equal_n=True, n_offset=0):
-    assert data.nd_xs.ndim == 3
+    '''
+    For each class, calculate the Event Related Potential by averaging the 
+    corresponding trials.
+    '''
+    assert data.ndX.ndim == 3
 
     if classes == None or len(classes) == 0:
         # Take all classes with >0 instances
@@ -37,54 +44,58 @@ def erp(data, n=0, classes=None, enforce_equal_n=True, n_offset=0):
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
     assert num_trials > 0, 'For one or more classes there are no instances!'
 
-    num_samples = data.nd_xs.shape[1]
-    num_channels = data.nd_xs.shape[2]
+    num_channels = data.ndX.shape[0]
+    num_samples = data.ndX.shape[1]
 
     # Calculate ERP
-    erp = np.zeros( (len(classes), num_samples, num_channels) )
+    erp = np.zeros( (num_channels, num_samples, len(classes)) )
     for i,cl in enumerate(classes):
-        trials = data.get_class(cl).nd_xs
+        trials = data.get_class(cl).ndX
 
         if n > 0:
-            trials = trials[n_offset:n_offset+n,:,:]
+            trials = trials[:,n_offset:n_offset+n,:]
 
         if enforce_equal_n:
             # Enforce an equal number of trials for all classes. Picking them at random.
             # Otherwise the ERPs will be skewed, simply because a different number of trials are averaged.
             idx = range(trials.shape[0])[:num_trials]
             np.random.shuffle(idx)
-            erp[i,:,:] = np.mean(trials[idx,:,:], axis=0)
+            erp[:,:,i] = np.mean(trials[:,:,idx], axis=2)
         else:
-            erp[i,:,:] = np.mean(trials, axis=0)
+            erp[:,:,i] = np.mean(trials, axis=2)
 
-    xs = erp.reshape(len(classes), -1)
-    ys = golem.helpers.to_one_of_n(classes).astype(np.bool)
-    ids = np.atleast_2d(classes).T
-    feat_shape = (num_samples, num_channels)
+    X = erp.reshape(-1, len(classes))
+    Y = golem.helpers.to_one_of_n(classes).astype(np.bool)
+    I = np.atleast_2d(classes)
+    feat_shape = (num_channels, num_samples)
     cl_lab = [lab for i,lab in enumerate(data.cl_lab) if i in classes]
 
-    return golem.DataSet(xs=xs, ys=ys, ids=ids, feat_shape=feat_shape, cl_lab=cl_lab, default=data)
+    return golem.DataSet(X=X, Y=Y, I=I, feat_shape=feat_shape, cl_lab=cl_lab, default=data)
 
 def ttest(data, classes=None, shuffle=True):
+    '''
+    Calculate ttests between classes for each channel and each sample.
+    '''
     assert data.nd_xs.ndim == 3
-    assert data.nclasses >= 2, 'Data must contain two classes, otherwise there is nothing to compare.'
+    assert data.nclasses >= 2, ('Data must contain at least two classes ',
+                                'otherwise there is nothing to compare.')
 
     if classes == None:
         classes = [0,1]
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
-    c1 = data.nd_xs[data.ys[:, classes[0]].astype(np.bool),:,:]
+    c1 = data.ndX[..., data.Y[classes[0],:].astype(np.bool)]
     if shuffle:
         np.random.shuffle(c1)
-    c1 = c1[:num_trials,:,:]
+    c1 = c1[..., :num_trials]
 
-    c2 = data.nd_xs[data.ys[:, classes[1]].astype(np.bool),:,:]
+    c2 = data.ndX[..., data.Y[classes[1],:].astype(np.bool)]
     if shuffle:
         np.random.shuffle(c2)
-    c2 = c2[:num_trials,:,:]
+    c2 = c2[..., :num_trials]
 
-    return scipy.stats.ttest_ind(c1, c2, axis=0)
+    return scipy.stats.ttest_ind(c1, c2, axis=2)
 
 def random_groups(d, size):
     """ For each class, form groups of random trials of the given size """
@@ -117,7 +128,7 @@ def random_groups(d, size):
     return (d_trials, np.hstack(idxs))
 
 def reject_trials(d, cutoff=100, range=None):
-    """
+    '''
     Reject trials by thresholding the maximum amplitude. 
     TODO: Make this function automatically detect outliers
 
@@ -127,9 +138,9 @@ def reject_trials(d, cutoff=100, range=None):
     optional parameters:
     cutoff: Any trials with a feature larger than this value are rejected
             [100]
-    range:  [begin:end] Range along the 2nd dimension (samples) for which 
-            to apply the thresholding
-    """
+    range:  (begin,end) Range along the 2nd dimension (samples) for which 
+            to apply the thresholding [all samples].
+    '''
 
     if range == None:
         range = (0, d.ndX.shape[1])
@@ -142,17 +153,62 @@ def reject_trials(d, cutoff=100, range=None):
 
     return d[np.logical_not(reject)]
 
-def concatenate_trials(d):
-    ''' Concatenate trials into a single stream of EEG '''
+def slice(d, markers_to_class, offsets):
+  '''
+  Slice function, used to extract fixed-length segments of EEG from a recording.
+  Returns [channel x frames x segment]
+  '''
+  assert len(d.feat_shape) == 1
+  assert d.nclasses == 1
+  start_off, end_off = offsets
+  X, Y, I = [], [], []
 
-    nchannels = d.ndX.shape[1]
-    trial_length = d.ndX.shape[0]
+  feat_shape = d.feat_shape + (end_off - start_off,)
+
+  cl_lab = sorted(set(markers_to_class.values()))
+  events, events_i, events_d = psychic.markers_to_events(d.ys.flat)
+  for (mark, cl) in markers_to_class.items():
+    cl_i = cl_lab.index(cl)
+    for i in events_i[events==mark]: # fails if there is *ONE* event
+      (start, end) = i + start_off, i + end_off
+      if start < 0 or end > d.ninstances:
+        logging.getLogger('psychic.utils.slice').warning(
+          'Cannot extract slice [%d, %d] for class %s' % (start, end, cl))
+        continue
+      dslice = d[start:end]
+      X.append(dslice.X)
+      Y.append(cl_i)
+      I.append(d.I[:,i])
+
+  ninstances = len(X)
+  ndX = np.concatenate([x[...,np.newaxis] for x in X], axis=2)
+  Y = golem.helpers.to_one_of_n(Y, class_rows=range(len(cl_lab)))
+  I = np.atleast_2d(np.hstack(I))
+
+  event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
+  time_lab = ['%.3f' % ti for ti in event_time]
+  feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], time_lab]
+  feat_dim_lab = ['channels', 'time']
+  d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
+    feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
+    feat_dim_lab=feat_dim_lab, default=d)
+  return d.sorted()
+
+def concatenate_trials(d):
+    '''
+    Concatenate trials into a single stream of EEG. Opposite of slice.
+    Returns [channel x frames]
+    '''
+    assert d.ndX.ndim == 3, 'Expecting sliced data'
+
+    nchannels = d.ndX.shape[0]
+    trial_length = d.ndX.shape[1]
     ninstances = trial_length * d.ninstances
     
-    X = np.rollaxis(d.ndX, 2).reshape((-1, nchannels)).T
+    X = np.transpose(d.ndX, [0,2,1]).reshape((nchannels, -1))
     Y = np.zeros((1, ninstances))
     Y[:, np.arange(0, ninstances, trial_length)] = [np.flatnonzero(d.Y[:,i])[0] + 1 for i in range(d.ninstances)]
-    I = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_nd_lab[0]])) )
-    feat_lab = d.feat_nd_lab[1]
+    I = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_nd_lab[1]])) )
+    feat_lab = d.feat_nd_lab[0]
 
     return golem.DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)

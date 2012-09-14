@@ -128,20 +128,3 @@ def rereference_rec(d, reference_channels=None, keep=True):
     feat_lab = d.feat_lab
 
   return DataSet(X=X, feat_shape=(X.shape[0],), feat_lab=feat_lab, default=d)
-
-def select_channels(d, channels):
-  '''
-  Select subset of channels from a recording.
-  Channels can be specified either as a list of integers, a list of feature
-  labels or a list of bools.
-  '''
-  for i,l in enumerate(channels):
-    if type(l) == str:
-      channels[i] = d.feat_lab.index(l)
-
-  X = d.X[np.asarray(channels), :]
-  feat_shape = (X.shape[0],)
-  feat_lab = [l for i,l in enumerate(d.feat_lab) if i in channels]
-
-  return DataSet(X=X, feat_lab=feat_lab, feat_shape=feat_shape, default=d)
-

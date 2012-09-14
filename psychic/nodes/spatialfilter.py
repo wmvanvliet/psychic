@@ -13,21 +13,21 @@ PLAIN, TRIAL, COV = range(3)
 
 def cov0(X):
   '''
-  Calculate X^T X, a covariance estimate for zero-mean data, 
+  Calculate X X.T, a covariance estimate for zero-mean data, 
   normalized by the number of samples minus one (1/N-1).
   Note that the different observations are stored in the rows,
   and the variables are stored in the columns.
   '''
-  return np.dot(X.T, X) / X.shape[0]
+  return np.dot(X, X.T) / X.shape[1]
 
 def plain_cov0(d):
-  return cov0(d.xs)
+  return cov0(d.X)
 
 def trial_cov0(d):
-  return np.mean([cov0(t) for t in d.nd_xs], axis=0)
+  return np.mean([cov0(t) for t in np.rollaxis(d.ndX, -1)], axis=0)
 
 def cov_cov0(d):
-  return np.mean(d.nd_xs, axis=0)
+  return np.mean(d.ndX, axis=2)
 
 class BaseSpatialFilter(BaseNode):
   '''
@@ -52,9 +52,9 @@ class BaseSpatialFilter(BaseNode):
     if self.ftype == PLAIN:
       return d.nfeatures
     if self.ftype == TRIAL:
-      return d.feat_shape[1]
-    if self.ftype == COV:
       return d.feat_shape[0]
+    if self.ftype == COV:
+      return d.feat_shape[1]
 
   def get_cov(self, d):
     if self.ftype == PLAIN:
@@ -77,20 +77,28 @@ class BaseSpatialFilter(BaseNode):
 
 def sfilter_plain(d, W):
   '''Apply spatial filter to plain dataset (as in, before trial extraction).'''
-  xs = np.dot(d.xs, W)
-  return DataSet(xs=xs, feat_shape=(xs.shape[1],), feat_lab=None, default=d)
+  X = np.dot(W.T, d.X)
+  return DataSet(X=X, feat_shape=(X.shape[0],), feat_lab=None, default=d)
 
 def sfilter_trial(d, W):
   '''Apply spatial filter to plain sliced dataset (d.nd_xs contains trials).'''
-  xs = np.array([np.dot(t, W) for t in d.nd_xs])
-  return DataSet(xs=xs.reshape(xs.shape[0], -1), feat_shape=xs.shape[1:], 
+  ndX = np.zeros((W.shape[1],) + d.ndX.shape[1:])
+  for i in range(d.ninstances):
+      ndX[:,:,i] = np.dot(W.T, d.ndX[:,:,i])
+  return DataSet(X=ndX.reshape(-1, d.ninstances), feat_shape=ndX.shape[:-1], 
     feat_nd_lab=None, default=d)
 
 def sfilter_cov(d, W):
   '''Apply spatial filter to dataset containing covariance estimates.'''
-  xs = np.array([reduce(np.dot, [W.T, t, W]) for t in d.nd_xs])
+  xs = np.array([reduce(np.dot, [W, t, W.T]) for t in d.nd_xs])
   return DataSet(xs=xs.reshape(xs.shape[0], -1), feat_shape=xs.shape[1:], 
     feat_lab=None, default=d)
+
+  ndX = np.zeros((W.shape[1], W.shape[1], d.ndX.shape[2]))
+  for i in range(d.ninstances):
+      ndX[:,:,i] = reduce(np.dot, [W, d.ndX[:,:,i], W.T])
+  return DataSet(X=ndX.reshape(-1, d.ninstances), feat_shape=ndX.shape[:-1], 
+    feat_nd_lab=None, default=d)
 
 class CAR(BaseSpatialFilter):
   def __init__(self, ftype=TRIAL):
@@ -153,7 +161,7 @@ class SpatialBlur(BaseSpatialFilter):
     if self.ftype == PLAIN:
       positions = d.feat_lab
     elif self.ftype == TRIAL:
-      positions = d.feat_nd_lab[1]
+      positions = d.feat_nd_lab[0]
   
     # Calculate distances for each electrode pair
     distances = np.array([

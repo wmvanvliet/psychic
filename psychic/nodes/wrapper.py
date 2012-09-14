@@ -1,6 +1,7 @@
 import numpy as np
 import golem
-from ..utils import slice, get_samplerate
+from ..utils import get_samplerate
+from ..erp_util import slice
 from ..filtering import decimate_rec
 from golem.nodes import BaseNode
 from ..markers import markers_to_events
