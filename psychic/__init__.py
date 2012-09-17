@@ -15,4 +15,3 @@ import dataformats
 from dataformats.edf import load_edf
 from dataformats.bdf import load_bdf, BDFWriter
 from erp_util import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials
-from stockwell import strans

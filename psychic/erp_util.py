@@ -58,7 +58,7 @@ def erp(data, n=0, classes=None, enforce_equal_n=True, n_offset=0):
         if enforce_equal_n:
             # Enforce an equal number of trials for all classes. Picking them at random.
             # Otherwise the ERPs will be skewed, simply because a different number of trials are averaged.
-            idx = range(trials.shape[0])[:num_trials]
+            idx = range(trials.shape[2])[:num_trials]
             np.random.shuffle(idx)
             erp[:,:,i] = np.mean(trials[:,:,idx], axis=2)
         else:
@@ -154,45 +154,45 @@ def reject_trials(d, cutoff=100, range=None):
     return d[np.logical_not(reject)]
 
 def slice(d, markers_to_class, offsets):
-  '''
-  Slice function, used to extract fixed-length segments of EEG from a recording.
-  Returns [channel x frames x segment]
-  '''
-  assert len(d.feat_shape) == 1
-  assert d.nclasses == 1
-  start_off, end_off = offsets
-  X, Y, I = [], [], []
-
-  feat_shape = d.feat_shape + (end_off - start_off,)
-
-  cl_lab = sorted(set(markers_to_class.values()))
-  events, events_i, events_d = psychic.markers_to_events(d.ys.flat)
-  for (mark, cl) in markers_to_class.items():
-    cl_i = cl_lab.index(cl)
-    for i in events_i[events==mark]: # fails if there is *ONE* event
-      (start, end) = i + start_off, i + end_off
-      if start < 0 or end > d.ninstances:
-        logging.getLogger('psychic.utils.slice').warning(
-          'Cannot extract slice [%d, %d] for class %s' % (start, end, cl))
-        continue
-      dslice = d[start:end]
-      X.append(dslice.X)
-      Y.append(cl_i)
-      I.append(d.I[:,i])
-
-  ninstances = len(X)
-  ndX = np.concatenate([x[...,np.newaxis] for x in X], axis=2)
-  Y = golem.helpers.to_one_of_n(Y, class_rows=range(len(cl_lab)))
-  I = np.atleast_2d(np.hstack(I))
-
-  event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
-  time_lab = ['%.3f' % ti for ti in event_time]
-  feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], time_lab]
-  feat_dim_lab = ['channels', 'time']
-  d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
+    '''
+    Slice function, used to extract fixed-length segments of EEG from a recording.
+    Returns [channel x frames x segment]
+    '''
+    assert len(d.feat_shape) == 1
+    assert d.nclasses == 1
+    start_off, end_off = offsets
+    X, Y, I = [], [], []
+    
+    feat_shape = d.feat_shape + (end_off - start_off,)
+    
+    cl_lab = sorted(set(markers_to_class.values()))
+    events, events_i, events_d = psychic.markers_to_events(d.Y.flat)
+    for (mark, cl) in markers_to_class.items():
+        cl_i = cl_lab.index(cl)
+        for i in events_i[events==mark]: # fails if there is *ONE* event
+            (start, end) = i + start_off, i + end_off
+            if start < 0 or end > d.ninstances:
+                logging.getLogger('psychic.utils.slice').warning(
+                    'Cannot extract slice [%d, %d] for class %s' % (start, end, cl))
+                continue
+            dslice = d[start:end]
+            X.append(dslice.X)
+            Y.append(cl_i)
+            I.append(d.I[:,i])
+    
+    ninstances = len(X)
+    ndX = np.concatenate([x[...,np.newaxis] for x in X], axis=2)
+    Y = golem.helpers.to_one_of_n(Y, class_rows=range(len(cl_lab)))
+    I = np.atleast_2d(np.hstack(I))
+    
+    event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
+    time_lab = ['%.3f' % ti for ti in event_time]
+    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], time_lab]
+    feat_dim_lab = ['channels', 'time']
+    d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
     feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
     feat_dim_lab=feat_dim_lab, default=d)
-  return d.sorted()
+    return d.sorted()
 
 def concatenate_trials(d):
     '''

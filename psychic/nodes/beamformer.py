@@ -9,6 +9,7 @@ palsy and amyotrophic lateral sclerosis. Journal of Neuroscience Methods,
 
 import numpy as np
 from psychic.nodes.spatialfilter import BaseSpatialFilter, sfilter_trial
+import scipy
 
 def _calc_beamformer_snr(X1, X2, nc=1, a=1.0):
         nchannels, nsamples, ninstances1 = X1.shape
@@ -26,7 +27,9 @@ def _calc_beamformer_snr(X1, X2, nc=1, a=1.0):
             R2[...,i] = cov / np.trace(cov)
         R2 = np.mean(R2, axis=2)
 
-        V, W = np.linalg.eig(np.linalg.pinv(a*R2).dot(R1))
+        #V, W = np.linalg.eig(np.linalg.pinv(a*R2).dot(R1))
+        V, W = scipy.linalg.eig(R1, (R1 + a*R2))
+       
         order = np.argsort(V)[::-1]
         V = V[order][:nc]
         W = np.real(W[:,order][:,:nc])
@@ -54,7 +57,8 @@ def _calc_beamformer_fc(Xs, nc=1, theta=1.0):
 
         I = np.identity(nchannels)
 
-        V, W = np.linalg.eig(np.linalg.pinv((I-theta).dot(S_w) + theta*I).dot(S_b))
+        #V, W = np.linalg.eig(np.linalg.pinv((I-theta).dot(S_w) + theta*I).dot(S_b))
+        V, W = scipy.linalg.eig(S_b, (I-theta).dot(S_w) + theta*I)
 
         order = np.argsort(V)[::-1]
         V = V[order][:nc]
@@ -146,13 +150,15 @@ class BeamformerCFMS(BaseSpatialFilter):
         d2 = sfilter_trial(d, W_fc)
 
         # Calculate SNR beamformer on the result (skip first nc/2 components)
-        X1 = d2.get_class(0).ndX[:,self.nc/2:,:]
-        X2 = d2.get_class(1).ndX[:,self.nc/2:,:]
+        X1 = d2.get_class(0).ndX[self.nc/2:,:,:]
+        X2 = d2.get_class(1).ndX[self.nc/2:,:,:]
         _, W_snr = _calc_beamformer_snr(X1, X2, self.nc/2, self.theta)
 
-        I = np.identity(nchannels)
+        # Prepend nc/2 zero-rows in order to make W_snr a proper spatial filter
+        W_snr = np.r_[np.zeros((self.nc/2, W_snr.shape[1])), W_snr]
 
         # Construct filter that will take the first nc/2 FC components applied
         # to the EEG data, and then the first nc/2 SNR components applied to the
         # FC filtered data.
-        self.W = np.dot(W_fc, np.concatenate((I[:,:self.nc/2], W_snr), axis=1))
+        I = np.identity(nchannels)
+        self.W = np.dot(W_fc, np.c_[I[:,:self.nc/2], W_snr])
