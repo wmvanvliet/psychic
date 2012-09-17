@@ -9,6 +9,7 @@ palsy and amyotrophic lateral sclerosis. Journal of Neuroscience Methods,
 
 import numpy as np
 from psychic.nodes.spatialfilter import BaseSpatialFilter, sfilter_trial
+import scipy
 
 def _calc_beamformer_snr(X1, X2, nc=1, a=1.0):
         nchannels, nsamples, ninstances1 = X1.shape
@@ -26,7 +27,9 @@ def _calc_beamformer_snr(X1, X2, nc=1, a=1.0):
             R2[...,i] = cov / np.trace(cov)
         R2 = np.mean(R2, axis=2)
 
-        V, W = np.linalg.eig(np.linalg.pinv(a*R2).dot(R1))
+        #V, W = np.linalg.eig(np.linalg.pinv(a*R2).dot(R1))
+        V, W = scipy.linalg.eig(R1, (R1 + a*R2))
+       
         order = np.argsort(V)[::-1]
         V = V[order][:nc]
         W = np.real(W[:,order][:,:nc])
@@ -54,7 +57,8 @@ def _calc_beamformer_fc(Xs, nc=1, theta=1.0):
 
         I = np.identity(nchannels)
 
-        V, W = np.linalg.eig(np.linalg.pinv((I-theta).dot(S_w) + theta*I).dot(S_b))
+        #V, W = np.linalg.eig(np.linalg.pinv((I-theta).dot(S_w) + theta*I).dot(S_b))
+        V, W = scipy.linalg.eig(S_b, (I-theta).dot(S_w) + theta*I)
 
         order = np.argsort(V)[::-1]
         V = V[order][:nc]
