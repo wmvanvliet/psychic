@@ -150,13 +150,15 @@ class BeamformerCFMS(BaseSpatialFilter):
         d2 = sfilter_trial(d, W_fc)
 
         # Calculate SNR beamformer on the result (skip first nc/2 components)
-        X1 = d2.get_class(0).ndX[:,self.nc/2:,:]
-        X2 = d2.get_class(1).ndX[:,self.nc/2:,:]
+        X1 = d2.get_class(0).ndX[self.nc/2:,:,:]
+        X2 = d2.get_class(1).ndX[self.nc/2:,:,:]
         _, W_snr = _calc_beamformer_snr(X1, X2, self.nc/2, self.theta)
 
-        I = np.identity(nchannels)
+        # Prepend nc/2 zero-rows in order to make W_snr a proper spatial filter
+        W_snr = np.r_[np.zeros((self.nc/2, W_snr.shape[1])), W_snr]
 
         # Construct filter that will take the first nc/2 FC components applied
         # to the EEG data, and then the first nc/2 SNR components applied to the
         # FC filtered data.
-        self.W = np.dot(W_fc, np.concatenate((I[:,:self.nc/2], W_snr), axis=1))
+        I = np.identity(nchannels)
+        self.W = np.dot(W_fc, np.c_[I[:,:self.nc/2], W_snr])
