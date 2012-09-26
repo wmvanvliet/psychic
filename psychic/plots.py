@@ -268,6 +268,8 @@ def plot_erp(
         colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
         linestyles=['-','-','-','-','-','-','-','-'],
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
+        classes=None,
+        enforce_equal_n=True,
         **kwargs
     ):
     '''
@@ -317,7 +319,6 @@ def plot_erp(
         else:
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
-    classes = kwargs.get('classes', None)
     if classes == None:
         classes = range(data.nclasses)
 
@@ -338,7 +339,7 @@ def plot_erp(
         ttest_performed = False
 
     # Calculate ERP
-    data = erp_util.erp(data, **kwargs)
+    data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Calculate a sane vspace
     if vspace == None:
@@ -377,7 +378,7 @@ def plot_erp(
 
         to_plot = np.zeros((len(channels), num_samples, num_classes))
         for i in range(len(channels)):
-            to_plot[i,:,:] = (data.ndX[i,:,:] if not mirror_y else -1*data.ndX[i,:,:]) + bases[i]
+            to_plot[i,:,:] = (data.ndX[channels[i],:,:] if not mirror_y else -1*data.ndX[channels[i],:,:]) + bases[i]
         
         # Plot each class
         for cl in range(num_classes):
