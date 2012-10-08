@@ -1,6 +1,5 @@
 import logging
 import numpy as np
-from golem import DataSet, helpers
 
 from markers import markers_to_events
 
