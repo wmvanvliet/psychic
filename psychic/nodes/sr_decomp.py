@@ -15,12 +15,12 @@ class SRDecomp(BaseNode):
 
     def train_(self, d):
         assert len(d.feat_shape) == 2, 'This node assumes the data to be split in trials'
-        nsamples, nchannels, ntrials = d.ndX.shape; 
+        nchannels, nsamples, ntrials = d.ndX.shape; 
         assert (np.min(self.rt) >= 0 and np.max(self.rt) < nsamples), 'rt should be between 0 and the size of the first dimension of data'
         assert (len(self.rt) == ntrials), 'The length of rt should be the same as the size of the second dimension of data'
 
         # Calculate the FFT of the signal
-        Y = fft(d.ndX, axis=0)
+        Y = fft(d.ndX, axis=1)
         self.Y_bar = np.mean(Y, axis=2) # Formula 4 in paper
 
         # Recalculate the rt as a phase shift in the FFT
@@ -31,12 +31,12 @@ class SRDecomp(BaseNode):
         
     def apply_(self, d):
         assert len(d.feat_shape) == 2, 'This node assumes the data to be split in trials'
-        nsamples, nchannels, ntrials = d.ndX.shape; 
+        nchannels, nsamples, ntrials = d.ndX.shape; 
         assert (np.min(self.rt) >= 0 and np.max(self.rt) < nsamples), 'rt should be between 0 and the size of the first dimension of data'
         assert (len(self.rt) == ntrials), 'The length of rt should be the same as the size of the second dimension of data'
 
         # Calculate the FFT of the signal
-        Y = fft(d.ndX, axis=0)
+        Y = fft(d.ndX, axis=1)
 
         # Recalculate the rt as a phase shift in the FFT
         E = np.zeros((nsamples, ntrials), dtype=np.complex)
@@ -53,8 +53,8 @@ class SRDecomp(BaseNode):
         sc = np.zeros(d.ndX.shape)
         for i in range(ntrials):
             for j in range(nchannels):
-                sc[:,j,i] = np.real(ifft(
-                    (E[:,i]*self.Y_bar[:,j] - self.E_bar*Y[:,j,i]) / D[:,i], # Formula 10 in paper
+                sc[j,:,i] = np.real(ifft(
+                    (E[:,i]*self.Y_bar[j,:] - self.E_bar*Y[j,:,i]) / D[:,i], # Formula 10 in paper
                     axis=0))
 
         return golem.DataSet(X=sc.reshape((-1, d.ninstances)), default=d)
@@ -70,7 +70,7 @@ def sr_decomp(s, rt):
 
     Input:
      data - Single-channel data to decompose.
-            Format (samples,channels,trials)
+            Format (channels,samples,trials)
      rt   - Number of data points between stimulus and response onset.
             Format (trials,1)
 
@@ -101,12 +101,12 @@ def sr_decomp(s, rt):
     KU Leuven
     '''
 
-    nsamples, nchannels, ntrials = s.shape; 
+    nchannels, nsamples, ntrials = s.shape; 
     assert (np.min(rt) >= 0 and np.max(rt) < nsamples), 'rt should be between 0 and the size of the first dimension of data'
     assert (len(rt) == ntrials), 'The length of rt should be the same as the size of the second dimension of data'
 
     # Calculate the FFT of the signal
-    Y = fft(s, axis=0)
+    Y = fft(s, axis=1)
     Y_bar = np.mean(Y, axis=2) # Formula 4 in paper
 
     # Recalculate the rt as a phase shift in the FFT
@@ -123,16 +123,16 @@ def sr_decomp(s, rt):
     sc = np.zeros(s.shape)
     for i in range(ntrials):
         for j in range(nchannels):
-            sc[:,j,i] = np.real(ifft(
-                (E[:,i]*Y_bar[:,j] - E_bar*Y[:,j,i]) / D[:,i], # Formula 10 in paper
+            sc[j,:,i] = np.real(ifft(
+                (E[:,i]*Y_bar[j,:] - E_bar*Y[j,:,i]) / D[:,i], # Formula 10 in paper
                 axis=0))
 
     # Estimate the response locked component
     rc = np.zeros(s.shape)
     for i in range(ntrials):
         for j in range(nchannels):
-            rc[:,j,i] = np.real(ifft(
-                (Y[:,j,i] - Y_bar[:,j]) / D[:,i], # Formula 11 in paper
+            rc[j,:,i] = np.real(ifft(
+                (Y[j,:,i] - Y_bar[j,:]) / D[:,i], # Formula 11 in paper
                 axis=0))
 
     return (sc, rc)

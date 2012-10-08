@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scalpplot import plot_scalp
 from positions import POS_10_5
-import golem
+from markers import markers_to_events
 import psychic
 import scipy
 import matplotlib
@@ -11,9 +11,9 @@ import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 from matplotlib import mlab
 import matplotlib.transforms as transforms
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import math
 import erp_util
+import golem
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -66,7 +66,14 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
 
   return subplots
 
-def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=False, draw_scale=True):
+def _draw_eeg_frame(
+        num_channels,
+        vspace,
+        timeline,
+        feat_lab=None,
+        mirror_y=False,
+        draw_scale=True):
+
     axes = plot.gca()
 
     plot.xlim([np.min(timeline), np.max(timeline)])
@@ -85,7 +92,7 @@ def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=Fals
         trans = transforms.blended_transform_factory(axes.transAxes, axes.transData)
         scale_top = vspace/2.0     # In data coordinates
         scale_bottom = -vspace/2.0 # In data coordinates
-        scale_xpos = 1.02          # In figure coordinates
+        scale_xpos = 1.02          # In axes coordinates
 
         scale = Line2D(
                 [scale_xpos-0.01, scale_xpos+0.01, scale_xpos, scale_xpos, scale_xpos-0.01, scale_xpos+0.01],
@@ -101,116 +108,74 @@ def _draw_eeg_frame(num_channels, vspace, timeline, feat_lab=None, mirror_y=Fals
     for y in (vspace * np.arange(num_channels)):
         plot.axhline(y, color='k', linewidth=1, alpha=0.25)
 
-    #plot.tight_layout()
     plot.gcf().subplots_adjust(right=0.85)
 
-def plot_eeg(data, samplerate=None, vspace=None, baseline=True, draw_markers=True, draw_spectogram=False, spec_channel=0, freq_range=[0, 50], mirror_y=False, fig=None, start=0):
+def plot_eeg(
+         data,
+         samplerate=None,
+         vspace=None,
+         draw_markers=True, 
+         mirror_y=False,
+         fig=None,
+         mcolors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
+         mlinestyles=['-','-','-','-','-','-','-','-'],
+         mlinewidths=[1,1,1,1,1,1,1,1],
+         start=0):
     ''' Plot EEG data contained in a golem dataset. '''
 
     assert data.X.ndim == 2
 
     num_channels, num_samples = data.X.shape
 
-    # Make data start at 0s
-    #data = golem.DataSet(I=data.I-data.I[0,0], default=data)
-
-    # Baseline the data if needed
-    to_plot = data.X - np.tile( np.mean(data.X, axis=1), (num_samples,1) ).T if baseline else data.X
-
     # Spread out the channels
     if vspace == None:
-        vspace = np.max(to_plot) - np.min(to_plot)
+        vspace = np.max(np.max(data.X, axis=1) - np.min(data.X, axis=1))
 
     bases = vspace * np.arange(0, num_channels)[::-1] - np.mean(data.X, axis=1)
-    to_plot = to_plot + np.tile( bases, (num_samples,1) ).T
+    to_plot = data.X + np.tile( bases, (num_samples,1) ).T
 
     if fig == None:
         fig = plot.figure()
 
     # Plot EEG
     fig.subplots_adjust(right=0.85)
-    axes = plot.subplot(211) if draw_spectogram else plot.subplot(111)
-    _draw_eeg_frame(num_channels, vspace, data.ids+start, data.feat_lab, mirror_y)
+    axes = plot.subplot(111)
+    _draw_eeg_frame(num_channels, vspace, data.I.T, data.feat_lab, mirror_y)
     plot.plot(data.I.T, to_plot.T)
-    plot.ylabel('Channels')
-
-    # Hide x-ticks for now
-    if draw_markers or draw_spectogram:
-        for tl in axes.get_xticklabels():
-                tl.set_visible(False)
 
     # Draw markers
     if draw_markers:
-        divider = make_axes_locatable(axes)
-        axes = divider.append_axes("bottom", 0.6, pad=0.1, sharex=axes)
-        plot.plot(data.I.T, data.Y.T)
+        trans = transforms.blended_transform_factory(axes.transData, axes.transAxes)
 
+        events, offsets, _ = markers_to_events(data.Y[0,:])
+        eventi = {}
+        for i,e in enumerate(np.unique(events)):
+            eventi[e] = i
+
+        for e,o in zip(events, offsets):
+            i = eventi[e]
+            x = data.I[0,o] # In data coordinates
+            y = 1.01        # In axes coordinates
+            plot.axvline(x,
+                    color=mcolors[i%len(mcolors)],
+                    linestyle=mlinestyles[i%len(mlinestyles)],
+                    linewidth=mlinewidths[i%len(mlinewidths)])
+            plot.text(x, y, str(e), transform=trans, ha='center', va='bottom')
+
+    plot.ylabel('Channels')
     plot.xlabel('Time (s)')
     plot.grid()
-
-    # Plot spectogram if needed
-    if draw_spectogram:
-        axes2 = plot.subplot(212, sharex=axes)
-        plot_spectogram(data, samplerate, spec_channel, freq_range, show_xlabel=False, fig=fig)
 
     plot.xlim(np.min(data.I), np.max(data.I))
 
     return fig
 
-def plot_spectogram(data, samplerate, spec_channel=0, freq_range=[0, 50], show_ylabel=True, show_xlabel=True, fig=None):
-    ''' Plot a spectogram for the specified channel (default=0) '''
-    if fig == None:
-        fig = plot.figure()
-
-    if samplerate == None:
-        samplerate = psychic.get_samplerate(data)
-
-    S, freqs, time = psychic.s_trans(data.X[spec_channel,:], freq_range[0], freq_range[1], samplerate) 
-
-
-    # Plot PSD on a log10 scale
-    fig = plot.imshow(S, aspect='auto', extent=(0, np.amax(time), freqs[0], freqs[-1]))
-
-    # Decorate the plot
-    if data.feat_lab:
-        plot.title(data.feat_lab[spec_channel])
-    
-    if show_ylabel:
-        plot.ylabel('Frequency (Hz)')
-
-    if show_xlabel:
-        plot.xlabel('Time (s)')
-
-    return fig
-
-def plot_erp_spectogram(data, samplerate, classes=None, spec_channel=0, freq_range=[0, 50], show_ylabel=True, show_xlabel=True, fig=None):
-    ''' Plot a difference ERP spectogram for the specified channel (default=0) '''
-    if fig == None:
-        fig = plot.figure()
-
-    if classes == None:
-        classes = np.flatnonzero(np.array(data.ninstances_per_class))[:2]
-
-    X1 = data.ndX[:,:,classes[0]].T
-    X2 = data.ndX[:,:,classes[1]].T
-    X = X1-X2
-
-    Pxx, freqs, bins = mlab.specgram(data.ndX[spec_channel,:, classes[0]].T, Fs=samplerate, NFFT=samplerate, noverlap=0)
-    #plot.clim(np.min(P), np.max(P))
-    plot.ylim(freq_range)
-
-    if data.feat_lab:
-        plot.title(data.feat_lab[spec_channel])
-    
-    if show_ylabel:
-        plot.ylabel('Frequency (Hz)')
-
-    if show_xlabel:
-        plot.xlabel('Time (s)')
-
-    return fig
-
-def plot_spectograms(data, samplerate=None, freq_range=[0, 50], fig=None):
+def plot_specgrams(
+        data,
+        samplerate=None,
+        NFFT=256,
+        freq_range=[0.1, 50],
+        fig=None):
     ''' For each channel, plot a spectogram. '''
 
     if fig == None:
@@ -219,37 +184,34 @@ def plot_spectograms(data, samplerate=None, freq_range=[0, 50], fig=None):
     if samplerate == None:
         samplerate = psychic.get_samplerate(data)
 
-    if data.nfeatures < 5:
-        num_rows = data.nfeatures
-        num_cols = 1
-    else:
-        num_rows = int( math.ceil(data.nfeatures/2.0) )
-        num_cols = 2
+    num_channels = data.nfeatures
+    num_cols = max(1, num_channels/8)
+    num_rows = min(num_channels, 8)
 
-    for channel in range(data.nfeatures):
-        plot.subplot(num_rows, num_cols, channel+1)
-        plot_spectogram(data, samplerate, channel, freq_range, fig=fig, show_xlabel=False, show_ylabel=False)
-
-    return fig
-
-def plot_erp_spectograms(data, samplerate, classes=None, freq_range=[0, 50], fig=None):
-    ''' For each channel, plot a difference ERP spectogram. '''
-
-    if fig == None:
-        fig = plot.figure()
-
-    num_channels = data.ndX.shape[1]
-
-    if data.nfeatures < 5:
-        num_rows = num_channels
-        num_cols = 1
-    else:
-        num_rows = int( math.ceil(num_channels/2.0) )
-        num_cols = 2
-
+    fig.subplots_adjust(hspace=0)
     for channel in range(num_channels):
-        plot.subplot(num_rows, num_cols, channel+1)
-        plot_erp_spectogram(data, samplerate, classes, channel, freq_range, fig=fig, show_xlabel=False, show_ylabel=False)
+        col = channel / num_rows
+        row = channel % num_rows
+
+        ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
+        s,freqs,_,_ = plot.specgram(data.X[channel,:], NFFT, samplerate, noverlap=NFFT/2, xextent=(np.min(data.I), np.max(data.I)))
+        selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
+
+        s = s[selection,:]
+        freqs = freqs[selection]
+        plot.ylim(freq_range[0], freq_range[1])
+        plot.clim(np.min(np.log(s)), np.max(np.log(s)))
+
+        if data.feat_lab != None:
+            plot.ylabel(data.feat_lab[channel])
+        else:
+            plot.ylabel('CH%02d' % (channel+1))
+
+        if row == num_rows-1 or channel == num_channels-1:
+            plot.xlabel('Time (s)')
+        else:
+            ax.get_xaxis().set_visible(False)
+
 
     return fig
 
@@ -304,7 +266,7 @@ def plot_erp(
     A handle to the matplotlib figure.
     '''
 
-    assert data.ndX.ndim == 3, 'Expecting slices data'
+    assert data.ndX.ndim == 3, 'Expecting sliced data'
 
     num_channels, num_samples = data.ndX.shape[:2]
 
@@ -382,7 +344,7 @@ def plot_erp(
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl]], linestyle=[linestyles[cl]], linewidth=[linewidths[cl]], **kwargs )
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]], **kwargs )
             axes.add_collection(traces)
 
         # Color significant differences
@@ -404,8 +366,160 @@ def plot_erp(
 
         plot.xlabel('Time (s)')
         if subplot == 0:
-            plot.legend(loc='upper left')
+            l = plot.legend(loc='upper left')
+            l.draggable(True)
             plot.title('Event Related Potential (n=%d)' % num_trials)
             plot.ylabel('Channels')
 
+    return fig
+
+def plot_erp_specdiffs(
+        data,
+        samplerate=None,
+        NFFT=256,
+        freq_range=[0.1, 50],
+        classes=[0,1],
+        significant_only=False,
+        pval=0.05,
+        fig=None):
+    assert data.ndX.ndim == 3
+    assert len(classes) == 2
+    assert data.feat_nd_lab != None
+
+    if fig == None:
+        fig = plot.figure()
+
+    tf = erp_util.trial_specgram(data, samplerate, NFFT)
+    tf_erp = erp_util.erp(tf)
+    diff = np.log(tf_erp.ndX[...,classes[0]]) - np.log(tf_erp.ndX[...,classes[1]])
+
+    if significant_only:
+        _,ps = scipy.stats.ttest_ind(tf.get_class(classes[0]).ndX,
+                                     tf.get_class(classes[1]).ndX, axis=3)
+        diff[ps > pval] = 0
+    
+    ch_labs = tf_erp.feat_nd_lab[0]
+    freqs = np.array([float(x) for x in tf_erp.feat_nd_lab[1]])
+    times = np.array([float(x) for x in tf_erp.feat_nd_lab[2]])
+
+    selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
+    freqs = freqs[selection]
+    diff = diff[:,selection]
+    clim = (-np.max(np.abs(diff)), np.max(np.abs(diff)))
+
+    num_channels = data.ndX.shape[0]
+    num_cols = max(1, num_channels/8)
+    num_rows = min(num_channels, 8)
+
+    fig.subplots_adjust(hspace=0)
+
+    cdict = {'red': ((0.0, 1.0, 1.0),
+                     (0.5, 1.0, 1.0),
+                     (1.0, 0.0, 0.0)),
+             'green': ((0.0, 0.0, 0.0),
+                       (0.5, 1.0, 1.0),
+                       (1.0, 0.0, 0.0)),
+             'blue': ((0.0, 0.0, 0.0),
+                      (0.5, 1.0, 1.0),
+                      (1.0, 1.0, 1.0))}
+
+    cmap = matplotlib.colors.LinearSegmentedColormap('polarity',cdict,256)
+
+    for channel in range(num_channels):
+        s = diff[channel,:,:]
+
+        col = channel / num_rows
+        row = channel % num_rows
+        ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
+        im = plot.imshow(
+            s, aspect='auto',
+            extent=[np.min(times), np.max(times), np.min(freqs), np.max(freqs)],
+            cmap=cmap
+        )
+
+        plot.ylim(freq_range[0], freq_range[1])
+        plot.clim(clim)
+        plot.ylabel(ch_labs[channel])
+
+        if row == num_rows-1 or channel == num_channels-1:
+            plot.xlabel('Time (s)')
+        else:
+            ax.get_xaxis().set_visible(False)
+
+    cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
+    fig.colorbar(im, cax=cax)
+    return fig
+
+def plot_erp_specgrams(
+        data,
+        samplerate=None,
+        NFFT=256,
+        freq_range=[0.1, 50],
+        fig=None):
+    assert data.ndX.ndim == 3
+    assert data.feat_nd_lab != None
+
+    if fig == None:
+        fig = plot.figure()
+
+    tf = erp_util.trial_specgram(data, samplerate, NFFT)
+    print tf.ndX.shape
+    tf_erp = np.mean(tf.ndX, axis=3)
+    print tf_erp.shape
+    
+    ch_labs = tf.feat_nd_lab[0]
+    print ch_labs
+
+    freqs = np.array([float(x) for x in tf.feat_nd_lab[1]])
+    times = np.array([float(x) for x in tf.feat_nd_lab[2]])
+
+    print freqs
+    print times
+
+    selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
+    freqs = freqs[selection]
+    tf_erp = tf_erp[:,selection,:]
+    clim = (-np.max(np.abs(tf_erp)), np.max(np.abs(tf_erp)))
+
+    num_channels = tf_erp.shape[0]
+    num_cols = max(1, num_channels/8)
+    num_rows = min(num_channels, 8)
+
+    fig.subplots_adjust(hspace=0)
+
+    #cdict = {'red': ((0.0, 1.0, 1.0),
+    #                 (0.5, 1.0, 1.0),
+    #                 (1.0, 0.0, 0.0)),
+    #         'green': ((0.0, 0.0, 0.0),
+    #                   (0.5, 1.0, 1.0),
+    #                   (1.0, 0.0, 0.0)),
+    #         'blue': ((0.0, 0.0, 0.0),
+    #                  (0.5, 1.0, 1.0),
+    #                  (1.0, 1.0, 1.0))}
+
+    #cmap = matplotlib.colors.LinearSegmentedColormap('polarity',cdict,256)
+
+    for channel in range(num_channels):
+        s = tf_erp[channel,:,:]
+
+        col = channel / num_rows
+        row = channel % num_rows
+        ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
+        im = plot.imshow(
+            np.flipud(s), aspect='auto',
+            extent=[np.min(times), np.max(times), np.min(freqs), np.max(freqs)],
+            #cmap=cmap
+        )
+
+        plot.ylim(freq_range[0], freq_range[1])
+        plot.clim(clim)
+        plot.ylabel(ch_labs[channel])
+
+        if row == num_rows-1 or channel == num_channels-1:
+            plot.xlabel('Time (s)')
+        else:
+            ax.get_xaxis().set_visible(False)
+
+    cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
+    fig.colorbar(im, cax=cax)
     return fig
