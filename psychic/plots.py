@@ -148,7 +148,6 @@ def plot_eeg(
         trans = transforms.blended_transform_factory(axes.transData, axes.transAxes)
 
         events, offsets, _ = markers_to_events(data.Y[0,:])
-        print events
         eventi = {}
         for i,e in enumerate(np.unique(events)):
             eventi[e] = i
@@ -157,7 +156,10 @@ def plot_eeg(
             i = eventi[e]
             x = data.I[0,o] # In data coordinates
             y = 1.01        # In axes coordinates
-            plot.axvline(x, color=mcolors[i], linestyle=mlinestyles[i], linewidth=mlinewidths[i])
+            plot.axvline(x,
+                    color=mcolors[i%len(mcolors)],
+                    linestyle=mlinestyles[i%len(mlinestyles)],
+                    linewidth=mlinewidths[i%len(mlinewidths)])
             plot.text(x, y, str(e), transform=trans, ha='center', va='bottom')
 
     plot.ylabel('Channels')
@@ -342,7 +344,7 @@ def plot_erp(
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl]], linestyle=[linestyles[cl]], linewidth=[linewidths[cl]], **kwargs )
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]], **kwargs )
             axes.add_collection(traces)
 
         # Color significant differences
@@ -364,7 +366,8 @@ def plot_erp(
 
         plot.xlabel('Time (s)')
         if subplot == 0:
-            plot.legend(loc='upper left')
+            l = plot.legend(loc='upper left')
+            l.draggable(True)
             plot.title('Event Related Potential (n=%d)' % num_trials)
             plot.ylabel('Channels')
 
@@ -409,15 +412,29 @@ def plot_erp_specgrams(
     num_rows = min(num_channels, 8)
 
     fig.subplots_adjust(hspace=0)
+
+    cdict = {'red': ((0.0, 1.0, 1.0),
+                     (0.5, 1.0, 1.0),
+                     (1.0, 0.0, 0.0)),
+             'green': ((0.0, 0.0, 0.0),
+                       (0.5, 1.0, 1.0),
+                       (1.0, 0.0, 0.0)),
+             'blue': ((0.0, 0.0, 0.0),
+                      (0.5, 1.0, 1.0),
+                      (1.0, 1.0, 1.0))}
+
+    cmap = matplotlib.colors.LinearSegmentedColormap('polarity',cdict,256)
+
     for channel in range(num_channels):
         s = diff[channel,:,:]
 
         col = channel / num_rows
         row = channel % num_rows
         ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
-        plot.imshow(
+        im = plot.imshow(
             s, aspect='auto',
-            extent=[np.min(times), np.max(times), np.min(freqs), np.max(freqs)]
+            extent=[np.min(times), np.max(times), np.min(freqs), np.max(freqs)],
+            cmap=cmap
         )
 
         plot.ylim(freq_range[0], freq_range[1])
@@ -429,4 +446,6 @@ def plot_erp_specgrams(
         else:
             ax.get_xaxis().set_visible(False)
 
+    cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
+    fig.colorbar(im, cax=cax)
     return fig
