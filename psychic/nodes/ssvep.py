@@ -1,8 +1,11 @@
 import numpy as np
-import scipy as sci
+#import scipy as sci
 from golem import DataSet
 from golem.nodes import BaseNode
-from matplotlib.mlab import PCA
+#from matplotlib.mlab import PCA
+import itertools
+#from ..utils import get_samplerate
+import spectrum
 
 class Slic(BaseNode) :
     """ Node that applies the SLIC [1] algorithm to the data. The algorithm
@@ -109,90 +112,163 @@ class Slic(BaseNode) :
         return mean_corrs
 
 class SSVEPNoiseReduce(BaseNode):
-    def __init__(self, freq, samplerate, retain=0.1, ssvep_class=0):
+    def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, nsamples=None):
         BaseNode.__init__(self)
-        self.samplerate = samplerate
-        self.freq = freq
+        self.sample_rate = sample_rate
+        self.frequencies = frequencies
         self.retain = retain
-        self.ssvep_class = ssvep_class
-        self.num_components = 5
+        self.harmonics = np.arange(nharmonics+1) + 1
+        self.nharmonics = len(self.harmonics)
+        self.nsamples = nsamples
 
     def train_(self, d):
-        (num_windows, window_size, num_channels) = d.nd_xs.shape
+        if self.nsamples == None:
+            assert d != None, 'Cannot determine window length.'
+            self.nsamples = d.ndX.shape[1]
 
-        # Create array with two columns: [sin(2*PI*freq*sample), cos(2*Pi*freq*sample)]
-        self.log.debug("Constructing Pa")
+        # Construct a list of the SSVEP frequencies plus their harmonics
+        freqs_to_remove = [f*h for f,h in itertools.product(self.frequencies, self.harmonics)]
+        freqs_to_remove = np.unique(freqs_to_remove)
 
-        # Calculate the projection matrix Pa to estimate useful signals
-        A = np.atleast_2d( np.arange(window_size, dtype=np.double) ).repeat(2, axis=0).T
-        A /= self.samplerate
-        A *= 2*np.pi*self.freq
-        A[:,0] = np.sin(A[:,0])
-        A[:,1] = np.cos(A[:,1])
+        # Construct matrix A with on the columns sines and cosines of the
+        # SSVEP fruencies and their harmonics
+        A = np.tile(np.arange(self.nsamples, dtype=float), (2*len(freqs_to_remove), 1)).T
+        A /= self.sample_rate
+        A *= 2 * np.pi * freqs_to_remove.repeat(2)
+        A[:, ::2] = np.sin(A[:, ::2])
+        A[:, 1::2] = np.cos(A[:, 1::2])
 
-        # Store a spatial filter that will remove all SSVEP related signals
-        self.SSVEPRemovalMatrix = np.eye(window_size) - A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
+        # Calculate inverse projection matrix P_A
+        P_A =  A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
+
+        # Determine spatial filter that will remove all SSVEP signals
+        self.SSVEPRemovalMatrix = (np.eye(self.nsamples) - P_A).T 
 
     def apply_(self, d):
-        (num_windows, window_size, num_channels) = d.nd_xs.shape
+        _, nsamples, ntrials = d.ndX.shape
+        assert nsamples >= self.nsamples, 'Filter trained for a different window size.'
 
-        filtered_xs = np.zeros([num_windows, window_size, self.num_components])
+        filtered_ndX = np.zeros(d.ndX.shape)
+        for trial in range(ntrials):
+            Y = d.ndX[:, -self.nsamples:, trial]
+            # TODO: normalize EEG signal power. All channels should have equal energy (variance)
+            
+            # Remove all SSVEP frequencies from the EEG
+            tildeY = Y.dot(self.SSVEPRemovalMatrix)
+            
+            # Eigenvalue decomposition of remaining noise
+            eigvals, eigvecs = np.linalg.eig(tildeY.dot(tildeY.T))
+            eigvals[eigvals < 1e-10] = 0
 
-        for window in range(num_windows):
-            # Calculate the PCA of the noise
-            self.log.debug("Calculating PCA of noise")
-            noise = self.SSVEPRemovalMatrix.dot(d.nd_xs[window,:,:])
-            pca = PCA(noise)
+            # Sort eigenvalues and eigenvectors from large to small
+            sorted_ind = np.argsort(eigvals)[::-1]
+            eigvals = eigvals[sorted_ind]
+            eigvecs = eigvecs[:, sorted_ind]
 
-            filtered_xs[window,:,:] = pca.Y[:,-self.num_components:]
+            # Normalize eigenvectors by their eigenvalues
+            eigvecs /= np.sqrt(eigvals)
 
-            ## Determine the components to keep
-            #var_explained = np.cumsum(pca.fracs[::-1]);
-            #cutoff = np.where(var_explained <= self.retain)[0]
+            # Determine number of components to keep.
+            eigvals_sum = np.sum(eigvals)
+            for ncomponents_to_keep in range(len(eigvals)):
+                if np.sum(eigvals[:ncomponents_to_keep]) / eigvals_sum > self.retain:
+                    break
 
-            #if cutoff.size == 0:
-            #    self.log.warning("Could not determine a good noise model.")
-            #    weights = np.eye(num_channels)
-            #else:
-            #    print 'pca.Wt[%d:,:]' % (-cutoff[-1]-1)
-            #    print pca.Wt.shape
-            #    weights = pca.Wt[-cutoff[-1]-1:] / sci.linalg.norm(pca.Wt[-cutoff[-1]-1:])
+            # Set the components *not* to keep to 0
+            # TODO: Ask why this step is omitted
+            #eigvecs[:, ncomponents_to_keep:] = 0
 
-            #self.log.info('Noise reduced to: %g %%' % (100*var_explained[cutoff[-1]]))
+            self.W = eigvecs / np.linalg.norm(eigvecs)
 
-            #print "Weights: "
-            #print weights
+            # Apply the obtained spatial filter
+            filtered_ndX[:,:,trial] = self.W.T.dot(d.ndX[:,:,trial])
+            
+        return DataSet(ndX=filtered_ndX, default=d)
 
-            #print d.nd_xs[window,:,:].shape, weights.shape
-            #filtered_xs[window,:,:] = np.atleast_2d( d.nd_xs[window,:,:].dot(weights.T) )
+class MNEC(BaseNode):
+    def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, ar_order=20, weights=None, nsamples=None):
+        BaseNode.__init__(self)
+        self.sample_rate = sample_rate
+        self.frequencies = frequencies
+        self.nfrequencies = len(frequencies)
+        self.retain = retain
+        self.ar_order = ar_order
+        self.harmonics = np.arange(nharmonics+1) + 1
+        self.nharmonics = len(self.harmonics)
+        self.nsamples = nsamples
+        self.weights = weights
 
-        return DataSet(filtered_xs.reshape(num_windows,-1), feat_shape=(window_size,self.num_components), default=d)
+        self.noise_filter = SSVEPNoiseReduce(sample_rate, frequencies, nharmonics, retain, nsamples)
 
-class MCD(BaseNode):
-    def __init__(self, frequencies, samplerate, harmonics=2, nFFT=1000, AR_parameter=10):
-        self.frequencies = np.asarray(frequencies)
-        self.harmonics = np.arange(len(harmonics))
-        self.samplerate = samplerate
-        self.nFFT = nFFT
-        self.AR_parameter = AR_parameter
-
-    
     def train_(self, d):
-        (window_size, num_channels, num_windows) = d.ndX.shape
+        self.noise_filter.train_(d)
 
-        # Create array with two columns: [sin(2*PI*freq*sample), cos(2*Pi*freq*sample)]
-        self.log.debug("Constructing Pa")
+        # Prepare some calculations in advance and store them in matrix X
+        time = np.arange(self.noise_filter.nsamples) / float(self.sample_rate)
+        X = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
+                     [1, 2, self.nharmonics, self.nfrequencies] )
+            
+        for i,freq in enumerate(self.frequencies):
+            X[:,:,:,i] = X[:,:,:,i] * freq
 
-        # Calculate the projection matrix Pa to estimate useful signals
-        A = np.atleast_2d( np.arange(window_size, dtype=np.double) ).repeat(2, axis=0).T
-        A /= self.samplerate
-        A *= 2*np.pi*self.frequencies.dot(self.harmonics)
-        A[:,0] = np.sin(A[:,0])
-        A[:,1] = np.cos(A[:,1])
+        for i,harm in enumerate(self.harmonics):
+            X[:,:,i,:] = X[:,:,i,:] * harm
+            
+        X[:,0,:,:] = np.sin(X[:,0,:,:])
+        X[:,1,:,:] = np.cos(X[:,1,:,:])
 
-        # Store a spatial filter that will remove all SSVEP related signals
-        self.M = A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
-        self.SSVEPRemovalMatrix = np.eye(window_size) - self.M
+        self.X = X
 
-    def apply_(self, data):
-        return data
+    def apply_(self, d):
+        S = self.noise_filter.apply_(d).ndX
+        nchannels, nsamples, ntrials = S.shape
+
+        result = []
+        for trial in range(ntrials):
+            P = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
+            for freq in range(self.nfrequencies):
+                for ch in range(nchannels):
+                    for harm in range(self.nharmonics):
+                        P[harm,ch,freq] = np.linalg.norm(S[ch,:,trial].dot(self.X[...,harm,freq]))            
+            P = P**2
+            
+            tildeS = S[...,trial].dot(self.noise_filter.SSVEPRemovalMatrix)
+            
+            Pxx = np.zeros((np.ceil((nsamples+1)/2.0), nchannels))
+            nPxxRows = Pxx.shape[0]
+            
+            for ch in range(nchannels):
+                p = spectrum.pyule(tildeS[ch,:], self.ar_order, NFFT=nsamples)
+                p()
+                Pxx[:,ch] = p.psd
+                
+            sigma = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
+            div = self.sample_rate / float(nsamples)
+            
+            for f, freq in enumerate(self.frequencies):
+                for ch in range(nchannels):
+                    for h, harm in enumerate(self.harmonics):
+                        ind = round(freq * harm / div)
+                        sigma[h,ch,f] = np.mean(Pxx[max(0,ind-1):min(ind+2, nPxxRows-1),ch])
+                        
+            SNRs = np.reshape(P / sigma, (self.nharmonics*nchannels, self.nfrequencies))
+            nSNRs = SNRs.shape[0]
+            
+            if self.weights == None:
+                self.weights = np.ones(nSNRs) / float(nSNRs)
+            else:
+                if len(self.weights) > nSNRs:
+                    self.weights = self.weights[:nSNRs]
+                elif len(self.weights) < nSNRs:
+                     raise ValueError('inconsistent weight vector size')
+                        
+            T = self.weights.dot(SNRs)
+            maxT = np.max(T)
+            scores = T / maxT
+            result.append(scores)
+
+        X = np.array(result).T
+        feat_shape = X.shape[:-1]
+        feat_lab = ['%d Hz' % f for f in self.frequencies] 
+
+        return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
