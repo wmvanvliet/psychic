@@ -112,7 +112,24 @@ class Slic(BaseNode) :
         return mean_corrs
 
 class SSVEPNoiseReduce(BaseNode):
+    '''
+    Node that tries to reduce EEG activity that is not informative for SSVEP
+    classification using the method described in:
+
+    Friman, O., Volosyak, I., & Gräser, A. (2007). Multiple channel detection
+    of steady-state visual evoked potentials for brain-computer interfaces.
+    IEEE transactions on bio-medical engineering, 54(4), 742–50.
+    '''
     def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, nsamples=None):
+        '''
+        parameters:
+            sample_rate - sample rate of the signal
+            frequencies - SSVEP frequencies that should be optimized for
+            nharmonics  - number of harmonics of the SSVEP frequencies to optimize for
+            retain      - amount of noise variation to retain [0 - 1.0]
+            nsamples    - number of samples in the EEG trials, when specified,
+                          training of the node can be done without training data
+        '''
         BaseNode.__init__(self)
         self.sample_rate = sample_rate
         self.frequencies = frequencies
@@ -179,6 +196,7 @@ class SSVEPNoiseReduce(BaseNode):
             #eigvecs[:, ncomponents_to_keep:] = 0
 
             self.W = eigvecs / np.linalg.norm(eigvecs)
+            self.W[np.isnan(self.W)] = 0 # rude hack
 
             # Apply the obtained spatial filter
             filtered_ndX[:,:,trial] = self.W.T.dot(d.ndX[:,:,trial])
@@ -262,9 +280,7 @@ class MNEC(BaseNode):
                 elif len(self.weights) < nSNRs:
                      raise ValueError('inconsistent weight vector size')
                         
-            T = self.weights.dot(SNRs)
-            maxT = np.max(T)
-            scores = T / maxT
+            scores = self.weights.dot(SNRs)
             result.append(scores)
 
         X = np.array(result).T
@@ -272,3 +288,84 @@ class MNEC(BaseNode):
         feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
         return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+
+class CanonCorr(BaseNode):
+    '''
+    SSVEP classifier based on Canonical Correlation Analysis (CCA).
+    '''
+    def __init__(self, sample_rate, frequencies, nharmonics=2, nsamples=None):
+        '''
+        parameters:
+            sample_rate - sample rate of the signal
+            frequencies - SSVEP frequencies that should be optimized for
+            nharmonics  - number of harmonics of the SSVEP frequencies to optimize for
+            nsamples    - number of samples in the EEG trials, when specified,
+                          training of the node can be done without training data.
+        '''
+        BaseNode.__init__(self)
+        self.sample_rate = sample_rate
+        self.frequencies = frequencies
+        self.nfrequencies = len(frequencies)
+        self.harmonics = np.arange(nharmonics+1) + 1
+        self.nharmonics = len(self.harmonics)
+        self.nsamples = None
+
+    def train_(self, d):
+        if self.nsamples == None:
+            assert d != None, 'Cannot determine window length.'
+            self.nsamples = d.ndX.shape[1]
+
+        # Construct matrices Y with on the columns sines and cosines of the
+        # SSVEP frequencies and their harmonics
+        Ys = np.tile(np.arange(self.nsamples, dtype=float)[:, np.newaxis], (self.nfrequencies, 1, 2*self.nharmonics))
+        Ys /= self.sample_rate
+
+        for i,freq in enumerate(self.frequencies):
+            Ys[i,:,:] *= 2 * np.pi * freq * self.harmonics.repeat(2)
+
+        Ys[:, :, ::2] = np.sin(Ys[:, :, ::2])
+        Ys[:, :, 1::2] = np.cos(Ys[:, :, 1::2])
+
+        # Perform Q-R decomposition on the frequencies
+        QYs = []
+        for freq in range(self.nfrequencies):
+            Y = Ys[freq,:,:]
+            Y = Y - np.tile(np.mean(Y, axis=0), (self.nsamples, 1))
+            QY,_ = np.linalg.qr(Y)
+            QYs.append(QY)
+
+        self.QYs = QYs
+
+    def apply_(self, d):
+        nchannels, nsamples, ntrials = d.ndX.shape
+        assert nsamples >= self.nsamples, 'Node trained for a different window size.'
+
+        # Perform Q-R decomposition on the trials
+        QXs = []
+        for trial in range(ntrials):
+            # The matrix X is our EEG signal, but we transpose it so
+            # observations (=samples) are on the rows and variables (=channels)
+            # are on the columns.
+            X = d.ndX[:,:,trial].T
+
+            # Center the variables (= remove the mean)
+            X = X - np.tile(np.mean(X, axis=0), (nsamples, 1))
+        
+            QX,_ = np.linalg.qr(X)
+            QXs.append(QX)
+
+            
+        # Calculate canonical correlations between trials and frequencies
+        scores = np.zeros((self.nfrequencies, ntrials))
+        for trial in range(ntrials):
+            for freq in range(self.nfrequencies):
+                # Compute canonical correlations through SVD
+                _, D, _ = np.linalg.svd(QXs[trial].T.dot(self.QYs[freq]))
+                
+                # Note the first coefficient as the score
+                scores[freq, trial] = D[0]
+
+        feat_shape = scores.shape[:-1]
+        feat_lab = ['%d Hz' % f for f in self.frequencies] 
+
+        return DataSet(X=scores, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
