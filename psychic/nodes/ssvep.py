@@ -1,14 +1,14 @@
+# coding=utf-8
+
 import numpy as np
-#import scipy as sci
 from golem import DataSet
 from golem.nodes import BaseNode
-#from matplotlib.mlab import PCA
 import itertools
-#from ..utils import get_samplerate
 import spectrum
 
-class Slic(BaseNode) :
-    """ Node that applies the SLIC [1] algorithm to the data. The algorithm
+class SLIC(BaseNode) :
+    '''
+    Node that applies the SLIC [1] algorithm to the data. The algorithm
     receives a number of frequencies as input. For each frequency, it splits
     the data in segments of 1/freq length and computes the correlation between
     each segment and the average. Signals with a high periodicity of the given
@@ -28,35 +28,24 @@ class Slic(BaseNode) :
     Marc M Van Hulle. 2010.  "Decoding SSVEP Responses Using Time Domain
     Classification." in International Conference on Neural Computation.
     Valentia, Spain.
-    """ 
+    '''
 
-    def __init__(self, freqs, samplerate, on_class=0, off_class=1):
-        """ Create a new SLIC node.
+    def __init__(self, sample_rate, frequencies):
+        '''
+        Create a new SLIC node.
 
         Required parameters:
-        freqs: A list of frequencies to test for
-        samplerate: The samplerate of the data. Needed, because the get_samplerate() utility
-                    function of psychic only works before windowing of the data.
-        """
+        sample_rate - The sample rate of the data. Needed, because the
+                      get_samplerate() utility function of psychic only works
+                      before windowing of the data.
+        frequencies - A list of frequencies to test for
+        '''
         BaseNode.__init__(self)
-        self.freqs = freqs
-        self.samplerate = samplerate
-        self.on_class = on_class
-        self.off_class = off_class
+        self.sample_rate = sample_rate
+        self.frequencies = frequencies
+        self.nfrequencies = len(frequencies)
 
     def train_(self, d):
-        #if d.ninstances == 0:
-        #    return
-
-        #self.best_channels = []
-
-        #mean_corrs = self.slic(d)
-
-        #meanOn = np.mean(mean_corrs[d.ys[:,self.on_class],:,:], axis=0)
-        #meanOff = np.mean(mean_corrs[d.ys[:,self.off_class],:,:], axis=0)
-        #self.meanDifference = meanOn - meanOff
-
-        #self.best_channels = np.argmax(self.meanDifference, axis=1)
         pass
 
     def apply_(self, d):
@@ -65,49 +54,43 @@ class Slic(BaseNode) :
 
         mean_corrs = self.slic(d)
 
-        xs = []
-        for freq_index, freq in enumerate(self.freqs):
-            xs.append( np.max(mean_corrs, axis=2) )
+        X = np.max(mean_corrs, axis=1)
+        feat_shape = X.shape[:-1]
+        feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
-        #xs = mean_corrs
-        #return DataSet( np.vstack(xs), feat_shape=(len(self.freqs),mean_corrs.shape[2]), default=d )
-        return DataSet( np.vstack(xs), feat_shape=(len(self.freqs),), default=d )
+        return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, default=d)
 
     def slic(self, d):
-        num_samples, data_length, num_channels = d.nd_xs.shape
-        num_freqs = len(self.freqs)
+        nchannels, nsamples, ntrials = d.ndX.shape
 
-        if num_samples == 0:
-            return DataSet(default=d)
+        mean_corrs = np.zeros( (self.nfrequencies, nchannels, ntrials) )
+        for f,freq in enumerate(self.frequencies):
 
-        mean_corrs = np.zeros( (num_samples, num_freqs, num_channels) )
-        for freq_index,freq in enumerate(self.freqs):
             # Determine the number and length of the periods
-            period_length = self.samplerate/float(freq)
-            num_periods = int(data_length/period_length)
+            period_length = self.sample_rate / float(freq)
+            #nperiods = int(nsamples/period_length)
 
-            for sample in range(num_samples):
-                # Construct the period indices
-                offsets = np.round( np.arange(period_length, data_length, period_length) - period_length )
-                length = np.arange( int(period_length) )
+            # Construct the period indices
+            offsets = np.round( np.arange(period_length, nsamples, period_length) - period_length )
+            length = np.arange( int(period_length) )
 
-                x,y = np.meshgrid(offsets, length)
-                period_idxs = (x+y).astype(np.int).T
+            x,y = np.meshgrid(offsets, length)
+            period_idxs = (x+y).astype(np.int).T
 
+            for trial in range(ntrials):
                 # Split the signal into periods
-                #periods = segment.reshape([num_periods, period_length, num_channels])
-                periods = d.nd_xs[sample,period_idxs,:]
+                periods = d.ndX[:,period_idxs,trial]
 
                 # Calculate the mean of the periods
-                avg = np.mean(periods, axis=0)
+                avg = np.mean(periods, axis=1)
 
                 # Calculate the mean correlation between each period and the mean
-                for channel in range(num_channels):
+                for channel in range(nchannels):
                     corrs = []
-                    for period in range(0, periods.shape[0]):
-                        corr = np.corrcoef(avg[:,channel].T, periods[period,:,channel])
+                    for period in range(0, periods.shape[1]):
+                        corr = np.corrcoef(avg[channel,:], periods[channel,period,:])
                         corrs.append( 0.5*(corr + 1) )
-                    mean_corrs[sample,freq_index,channel] = np.mean(corrs)
+                    mean_corrs[f, channel, trial] = np.mean(corrs)
 
         return mean_corrs
 
@@ -138,9 +121,13 @@ class SSVEPNoiseReduce(BaseNode):
         self.nharmonics = len(self.harmonics)
         self.nsamples = nsamples
 
+    def reset(self):
+        self.SSVEPRemovalMatrix = None
+
     def train_(self, d):
-        if self.nsamples == None:
-            assert d != None, 'Cannot determine window length.'
+        if d == None:
+            assert self.nsamples != None, 'Cannot determine window length.'
+        else:
             self.nsamples = d.ndX.shape[1]
 
         # Construct a list of the SSVEP frequencies plus their harmonics
@@ -156,7 +143,7 @@ class SSVEPNoiseReduce(BaseNode):
         A[:, 1::2] = np.cos(A[:, 1::2])
 
         # Calculate inverse projection matrix P_A
-        P_A =  A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
+        P_A = A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
 
         # Determine spatial filter that will remove all SSVEP signals
         self.SSVEPRemovalMatrix = (np.eye(self.nsamples) - P_A).T 
@@ -193,7 +180,7 @@ class SSVEPNoiseReduce(BaseNode):
 
             # Set the components *not* to keep to 0
             # TODO: Ask why this step is omitted
-            #eigvecs[:, ncomponents_to_keep:] = 0
+            # eigvecs[:, ncomponents_to_keep:] = 0
 
             self.W = eigvecs / np.linalg.norm(eigvecs)
             self.W[np.isnan(self.W)] = 0 # rude hack
@@ -204,6 +191,13 @@ class SSVEPNoiseReduce(BaseNode):
         return DataSet(ndX=filtered_ndX, default=d)
 
 class MNEC(BaseNode):
+    '''
+    SSVEP classifier based on Minimal Noise Energy Combination (MNEC) [1].
+
+    [1] Friman, O., Volosyak, I., & Gräser, A. (2007). Multiple channel
+    detection of steady-state visual evoked potentials for brain-computer
+    interfaces. IEEE transactions on bio-medical engineering, 54(4), 742–50.
+    '''
     def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, ar_order=20, weights=None, nsamples=None):
         BaseNode.__init__(self)
         self.sample_rate = sample_rate
@@ -217,6 +211,10 @@ class MNEC(BaseNode):
         self.weights = weights
 
         self.noise_filter = SSVEPNoiseReduce(sample_rate, frequencies, nharmonics, retain, nsamples)
+
+    def reset(self):
+        self.noise_filter.reset()
+        self.X = None
 
     def train_(self, d):
         self.noise_filter.train_(d)
@@ -238,7 +236,7 @@ class MNEC(BaseNode):
         self.X = X
 
     def apply_(self, d):
-        S = self.noise_filter.apply_(d).ndX
+        S = self.noise_filter.apply_(d).ndX[:, -self.noise_filter.nsamples:, :]
         nchannels, nsamples, ntrials = S.shape
 
         result = []
@@ -291,7 +289,12 @@ class MNEC(BaseNode):
 
 class CanonCorr(BaseNode):
     '''
-    SSVEP classifier based on Canonical Correlation Analysis (CCA).
+    SSVEP classifier based on Canonical Correlation Analysis (CCA) [1].
+
+    [1] Frequency recognition based on canonical correlation analysis for
+    SSVEP-based BCIs. Lin, Zhonglin / Zhang, Changshui / Wu, Wei / Gao,
+    Xiaorong, IEEE transactions on bio-medical engineering, 53 (12 Pt 2),
+    p.2610-2614, Dec 2006
     '''
     def __init__(self, sample_rate, frequencies, nharmonics=2, nsamples=None):
         '''
@@ -310,9 +313,13 @@ class CanonCorr(BaseNode):
         self.nharmonics = len(self.harmonics)
         self.nsamples = None
 
+    def reset(self):
+        self.QYs = None
+
     def train_(self, d):
-        if self.nsamples == None:
-            assert d != None, 'Cannot determine window length.'
+        if d == None:
+            assert self.nsamples != None, 'Cannot determine window length.'
+        else:
             self.nsamples = d.ndX.shape[1]
 
         # Construct matrices Y with on the columns sines and cosines of the
@@ -337,8 +344,8 @@ class CanonCorr(BaseNode):
         self.QYs = QYs
 
     def apply_(self, d):
-        nchannels, nsamples, ntrials = d.ndX.shape
-        assert nsamples >= self.nsamples, 'Node trained for a different window size.'
+        assert d.ndX.shape[1] >= self.nsamples, 'Node trained for a different window size.'
+        nchannels, _, ntrials = d.ndX.shape
 
         # Perform Q-R decomposition on the trials
         QXs = []
@@ -346,10 +353,10 @@ class CanonCorr(BaseNode):
             # The matrix X is our EEG signal, but we transpose it so
             # observations (=samples) are on the rows and variables (=channels)
             # are on the columns.
-            X = d.ndX[:,:,trial].T
+            X = d.ndX[:,-self.nsamples:,trial].T
 
             # Center the variables (= remove the mean)
-            X = X - np.tile(np.mean(X, axis=0), (nsamples, 1))
+            X = X - np.tile(np.mean(X, axis=0), (self.nsamples, 1))
         
             QX,_ = np.linalg.qr(X)
             QXs.append(QX)
