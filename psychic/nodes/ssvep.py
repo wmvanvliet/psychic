@@ -121,9 +121,13 @@ class SSVEPNoiseReduce(BaseNode):
         self.nharmonics = len(self.harmonics)
         self.nsamples = nsamples
 
+    def reset(self):
+        self.SSVEPRemovalMatrix = None
+
     def train_(self, d):
-        if self.nsamples == None:
-            assert d != None, 'Cannot determine window length.'
+        if d == None:
+            assert self.nsamples != None, 'Cannot determine window length.'
+        else:
             self.nsamples = d.ndX.shape[1]
 
         # Construct a list of the SSVEP frequencies plus their harmonics
@@ -139,7 +143,7 @@ class SSVEPNoiseReduce(BaseNode):
         A[:, 1::2] = np.cos(A[:, 1::2])
 
         # Calculate inverse projection matrix P_A
-        P_A =  A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
+        P_A = A.dot( np.linalg.inv(A.T.dot(A)) ).dot(A.T)
 
         # Determine spatial filter that will remove all SSVEP signals
         self.SSVEPRemovalMatrix = (np.eye(self.nsamples) - P_A).T 
@@ -176,7 +180,7 @@ class SSVEPNoiseReduce(BaseNode):
 
             # Set the components *not* to keep to 0
             # TODO: Ask why this step is omitted
-            #eigvecs[:, ncomponents_to_keep:] = 0
+            # eigvecs[:, ncomponents_to_keep:] = 0
 
             self.W = eigvecs / np.linalg.norm(eigvecs)
             self.W[np.isnan(self.W)] = 0 # rude hack
@@ -208,6 +212,10 @@ class MNEC(BaseNode):
 
         self.noise_filter = SSVEPNoiseReduce(sample_rate, frequencies, nharmonics, retain, nsamples)
 
+    def reset(self):
+        self.noise_filter.reset()
+        self.X = None
+
     def train_(self, d):
         self.noise_filter.train_(d)
 
@@ -228,7 +236,7 @@ class MNEC(BaseNode):
         self.X = X
 
     def apply_(self, d):
-        S = self.noise_filter.apply_(d).ndX
+        S = self.noise_filter.apply_(d).ndX[:, -self.noise_filter.nsamples:, :]
         nchannels, nsamples, ntrials = S.shape
 
         result = []
@@ -305,9 +313,13 @@ class CanonCorr(BaseNode):
         self.nharmonics = len(self.harmonics)
         self.nsamples = None
 
+    def reset(self):
+        self.QYs = None
+
     def train_(self, d):
-        if self.nsamples == None:
-            assert d != None, 'Cannot determine window length.'
+        if d == None:
+            assert self.nsamples != None, 'Cannot determine window length.'
+        else:
             self.nsamples = d.ndX.shape[1]
 
         # Construct matrices Y with on the columns sines and cosines of the
@@ -332,8 +344,8 @@ class CanonCorr(BaseNode):
         self.QYs = QYs
 
     def apply_(self, d):
-        nchannels, nsamples, ntrials = d.ndX.shape
-        assert nsamples >= self.nsamples, 'Node trained for a different window size.'
+        assert d.ndX.shape[1] >= self.nsamples, 'Node trained for a different window size.'
+        nchannels, _, ntrials = d.ndX.shape
 
         # Perform Q-R decomposition on the trials
         QXs = []
@@ -341,10 +353,10 @@ class CanonCorr(BaseNode):
             # The matrix X is our EEG signal, but we transpose it so
             # observations (=samples) are on the rows and variables (=channels)
             # are on the columns.
-            X = d.ndX[:,:,trial].T
+            X = d.ndX[:,-self.nsamples:,trial].T
 
             # Center the variables (= remove the mean)
-            X = X - np.tile(np.mean(X, axis=0), (nsamples, 1))
+            X = X - np.tile(np.mean(X, axis=0), (self.nsamples, 1))
         
             QX,_ = np.linalg.qr(X)
             QXs.append(QX)
