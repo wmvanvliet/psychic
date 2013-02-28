@@ -6,13 +6,14 @@ from psychic.utils import get_samplerate
 from psychic.markers import resample_markers
 
 class Filter(BaseNode):
-  def __init__(self, filt_design_func):
+  def __init__(self, filt_design_func, axis=1):
     '''
     Forward-backward filtering node. filt_design_func is a function that takes
     the sample rate as an argument, and returns the filter coefficients (b, a).
     '''
     BaseNode.__init__(self)
     self.filt_design_func = filt_design_func
+    self.axis = axis
 
   def train_(self, d):
     fs = get_samplerate(d)
@@ -21,9 +22,8 @@ class Filter(BaseNode):
 
   def apply_(self, d):
     b, a = self.filter
-    xs = np.hstack([signal.filtfilt(b, a, d.xs[:, i]).reshape(-1, 1) 
-      for i in range(d.nfeatures)])
-    return DataSet(xs=xs, default=d)
+    ndX = signal.filtfilt(b, a, d.ndX, self.axis)
+    return DataSet(ndX=ndX, default=d)
 
 class OnlineFilter(Filter):
   def __init__(self, filt_design_func):

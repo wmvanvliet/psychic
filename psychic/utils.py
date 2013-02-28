@@ -55,7 +55,12 @@ def spectrogram(signal, nfft, stepsize):
 
 def get_samplerate(d):
   '''Derive the sample rate from the timestamps d.I[0]'''
-  return np.round(1./np.median(np.diff(d.I[0])))
+  if d.ndX.ndim == 2:
+      return np.round(1./np.median(np.diff(d.I[0])))
+  elif d.ndX.ndim == 3:
+      return np.round(1./np.median(np.diff(d.feat_nd_lab[1])))
+  else:
+      raise ValueError('Data should be either continuous EEG (2D) or sliced (3D)')
 
 def find_segments(events, event_indices, start_mark, end_mark):
   '''Helper to find matching start/end markers in an event array'''
