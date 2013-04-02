@@ -35,7 +35,7 @@ class SlidingWindow(BaseNode):
       X = X.reshape(-1, X.shape[-1])
       Y = np.asarray(Y).T
       I = np.asarray(I).T
-
+      
     return DataSet(X=X, feat_shape=feat_shape, Y=Y, I=I, default=d)
 
 class OnlineSlidingWindow(SlidingWindow):
@@ -57,4 +57,5 @@ class OnlineSlidingWindow(SlidingWindow):
       cons = 0
     d, self.buffer = self.buffer[:cons], \
       self.buffer[max(0, cons-wsize + wstep):]
+
     return SlidingWindow.apply_(self, d)
