@@ -14,6 +14,7 @@ import matplotlib.transforms as transforms
 import math
 import erp_util
 import golem
+import fwer
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -202,6 +203,9 @@ def plot_specgrams(
         plot.ylim(freq_range[0], freq_range[1])
         plot.clim(np.min(np.log(s)), np.max(np.log(s)))
 
+        ax.xaxis.grid(True, which='major', color='w')
+        ax.yaxis.grid(False)
+
         if data.feat_lab != None:
             plot.ylabel(data.feat_lab[channel])
         else:
@@ -210,7 +214,8 @@ def plot_specgrams(
         if row == num_rows-1 or channel == num_channels-1:
             plot.xlabel('Time (s)')
         else:
-            ax.get_xaxis().set_visible(False)
+            [label.set_visible(False) for label in ax.get_xticklabels()]
+            [tick.set_visible(False) for tick in ax.get_xticklines()]
 
 
     return fig
@@ -232,7 +237,7 @@ def plot_erp(
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
         classes=None,
         enforce_equal_n=True,
-        **kwargs
+        fwer=fwer.benjamini_hochberg
     ):
     '''
     Create an Event Related Potential plot which aims to be as informative as
@@ -243,24 +248,25 @@ def plot_erp(
     data - A sliced Golem dataset that will be displayed
 
     Optional arguments:
-    samplerate      - By default determined through data.feat_nd_lab[0], but can be
-                      specified when missing.
-    vspace          - Amount of vertical space between the ERP traces, by default
-                      the minumum value so traces don't overlap.
-    cl_lab          - List with a label for each class, by default taken from
-                      data.cl_lab, but can be specified if missing.
-    ch_lab          - List of channel labels, by default taken from data.feat_nd_lab[1], 
-                      but can be specified if missing.
-    draw_scale      - Whether to draw a scale next to the plot (defaults to True).
-    start           - Time used as T0, by default timing is taken from
-                      data.feat_nd_lab[0], but can be specified if missing.
-    fig             - If speficied, a reference to the figure in which to draw
-                      the ERP plot. By default a new figure is created.
-    pval            - Minimum p-value at which to color significant regions, set
-                      to 0 to disable it completely.
-
-    In addition, keyword arguments for psychic.erp and
-    matplotlib.collections.LineCollection are passed along.
+    samplerate - By default determined through data.feat_nd_lab[0], but can be
+                 specified when missing.
+    vspace     - Amount of vertical space between the ERP traces, by default
+                 the minumum value so traces don't overlap.
+    cl_lab     - List with a label for each class, by default taken from
+                 data.cl_lab, but can be specified if missing.
+    ch_lab     - List of channel labels, by default taken from data.feat_nd_lab[1], 
+                 but can be specified if missing.
+    draw_scale - Whether to draw a scale next to the plot (defaults to True).
+    start      - Time used as T0, by default timing is taken from
+                 data.feat_nd_lab[0], but can be specified if missing.
+    fig        - If speficied, a reference to the figure in which to draw
+                 the ERP plot. By default a new figure is created.
+    pval       - Minimum p-value at which to color significant regions, set
+                 to 0 to disable it completely.
+    fwer       - Method for pval adjustment to correct for family-wise
+                 errors rising from performing multiple t-tests, choose one of
+                 the methods from the psychic.fwer module, or specify None to
+                 disable this correction. Defaults to fwer.benjamini_hochberg.
 
     Returns:
     A handle to the matplotlib figure.
@@ -297,6 +303,10 @@ def plot_erp(
     if num_classes == 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
         fs, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
         ttest_performed = True
+
+        if fwer != None:
+            ps = fwer(ps.ravel()).reshape(ps.shape)
+
     else:
         ttest_performed = False
 
@@ -344,7 +354,7 @@ def plot_erp(
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]], **kwargs )
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]] )
             axes.add_collection(traces)
 
         # Color significant differences
@@ -361,7 +371,7 @@ def plot_erp(
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
         _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == num_subplots-1)))
-        plot.grid() # Why isn't this working?
+        plot.grid(True) # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
         plot.xlabel('Time (s)')
