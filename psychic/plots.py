@@ -451,10 +451,14 @@ def plot_erp_specdiffs(
         plot.clim(clim)
         plot.ylabel(ch_labs[channel])
 
+        ax.xaxis.grid(True, color='w', which='major')
+        ax.yaxis.grid(False)
+
         if row == num_rows-1 or channel == num_channels-1:
             plot.xlabel('Time (s)')
         else:
-            ax.get_xaxis().set_visible(False)
+            [label.set_visible(False) for label in ax.get_xticklabels()]
+            [tick.set_visible(False) for tick in ax.get_xticklines()]
 
     cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
     fig.colorbar(im, cax=cax)
