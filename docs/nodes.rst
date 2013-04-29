@@ -28,6 +28,15 @@ Spatial filtering
 .. autoclass:: psychic.nodes.AlignedSpatialBlur
     :members:
 
+.. autoclass:: psychic.nodes.BeamformerSNR
+    :members:
+
+.. autoclass:: psychic.nodes.BeamformerFC
+    :members:
+
+.. autoclass:: psychic.nodes.BeamformerCFMS
+    :members:
+
 Frequency filtering
 -------------------
 
@@ -112,14 +121,3 @@ EOG artifact reduction
 .. autoclass:: psychic.nodes.EOGCorr
     :members:
 
-Beamformers
------------
-
-.. autoclass:: psychic.nodes.BeamformerSNR
-    :members:
-
-.. autoclass:: psychic.nodes.BeamformerFC
-    :members:
-
-.. autoclass:: psychic.nodes.BeamformerCFMS
-    :members:
