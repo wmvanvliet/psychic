@@ -25,7 +25,6 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   plt.plot(time, frames - np.mean(frames, axis=0) + 
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
 
-
 def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
   clim=None, cmap=None, titles=None, smark='k.'):
   '''
@@ -464,76 +463,32 @@ def plot_erp_specdiffs(
     fig.colorbar(im, cax=cax)
     return fig
 
-def plot_erp_specgrams(
-        data,
-        samplerate=None,
-        NFFT=256,
-        freq_range=[0.1, 50],
-        fig=None):
-    assert data.ndX.ndim == 3
-    assert data.feat_nd_lab != None
+def plot_erp_image(d, labels=None, fig=None):
+    assert d.ndX.ndim == 3, 'Expecting sliced data'
+    nchannels, nsamples, ntrials = d.ndX.shape
+
+    if labels == None:
+        order = np.arange(ntrials)
+    else:
+        order = np.argsort(labels)
+        labels = labels[order]
+        d = d[order]
 
     if fig == None:
-        fig = plot.figure()
+        fig = plt.figure()
 
-    tf = erp_util.trial_specgram(data, samplerate, NFFT)
-    print tf.ndX.shape
-    tf_erp = np.mean(tf.ndX, axis=3)
-    print tf_erp.shape
-    
-    ch_labs = tf.feat_nd_lab[0]
-    print ch_labs
+    if d.feat_nd_lab != None:
+        time = [float(i) for i in d.feat_nd_lab[1]]
+    else:
+        time = np.arange(nsamples)
 
-    freqs = np.array([float(x) for x in tf.feat_nd_lab[1]])
-    times = np.array([float(x) for x in tf.feat_nd_lab[2]])
+    for ch in range(nchannels):
+        plt.subplot(nchannels, 1, ch+1)
+        plt.imshow(d.ndX[ch,:,order], interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
 
-    print freqs
-    print times
+        if labels != None:
+            plt.plot(labels, np.arange(ntrials), '-k', linewidth=3)
 
-    selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
-    freqs = freqs[selection]
-    tf_erp = tf_erp[:,selection,:]
-    clim = (-np.max(np.abs(tf_erp)), np.max(np.abs(tf_erp)))
+        plt.ylabel('trials')
 
-    num_channels = tf_erp.shape[0]
-    num_cols = max(1, num_channels/8)
-    num_rows = min(num_channels, 8)
-
-    fig.subplots_adjust(hspace=0)
-
-    #cdict = {'red': ((0.0, 1.0, 1.0),
-    #                 (0.5, 1.0, 1.0),
-    #                 (1.0, 0.0, 0.0)),
-    #         'green': ((0.0, 0.0, 0.0),
-    #                   (0.5, 1.0, 1.0),
-    #                   (1.0, 0.0, 0.0)),
-    #         'blue': ((0.0, 0.0, 0.0),
-    #                  (0.5, 1.0, 1.0),
-    #                  (1.0, 1.0, 1.0))}
-
-    #cmap = matplotlib.colors.LinearSegmentedColormap('polarity',cdict,256)
-
-    for channel in range(num_channels):
-        s = tf_erp[channel,:,:]
-
-        col = channel / num_rows
-        row = channel % num_rows
-        ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
-        im = plot.imshow(
-            np.flipud(s), aspect='auto',
-            extent=[np.min(times), np.max(times), np.min(freqs), np.max(freqs)],
-            #cmap=cmap
-        )
-
-        plot.ylim(freq_range[0], freq_range[1])
-        plot.clim(clim)
-        plot.ylabel(ch_labs[channel])
-
-        if row == num_rows-1 or channel == num_channels-1:
-            plot.xlabel('Time (s)')
-        else:
-            ax.get_xaxis().set_visible(False)
-
-    cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
-    fig.colorbar(im, cax=cax)
-    return fig
+    plt.xlabel('time (s)')

@@ -162,6 +162,8 @@ class SpatialBlur(BaseSpatialFilter):
       positions = d.feat_lab
     elif self.ftype == TRIAL:
       positions = d.feat_nd_lab[0]
+    else:
+      raise ValueError('Operation not supported on covariance data')
   
     # Calculate distances for each electrode pair
     distances = np.array([

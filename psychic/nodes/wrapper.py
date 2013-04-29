@@ -36,13 +36,13 @@ class OnlineSlice(Slice):
 
   def apply_(self, d):
     # Initialize datasset
-    feat_shape = (self.offsets_samples[1]-self.offsets_samples[0],d.nfeatures)
+    feat_shape = (d.nfeatures, self.offsets_samples[1]-self.offsets_samples[0])
     slices = golem.DataSet(
       X=np.empty(( feat_shape[0]*feat_shape[1],0 )),
       Y=np.empty(( len(self.cl_lab),0 )),
       I=np.empty(( 1,0 )),
       feat_shape=feat_shape,
-      feat_dim_lab=['samples', 'channels'],
+      feat_dim_lab=['channels', 'samples'],
       cl_lab=self.cl_lab
     )
 
@@ -64,12 +64,11 @@ class OnlineSlice(Slice):
         break
 
       # Extract slice
-      xs = d.xs[onset+self.offsets_samples[0] : onset+self.offsets_samples[1],:]
+      ndX = d.X[:, onset+self.offsets_samples[0] : onset+self.offsets_samples[1], np.newaxis]
       Y = np.zeros(( len(self.cl_lab), 1 ))
       Y[self.cl_lab.index(self.mdict[code]), 0] = 1
-      I = np.atleast_2d(d.I[:,onset])
-      s = golem.DataSet(X=np.atleast_3d(xs).reshape(-1,1),
-                        Y=Y, I=I, default=slices)
+      I = np.atleast_2d(d.I[:,onset+self.offsets_samples[1]-1])
+      s = golem.DataSet(ndX=ndX, Y=Y, I=I, default=slices)
       slices += s
 
     if len(events) == 0:

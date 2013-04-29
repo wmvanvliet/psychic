@@ -17,6 +17,7 @@ class Filter(BaseNode):
 
   def train_(self, d):
     fs = get_samplerate(d)
+
     self.log.info('Detected sample rate of %d Hz' % fs)
     self.filter = self.filt_design_func(fs)
 

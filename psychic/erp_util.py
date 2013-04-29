@@ -1,4 +1,4 @@
-﻿import golem
+import golem
 import numpy as np
 import scipy
 import logging
@@ -99,19 +99,18 @@ def random_groups(d, size):
     idxs = []
 
     for cl in range(d.nclasses):
-        idx_cl = np.flatnonzero(d.Y[cl,:])
-        ninstances = len(idx_cl)
-        ngroups = int(ninstances / size)
+        d_cl = d.get_class(cl)
+        ngroups = int(d_cl.ninstances / size)
 
-        idx = idx_cl[np.random.permutation(ninstances)[:ngroups*size]].reshape(size,-1)
+        idx = np.random.permutation(d_cl.ninstances)[:ngroups*size].reshape(size,-1)
         d_grouped = golem.DataSet(
-            X = d.ndX[:,:,idx].reshape(-1, ngroups),
-            Y = d.Y[:,idx[0,:]],
-            I = d.I[:,idx[0,:]],
-            feat_shape = d.feat_shape + (size,),
-            feat_dim_lab = d.feat_dim_lab + ['trials'] if d.feat_dim_lab else None,
-            feat_nd_lab = d.feat_nd_lab + [range(size)] if d.feat_nd_lab else None,
-            default = d
+            X = d_cl.ndX[:,:,idx].reshape(-1, ngroups),
+            Y = d_cl.Y[:,idx[0,:]],
+            I = d_cl.I[:,idx[0,:]],
+            feat_shape = d_cl.feat_shape + (size,),
+            feat_dim_lab = d_cl.feat_dim_lab + ['trials'] if d_cl.feat_dim_lab else None,
+            feat_nd_lab = d_cl.feat_nd_lab + [range(size)] if d_cl.feat_nd_lab else None,
+            default = d_cl
         )
 
         if d_trials == None:
@@ -182,7 +181,8 @@ def slice(d, markers_to_class, offsets):
     I = np.atleast_2d(np.hstack(I))
     
     event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
-    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], event_time.tolist()]
+    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in
+        range(d.nfeatures)], event_time.tolist()]
     feat_dim_lab = ['channels', 'time']
     d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
     feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
@@ -240,9 +240,3 @@ def trial_specgram(d, samplerate=None, NFFT=256):
         feat_nd_lab=feat_nd_lab,
         feat_dim_lab=feat_dim_lab,
         default=d)
-
-    
-
-
-
-
