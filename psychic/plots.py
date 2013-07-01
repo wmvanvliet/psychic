@@ -25,7 +25,6 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   plt.plot(time, frames - np.mean(frames, axis=0) + 
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
 
-
 def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
   clim=None, cmap=None, titles=None, smark='k.'):
   '''
@@ -463,3 +462,33 @@ def plot_erp_specgrams(
     cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
     fig.colorbar(im, cax=cax)
     return fig
+
+def plot_erp_image(d, labels=None, fig=None):
+    assert d.ndX.ndim == 3, 'Expecting sliced data'
+    nchannels, nsamples, ntrials = d.ndX.shape
+
+    if labels == None:
+        order = np.arange(ntrials)
+    else:
+        order = np.argsort(labels)
+        labels = labels[order]
+        d = d[order]
+
+    if fig == None:
+        fig = plt.figure()
+
+    if d.feat_nd_lab != None:
+        time = [float(i) for i in d.feat_nd_lab[1]]
+    else:
+        time = np.arange(nsamples)
+
+    for ch in range(nchannels):
+        plt.subplot(nchannels, 1, ch+1)
+        plt.imshow(d.ndX[ch,:,order], interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
+
+        if labels != None:
+            plt.plot(labels, np.arange(ntrials), '-k', linewidth=3)
+
+        plt.ylabel('trials')
+
+    plt.xlabel('time (s)')
