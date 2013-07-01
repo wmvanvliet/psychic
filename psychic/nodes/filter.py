@@ -16,14 +16,14 @@ class Filter(BaseNode):
 
   def train_(self, d):
     fs = get_samplerate(d)
+
     self.log.info('Detected sample rate of %d Hz' % fs)
     self.filter = self.filt_design_func(fs)
 
   def apply_(self, d):
     b, a = self.filter
-    xs = np.hstack([signal.filtfilt(b, a, d.xs[:, i]).reshape(-1, 1) 
-      for i in range(d.nfeatures)])
-    return DataSet(xs=xs, default=d)
+    ndX = signal.filtfilt(b, a, d.ndX, axis=1)
+    return DataSet(ndX=ndX, default=d)
 
 class OnlineFilter(Filter):
   def __init__(self, filt_design_func):
