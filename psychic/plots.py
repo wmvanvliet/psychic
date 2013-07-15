@@ -236,7 +236,9 @@ def plot_erp(
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
         classes=None,
         enforce_equal_n=True,
-        fwer=fwer.benjamini_hochberg
+        fwer=fwer.benjamini_hochberg,
+        np_test=False,
+        np_iter=1000
     ):
     '''
     Create an Event Related Potential plot which aims to be as informative as
@@ -266,6 +268,14 @@ def plot_erp(
                  errors rising from performing multiple t-tests, choose one of
                  the methods from the psychic.fwer module, or specify None to
                  disable this correction. Defaults to fwer.benjamini_hochberg.
+    np_test    - Perform a non-parametric test to determine significant regions.
+                 This is much slower, but a much more powerful statistical
+                 method that deals correctly with the family-wise error
+                 problem. When this method is used, the `fwer` parameter is
+                 ignored. Defaults to False.
+    np_iter    - Number of iterations to perform when using the non-parametric
+                 test. Higher means a better approximation of the true p-values,
+                 at the cost of longer computation time. Defaults to 1000.
 
     Returns:
     A handle to the matplotlib figure.
@@ -300,14 +310,31 @@ def plot_erp(
 
     # Calculate significance (if appropriate)
     if num_classes == 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
-        fs, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
-        ttest_performed = True
 
-        if fwer != None:
-            ps = fwer(ps.ravel()).reshape(ps.shape)
+        # Construct significant clusters for each channel. These will be
+        # highlighted in the plot.
+        significant_clusters = [] * num_channels
+
+        if np_test:
+            # Perform a non-parametric test
+            from stats import temporal_permutation_cluster_test as test
+            significant_clusters = test(data, np_iter, pval, classes)[:,:3]
+        else:
+            # Perform a t-test
+            ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
+
+            if fwer != None:
+                ps = fwer(ps.ravel()).reshape(ps.shape)
+
+            for ch in range(num_channels):
+                clusters = np.flatnonzero( np.diff(np.hstack(([False], ps[ch,:] < pval, [False]))) ).reshape(-1,2)
+                for cl, cluster in enumerate(clusters):
+                    significant_clusters.append([ch, cluster[0], cluster[1]]) 
+
+        significance_test_performed = True
 
     else:
-        ttest_performed = False
+        significance_test_performed = False
 
     # Calculate ERP
     data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
@@ -357,17 +384,19 @@ def plot_erp(
             axes.add_collection(traces)
 
         # Color significant differences
-        if ttest_performed:
-            for c,channel in enumerate(channels):
-                significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[c,:] < pval, [False]))) ).reshape(-1,2)
-
-                for i in range( significant_parts.shape[0] ):
-                    x = range(significant_parts[i,0], significant_parts[i,1])
-                    y1 = np.min(to_plot[c,x,:], axis=1)
-                    y2 = np.max(to_plot[c,x,:], axis=1)
-                    x = np.concatenate( (ids[x], ids[x[::-1]]) )
-                    y = np.concatenate((y1, y2[::-1]))
-                    p = plot.fill(x, y, facecolor='g', alpha=0.2)
+        if significance_test_performed:
+            for cl in significant_clusters:
+                c, x1, x2 = cl
+                if not c in channels:
+                    continue
+                else:
+                    c -= channels[0]
+                x = range(int(x1), int(x2))
+                y1 = np.min(to_plot[c,x,:], axis=1)
+                y2 = np.max(to_plot[c,x,:], axis=1)
+                x = np.concatenate( (ids[x], ids[x[::-1]]) )
+                y = np.concatenate((y1, y2[::-1]))
+                p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
         _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == num_subplots-1)))
         plot.grid(True) # Why isn't this working?
