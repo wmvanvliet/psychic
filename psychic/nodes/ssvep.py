@@ -1,10 +1,31 @@
 # coding=utf-8
 
 import numpy as np
+import scipy.linalg
 from golem import DataSet
 from golem.nodes import BaseNode
 import itertools
 import spectrum
+
+def create_sin_cos_matrix(freqs, nharmonics, sample_rate, nsamples):
+    '''
+    Construct matrix Y with on the columns sines and cosines of the
+    SSVEP frequencies and their harmonics.
+    '''
+    nfreqs = len(freqs)
+    harmonics = np.arange(nharmonics+1) + 1
+
+    Ys = np.tile(np.arange(nsamples, dtype=float)[:, np.newaxis],
+                 (nfreqs, 1, 2*(nharmonics+1)))
+    Ys /= sample_rate
+
+    for i,freq in enumerate(freqs):
+        Ys[i,:,:] *= 2 * np.pi * freq * harmonics.repeat(2)
+
+    Ys[:, :, ::2] = np.sin(Ys[:, :, ::2])
+    Ys[:, :, 1::2] = np.cos(Ys[:, :, 1::2])
+
+    return Ys
 
 class SLIC(BaseNode) :
     '''
@@ -307,8 +328,7 @@ class CanonCorr(BaseNode):
         self.sample_rate = sample_rate
         self.frequencies = frequencies
         self.nfrequencies = len(frequencies)
-        self.harmonics = np.arange(nharmonics+1) + 1
-        self.nharmonics = len(self.harmonics)
+        self.nharmonics = nharmonics
         self.nsamples = nsamples
 
     def reset(self):
@@ -320,16 +340,8 @@ class CanonCorr(BaseNode):
         else:
             self.nsamples = d.ndX.shape[1]
 
-        # Construct matrices Y with on the columns sines and cosines of the
-        # SSVEP frequencies and their harmonics
-        Ys = np.tile(np.arange(self.nsamples, dtype=float)[:, np.newaxis], (self.nfrequencies, 1, 2*self.nharmonics))
-        Ys /= self.sample_rate
-
-        for i,freq in enumerate(self.frequencies):
-            Ys[i,:,:] *= 2 * np.pi * freq * self.harmonics.repeat(2)
-
-        Ys[:, :, ::2] = np.sin(Ys[:, :, ::2])
-        Ys[:, :, 1::2] = np.cos(Ys[:, :, 1::2])
+        Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
+                self.sample_rate, self.nsamples)
 
         # Perform Q-R decomposition on the frequencies
         QYs = []
@@ -369,6 +381,88 @@ class CanonCorr(BaseNode):
                 
                 # Note the first coefficient as the score
                 scores[freq, trial] = D[0]
+
+        feat_shape = scores.shape[:-1]
+        feat_lab = ['%d Hz' % f for f in self.frequencies] 
+
+        return DataSet(X=scores, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+
+class MSI(BaseNode):
+    '''
+    SSVEP classifier based on Multivariate Synchronization Index (MSI) [1].
+
+    [1] Zhang, Y., Xu, P., Cheng, K., & Yao, D. (2013). Multivariate
+    Synchronization Index for Frequency Recognition of SSVEP-based
+    Brain-computer Interface. Journal of neuroscience methods, 1–9.
+    doi:10.1016/j.jneumeth.2013.07.018
+    '''
+    def __init__(self, sample_rate, frequencies, nharmonics=2, nsamples=None):
+        '''
+        parameters:
+            sample_rate - sample rate of the signal
+            frequencies - SSVEP frequencies that should be optimized for
+            nharmonics  - number of harmonics of the SSVEP frequencies to optimize for
+            nsamples    - number of samples in the EEG trials, when specified,
+                          training of the node can be done without training data.
+        '''
+        BaseNode.__init__(self)
+        self.sample_rate = sample_rate
+        self.frequencies = frequencies
+        self.nfrequencies = len(frequencies)
+        self.nharmonics = nharmonics
+        self.nsamples = nsamples
+
+    def reset(self):
+        self.Ys = None
+        self.C = None
+
+    def train_(self, d):
+        if d == None:
+            assert self.nsamples != None, 'Cannot determine window length.'
+        else:
+            self.nsamples = d.ndX.shape[1]
+
+        self.Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
+            self.sample_rate, self.nsamples)
+
+        self.C22s = [Y.T.dot(Y) / float(self.nsamples) for Y in self.Ys]
+        self.invC22s = [np.linalg.pinv(scipy.linalg.sqrtm(C22)) for C22 in self.C22s]
+
+    def apply_(self, d):
+        assert d.ndX.shape[1] >= self.nsamples, 'Node trained for a different window size.'
+        nchannels, _, ntrials = d.ndX.shape
+
+        scores = np.zeros((self.nfrequencies, ntrials))
+        for trial in range(d.ninstances):
+            X = d.ndX[:,:,trial]
+            C11 = X.dot(X.T) / float(self.nsamples)
+            invC11 = np.linalg.pinv(scipy.linalg.sqrtm(C11)) 
+
+            for freq in range(self.nfrequencies):
+                # Formula 4
+                C12 = X.dot(self.Ys[freq]) / float(self.nsamples)
+                C21 = C12.T
+
+                # Formula 6
+                dim = nchannels + 2 * (self.nharmonics + 1)
+                R = np.eye(dim, dtype=np.complex)
+                R[:nchannels, nchannels:] = invC11.dot(C12).dot(self.invC22s[freq])
+                R[nchannels:, :nchannels] = self.invC22s[freq].dot(C21).dot(invC11)
+        
+                # Formula 7
+                eigs = np.linalg.eigvals(R)
+                eigs_norm = eigs / sum(eigs)
+
+                # Prevent divide by 0 errors
+                eigs_norm[eigs_norm < 1e-12] = 1e-12
+                
+                # Formula 8
+                S = 1 + sum(eigs_norm * np.log(eigs_norm)) / np.log(dim)
+
+                if np.isnan(S):
+                    S = 0
+
+                scores[freq, trial] = np.real(S)
 
         feat_shape = scores.shape[:-1]
         feat_lab = ['%d Hz' % f for f in self.frequencies] 

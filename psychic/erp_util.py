@@ -181,8 +181,12 @@ def slice(d, markers_to_class, offsets):
     I = np.atleast_2d(np.hstack(I))
     
     event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
+<<<<<<< HEAD
     feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in
         range(d.nfeatures)], event_time.tolist()]
+=======
+    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], event_time.tolist()]
+>>>>>>> b8bdbfb... Small fixes
     feat_dim_lab = ['channels', 'time']
     d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
     feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
