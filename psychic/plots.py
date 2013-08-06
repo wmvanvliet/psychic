@@ -14,6 +14,7 @@ import matplotlib.transforms as transforms
 import math
 import erp_util
 import golem
+import fwer
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -23,7 +24,6 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
     time = np.arange(frames.shape[0])
   plt.plot(time, frames - np.mean(frames, axis=0) + 
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
-
 
 def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
   clim=None, cmap=None, titles=None, smark='k.'):
@@ -202,6 +202,9 @@ def plot_specgrams(
         plot.ylim(freq_range[0], freq_range[1])
         plot.clim(np.min(np.log(s)), np.max(np.log(s)))
 
+        ax.xaxis.grid(True, which='major', color='w')
+        ax.yaxis.grid(False)
+
         if data.feat_lab != None:
             plot.ylabel(data.feat_lab[channel])
         else:
@@ -210,7 +213,8 @@ def plot_specgrams(
         if row == num_rows-1 or channel == num_channels-1:
             plot.xlabel('Time (s)')
         else:
-            ax.get_xaxis().set_visible(False)
+            [label.set_visible(False) for label in ax.get_xticklabels()]
+            [tick.set_visible(False) for tick in ax.get_xticklines()]
 
 
     return fig
@@ -232,7 +236,9 @@ def plot_erp(
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
         classes=None,
         enforce_equal_n=True,
-        **kwargs
+        fwer=fwer.benjamini_hochberg,
+        np_test=False,
+        np_iter=1000
     ):
     '''
     Create an Event Related Potential plot which aims to be as informative as
@@ -243,24 +249,33 @@ def plot_erp(
     data - A sliced Golem dataset that will be displayed
 
     Optional arguments:
-    samplerate      - By default determined through data.feat_nd_lab[0], but can be
-                      specified when missing.
-    vspace          - Amount of vertical space between the ERP traces, by default
-                      the minumum value so traces don't overlap.
-    cl_lab          - List with a label for each class, by default taken from
-                      data.cl_lab, but can be specified if missing.
-    ch_lab          - List of channel labels, by default taken from data.feat_nd_lab[1], 
-                      but can be specified if missing.
-    draw_scale      - Whether to draw a scale next to the plot (defaults to True).
-    start           - Time used as T0, by default timing is taken from
-                      data.feat_nd_lab[0], but can be specified if missing.
-    fig             - If speficied, a reference to the figure in which to draw
-                      the ERP plot. By default a new figure is created.
-    pval            - Minimum p-value at which to color significant regions, set
-                      to 0 to disable it completely.
-
-    In addition, keyword arguments for psychic.erp and
-    matplotlib.collections.LineCollection are passed along.
+    samplerate - By default determined through data.feat_nd_lab[0], but can be
+                 specified when missing.
+    vspace     - Amount of vertical space between the ERP traces, by default
+                 the minumum value so traces don't overlap.
+    cl_lab     - List with a label for each class, by default taken from
+                 data.cl_lab, but can be specified if missing.
+    ch_lab     - List of channel labels, by default taken from data.feat_nd_lab[1], 
+                 but can be specified if missing.
+    draw_scale - Whether to draw a scale next to the plot (defaults to True).
+    start      - Time used as T0, by default timing is taken from
+                 data.feat_nd_lab[0], but can be specified if missing.
+    fig        - If speficied, a reference to the figure in which to draw
+                 the ERP plot. By default a new figure is created.
+    pval       - Minimum p-value at which to color significant regions, set
+                 to 0 to disable it completely.
+    fwer       - Method for pval adjustment to correct for family-wise
+                 errors rising from performing multiple t-tests, choose one of
+                 the methods from the psychic.fwer module, or specify None to
+                 disable this correction. Defaults to fwer.benjamini_hochberg.
+    np_test    - Perform a non-parametric test to determine significant regions.
+                 This is much slower, but a much more powerful statistical
+                 method that deals correctly with the family-wise error
+                 problem. When this method is used, the `fwer` parameter is
+                 ignored. Defaults to False.
+    np_iter    - Number of iterations to perform when using the non-parametric
+                 test. Higher means a better approximation of the true p-values,
+                 at the cost of longer computation time. Defaults to 1000.
 
     Returns:
     A handle to the matplotlib figure.
@@ -295,10 +310,31 @@ def plot_erp(
 
     # Calculate significance (if appropriate)
     if num_classes == 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
-        fs, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
-        ttest_performed = True
+
+        # Construct significant clusters for each channel. These will be
+        # highlighted in the plot.
+        significant_clusters = [] * num_channels
+
+        if np_test:
+            # Perform a non-parametric test
+            from stats import temporal_permutation_cluster_test as test
+            significant_clusters = test(data, np_iter, pval, classes)[:,:3]
+        else:
+            # Perform a t-test
+            ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
+
+            if fwer != None:
+                ps = fwer(ps.ravel()).reshape(ps.shape)
+
+            for ch in range(num_channels):
+                clusters = np.flatnonzero( np.diff(np.hstack(([False], ps[ch,:] < pval, [False]))) ).reshape(-1,2)
+                for cl, cluster in enumerate(clusters):
+                    significant_clusters.append([ch, cluster[0], cluster[1]]) 
+
+        significance_test_performed = True
+
     else:
-        ttest_performed = False
+        significance_test_performed = False
 
     # Calculate ERP
     data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
@@ -344,24 +380,26 @@ def plot_erp(
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]], **kwargs )
+            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]] )
             axes.add_collection(traces)
 
         # Color significant differences
-        if ttest_performed:
-            for c,channel in enumerate(channels):
-                significant_parts = np.flatnonzero( np.diff(np.hstack(([False], ps[c,:] < pval, [False]))) ).reshape(-1,2)
-
-                for i in range( significant_parts.shape[0] ):
-                    x = range(significant_parts[i,0], significant_parts[i,1])
-                    y1 = np.min(to_plot[c,x,:], axis=1)
-                    y2 = np.max(to_plot[c,x,:], axis=1)
-                    x = np.concatenate( (ids[x], ids[x[::-1]]) )
-                    y = np.concatenate((y1, y2[::-1]))
-                    p = plot.fill(x, y, facecolor='g', alpha=0.2)
+        if significance_test_performed:
+            for cl in significant_clusters:
+                c, x1, x2 = cl
+                if not c in channels:
+                    continue
+                else:
+                    c -= channels[0]
+                x = range(int(x1), int(x2))
+                y1 = np.min(to_plot[c,x,:], axis=1)
+                y2 = np.max(to_plot[c,x,:], axis=1)
+                x = np.concatenate( (ids[x], ids[x[::-1]]) )
+                y = np.concatenate((y1, y2[::-1]))
+                p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
         _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == num_subplots-1)))
-        plot.grid() # Why isn't this working?
+        plot.grid(True) # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
         plot.xlabel('Time (s)')
@@ -441,10 +479,14 @@ def plot_erp_specdiffs(
         plot.clim(clim)
         plot.ylabel(ch_labs[channel])
 
+        ax.xaxis.grid(True, color='w', which='major')
+        ax.yaxis.grid(False)
+
         if row == num_rows-1 or channel == num_channels-1:
             plot.xlabel('Time (s)')
         else:
-            ax.get_xaxis().set_visible(False)
+            [label.set_visible(False) for label in ax.get_xticklabels()]
+            [tick.set_visible(False) for tick in ax.get_xticklines()]
 
     cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
     fig.colorbar(im, cax=cax)
@@ -523,3 +565,33 @@ def plot_erp_specgrams(
     cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
     fig.colorbar(im, cax=cax)
     return fig
+
+def plot_erp_image(d, labels=None, fig=None):
+    assert d.ndX.ndim == 3, 'Expecting sliced data'
+    nchannels, nsamples, ntrials = d.ndX.shape
+
+    if labels == None:
+        order = np.arange(ntrials)
+    else:
+        order = np.argsort(labels)
+        labels = labels[order]
+        d = d[order]
+
+    if fig == None:
+        fig = plt.figure()
+
+    if d.feat_nd_lab != None:
+        time = [float(i) for i in d.feat_nd_lab[1]]
+    else:
+        time = np.arange(nsamples)
+
+    for ch in range(nchannels):
+        plt.subplot(nchannels, 1, ch+1)
+        plt.imshow(d.ndX[ch,:,order], interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
+
+        if labels != None:
+            plt.plot(labels, np.arange(ntrials), '-k', linewidth=3)
+
+        plt.ylabel('trials')
+
+    plt.xlabel('time (s)')
