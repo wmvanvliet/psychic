@@ -16,7 +16,7 @@ Contents:
    dataformats
    nodes 
    util
-   erp_util 
+   trials 
    filtering
    parafac
    plots
