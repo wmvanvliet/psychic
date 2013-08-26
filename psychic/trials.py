@@ -1,4 +1,4 @@
-﻿import golem
+import golem
 import numpy as np
 import scipy
 import logging
@@ -7,7 +7,12 @@ from matplotlib.mlab import specgram
 
 def baseline(data, baseline_period=None):
     '''
-    Remove the mean calculated over a certain period from the data.
+    For each channel, remove the mean calculated over a certain period from the
+    data.
+
+    :param baseline_period: A tuple (start, end) indicating the start (inclusive)
+        and end (exclusive) indices of the period to calculate the mean over.
+        Values are to be given in samples.
     '''
     if baseline_period:
         assert len(baseline_period) == 2, 'Specify a begin and end point for the baseline period (in samples)'
@@ -122,36 +127,51 @@ def random_groups(d, size):
 
     return (d_trials, np.hstack(idxs))
 
-def reject_trials(d, cutoff=100, range=None):
+def reject_trials(d, cutoff=100, time_range=None):
     '''
     Reject trials by thresholding the maximum amplitude. 
     TODO: Make this function automatically detect outliers
 
-    required parameters:
-    d: The dataset to filter
+    :param d: The dataset to filter
+    :param cutoff: Any trials with a feature larger than this value are
+        rejected [100]. Alternatively, a list containing cutoff values for each
+        channel can be specified. 
+    :param time_range: (begin,end) Range along the 2nd dimension (samples) for
+        which to apply the thresholding [all samples].
 
-    optional parameters:
-    cutoff: Any trials with a feature larger than this value are rejected
-            [100]
-    range:  (begin,end) Range along the 2nd dimension (samples) for which 
-            to apply the thresholding [all samples].
+    returns a tuple: (filtered dataset, mask used to reject indices)
+
     '''
+    if time_range == None:
+        time_range = (0, d.ndX.shape[1])
 
-    if range == None:
-        range = (0, d.ndX.shape[1])
+    if hasattr(cutoff, '__iter__'):
+        nchannels = d.ndX.shape[0]
+        assert len(cutoff) == nchannels
 
-    reject = np.any(
-               np.any(
-                 np.abs(d.ndX[:,range[0]:range[1],:]) > cutoff,
-                 axis=0),
-               axis=0)
+        reject = np.any(
+            [np.any(np.abs(d.ndX[i,time_range[0]:time_range[1],:]) > cutoff[i], axis=0)
+                for i in range(nchannels)],
+            axis=0)
+    else:
+        reject = np.any(np.any(np.abs(d.ndX[:,time_range[0]:time_range[1],:]) > cutoff, axis=0), axis=0)
 
-    return d[np.logical_not(reject)]
+    reject = np.logical_not(reject)
+
+    return (d[reject], reject)
 
 def slice(d, markers_to_class, offsets):
     '''
-    Slice function, used to extract fixed-length segments of EEG from a recording.
-    Returns [channel x frames x segment]
+    Slice function, used to extract fixed-length segments (called trials) of
+    EEG from a recording. Opposite of ``concatenate_trials``.
+
+    :param markers_to_class: A dictionary containing as keys the event codes to
+        use as onset of the trial and as values a class label for the resulting
+        trials. For example ``{1:'left finger tapping', 2:'right finger tapping'}``
+    :param offsets: A tupe (start, end) indicating the time, relative to the
+        onset of marker, to extract as trial. Values are to be given in samples.
+
+    Returns [channels x frames x trials]
     '''
     assert len(d.feat_shape) == 1
     assert d.nclasses == 1
@@ -192,7 +212,7 @@ def slice(d, markers_to_class, offsets):
 def concatenate_trials(d):
     '''
     Concatenate trials into a single stream of EEG. Opposite of slice.
-    Returns [channel x frames]
+    Returns [channels x frames]
     '''
     assert d.ndX.ndim == 3, 'Expecting sliced data'
 
@@ -240,9 +260,3 @@ def trial_specgram(d, samplerate=None, NFFT=256):
         feat_nd_lab=feat_nd_lab,
         feat_dim_lab=feat_dim_lab,
         default=d)
-
-    
-
-
-
-

@@ -228,6 +228,7 @@ def plot_erp(
         cl_lab=None,
         ch_lab=None,
         draw_scale=True,
+        ncols=None,
         start=0,
         fig=None,
         pval=0.05,
@@ -257,6 +258,7 @@ def plot_erp(
     ch_lab     - List of channel labels, by default taken from data.feat_nd_lab[1], 
                  but can be specified if missing.
     draw_scale - Whether to draw a scale next to the plot (defaults to True).
+    ncols      - Number of columns to use for layout (default nchannels/15)
     start      - Time used as T0, by default timing is taken from
                  data.feat_nd_lab[0], but can be specified if missing.
     fig        - If speficied, a reference to the figure in which to draw
@@ -329,23 +331,26 @@ def plot_erp(
     if fig == None:
         fig = plot.figure()
 
-    num_subplots = max(1, num_channels/15)
-    channels_per_subplot = int(np.ceil(num_channels / float(num_subplots)))
+    if ncols == None:
+        ncols = max(1, num_channels/15)
 
-    for subplot in range(num_subplots):
-        axes = plot.subplot(1, num_subplots, subplot+1)
+    channels_per_col = int(np.ceil(num_channels / float(ncols)))
+
+    for subplot in range(ncols):
+        if ncols > 1:
+            axes = plot.subplot(1, ncols, subplot+1)
 
         # Determine channels to plot
         channels = np.arange(
-                       subplot * channels_per_subplot,
-                       min(num_channels, (subplot+1) * channels_per_subplot),
+                       subplot * channels_per_col,
+                       min(num_channels, (subplot+1) * channels_per_col),
                        dtype = np.int
                    )
 
         # Spread out the channels with vspace
         bases = vspace * np.arange(len(channels))[::-1]
         
-        if baseline_period != None:
+        if baseline_period == None:
             bases -= np.mean(np.mean(data.ndX[channels,:,:], axis=1), axis=1)
 
         to_plot = np.zeros((len(channels), num_samples, num_classes))
@@ -355,7 +360,7 @@ def plot_erp(
         # Plot each class
         for cl in range(num_classes):
             traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]] )
-            axes.add_collection(traces)
+            plot.gca().add_collection(traces)
 
         # Color significant differences
         if ttest_performed:
@@ -370,7 +375,7 @@ def plot_erp(
                     y = np.concatenate((y1, y2[::-1]))
                     p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
-        _draw_eeg_frame(channels_per_subplot, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == num_subplots-1)))
+        _draw_eeg_frame(channels_per_col, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == ncols-1)))
         plot.grid(True) # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
@@ -463,3 +468,55 @@ def plot_erp_specgrams(
     cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
     fig.colorbar(im, cax=cax)
     return fig
+
+def plot_erp_image(d, labels=None, fig=None, smooth=0):
+    assert d.ndX.ndim == 3, 'Expecting sliced data'
+    nchannels, nsamples, ntrials = d.ndX.shape
+
+    if labels == None:
+        order = np.arange(ntrials)
+    else:
+        order = np.argsort(labels)
+        labels = labels[order]
+        d = d[order]
+
+    ndX = np.zeros(d.ndX.shape)
+    for t in range(smooth, ntrials-smooth):
+        ndX[:,:,t] = np.mean(d.ndX[:,:,t-smooth:t+smooth+1], axis=2)
+
+    if fig == None:
+        fig = plt.figure()
+
+    if d.feat_nd_lab != None:
+        time = [float(i) for i in d.feat_nd_lab[1]]
+    else:
+        time = np.arange(nsamples)
+
+    nrows = min(4, nchannels)
+    ncols = max(1, np.ceil(nchannels/4.))
+
+    for ch in range(nchannels):
+        ax = plt.subplot(nrows, ncols, ch+1)
+        plt.imshow(ndX[ch,:,::-1].T, interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
+
+        if labels != None and labels[0] >= time[0] and labels[-1] <= time[-1]:
+           plt.plot(labels, np.arange(ntrials), '-k', linewidth=1)
+
+        if ch % ncols != 0:
+            [l.set_visible(False) for l in ax.get_yticklabels()]
+
+        if ch < (nrows-1)*ncols:
+            [l.set_visible(False) for l in ax.get_xticklabels()]
+
+        if d.feat_nd_lab == None:
+            plt.title('Channel %02d' % (ch+1))
+        else:
+            plt.title(d.feat_nd_lab[0][ch])
+
+        plt.xlim(time[0], time[-1])
+        plt.ylim(0, ntrials)
+
+    plt.xlabel('time (s)')
+
+    if fig == None:
+        plt.tight_layout()
