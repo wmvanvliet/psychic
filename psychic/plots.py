@@ -497,11 +497,7 @@ def plot_erp_specgrams(
     fig.colorbar(im, cax=cax)
     return fig
 
-<<<<<<< HEAD
 def plot_erp_image(d, labels=None, fig=None, smooth=0):
-=======
-def plot_erp_image(d, labels=None, fig=None):
->>>>>>> a511b90218eb68063cb52aa1a7e37cfab24d5a8b
     assert d.ndX.ndim == 3, 'Expecting sliced data'
     nchannels, nsamples, ntrials = d.ndX.shape
 
@@ -512,13 +508,10 @@ def plot_erp_image(d, labels=None, fig=None):
         labels = labels[order]
         d = d[order]
 
-<<<<<<< HEAD
     ndX = np.zeros(d.ndX.shape)
     for t in range(smooth, ntrials-smooth):
         ndX[:,:,t] = np.mean(d.ndX[:,:,t-smooth:t+smooth+1], axis=2)
 
-=======
->>>>>>> a511b90218eb68063cb52aa1a7e37cfab24d5a8b
     if fig == None:
         fig = plt.figure()
 
@@ -527,7 +520,6 @@ def plot_erp_image(d, labels=None, fig=None):
     else:
         time = np.arange(nsamples)
 
-<<<<<<< HEAD
     nrows = min(4, nchannels)
     ncols = max(1, np.ceil(nchannels/4.))
 
@@ -556,15 +548,3 @@ def plot_erp_image(d, labels=None, fig=None):
 
     if fig == None:
         plt.tight_layout()
-=======
-    for ch in range(nchannels):
-        plt.subplot(nchannels, 1, ch+1)
-        plt.imshow(d.ndX[ch,:,order], interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
-
-        if labels != None:
-            plt.plot(labels, np.arange(ntrials), '-k', linewidth=3)
-
-        plt.ylabel('trials')
-
-    plt.xlabel('time (s)')
->>>>>>> a511b90218eb68063cb52aa1a7e37cfab24d5a8b
