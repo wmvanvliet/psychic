@@ -27,7 +27,7 @@ class SlidingWindow(BaseNode):
       X = np.zeros((wsize * d.nfeatures, 0)) 
       feat_shape = (d.nfeatures, wsize)
       Y = np.zeros((d.nclasses, 0)) 
-      I = np.zeros((d.I.shape[1], 0))
+      I = np.zeros((d.I.shape[0], 0))
     else:
       X = np.asarray(X)
       X = np.rollaxis(X, 0, X.ndim)
@@ -52,7 +52,7 @@ class OnlineSlidingWindow(SlidingWindow):
     wstep, wsize = self.win_step, self.win_size
     buff_size = self.buffer.ninstances
 
-    cons = buff_size - buff_size % self.win_step
+    cons = buff_size - buff_size % wstep
     if cons < self.win_size:
       cons = 0
     d, self.buffer = self.buffer[:cons], \

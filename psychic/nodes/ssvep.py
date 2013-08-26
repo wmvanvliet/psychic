@@ -135,7 +135,7 @@ class SSVEPNoiseReduce(BaseNode):
         freqs_to_remove = np.unique(freqs_to_remove)
 
         # Construct matrix A with on the columns sines and cosines of the
-        # SSVEP fruencies and their harmonics
+        # SSVEP frequencies and their harmonics
         A = np.tile(np.arange(self.nsamples, dtype=float), (2*len(freqs_to_remove), 1)).T
         A /= self.sample_rate
         A *= 2 * np.pi * freqs_to_remove.repeat(2)
@@ -239,7 +239,7 @@ class MNEC(BaseNode):
         S = self.noise_filter.apply_(d).ndX[:, -self.noise_filter.nsamples:, :]
         nchannels, nsamples, ntrials = S.shape
 
-        result = []
+        X = np.zeros((self.nfrequencies, d.ninstances))
         for trial in range(ntrials):
             P = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
             for freq in range(self.nfrequencies):
@@ -278,10 +278,8 @@ class MNEC(BaseNode):
                 elif len(self.weights) < nSNRs:
                      raise ValueError('inconsistent weight vector size')
                         
-            scores = self.weights.dot(SNRs)
-            result.append(scores)
+            X[:,trial] = self.weights.dot(SNRs)
 
-        X = np.array(result).T
         feat_shape = X.shape[:-1]
         feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
@@ -311,7 +309,7 @@ class CanonCorr(BaseNode):
         self.nfrequencies = len(frequencies)
         self.harmonics = np.arange(nharmonics+1) + 1
         self.nharmonics = len(self.harmonics)
-        self.nsamples = None
+        self.nsamples = nsamples
 
     def reset(self):
         self.QYs = None
