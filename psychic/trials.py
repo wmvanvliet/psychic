@@ -35,10 +35,20 @@ def baseline(data, baseline_period=None):
 
     return golem.DataSet(X=X, default=data)
 
-def erp(data, n=0, classes=None, enforce_equal_n=True):
+def erp(data, classes=None, enforce_equal_n=True):
     '''
     For each class, calculate the Event Related Potential by averaging the 
-    corresponding trials.
+    corresponding trials. Note: no baselining is performed.
+
+    :param data: A golem DataSet containing the trials
+    :param classes: An optional list of class indices. When specified, the ERP
+        is only calculated for these classes.
+    :param enforce_equal_n: When set, each ERP is calculated by averaging the same
+        number of trials. For example, if class1 has m and class2 has n trials
+        and m > n. The ERP for class1 will be calculated by taking n random
+        trials from class1.
+    
+    returns a golem DataSet containing for each class the ERP.
     '''
     assert data.ndX.ndim > 2
 
@@ -72,16 +82,21 @@ def erp(data, n=0, classes=None, enforce_equal_n=True):
 
     return golem.DataSet(X=X, Y=Y, I=I, feat_shape=feat_shape, cl_lab=cl_lab, default=data)
 
-def ttest(data, classes=None, shuffle=True):
+def ttest(data, classes=[0,1], shuffle=True):
     '''
-    Calculate ttests between classes for each channel and each sample.
+    Calculate ttests between two classes for each channel and each sample. If
+    one class has more trials than the other, random trials will be taken to
+    ensure an equal number of trials.
+
+    :param classes: A list containing the indices of the classes to compare.
+    :param shuffle: When set, trials will be shuffled prior to comparison.
+
+    returns a tuple (t-values, p-values) containing the result of the ttests.
+    T-values and p-values are both an [channels x samples] array.
     '''
     assert data.nd_xs.ndim == 3
     assert data.nclasses >= 2, ('Data must contain at least two classes ',
                                 'otherwise there is nothing to compare.')
-
-    if classes == None:
-        classes = [0,1]
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
@@ -201,9 +216,9 @@ def slice(d, markers_to_class, offsets):
     I = np.atleast_2d(np.hstack(I))
     
     event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
-    time_lab = ['%.3f' % ti for ti in event_time]
-    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], time_lab]
+    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], event_time.tolist()]
     feat_dim_lab = ['channels', 'time']
+
     d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
     feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
     feat_dim_lab=feat_dim_lab, default=d)
@@ -229,6 +244,17 @@ def concatenate_trials(d):
     return golem.DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)
 
 def trial_specgram(d, samplerate=None, NFFT=256):
+    '''
+    Calculate a spectrogram for each channel and each trial. 
+
+    :param d: A golem DataSet containing the trials
+    :param samplerate: The sample rate of the data. When omitted,
+        psychic.get_samplerate() is used to estimate the sample rate.
+    :param NFFT: Number of FFT points to use to calculate the spectrograms.
+
+    returns a golem DataSet where instances are trials and ndX is [channels x
+    freqs x samples]. The frequency labels can be found in feat_nd_lab[1].
+    '''
     assert d.ndX.ndim == 3
 
     if samplerate == None:

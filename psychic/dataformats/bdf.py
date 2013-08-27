@@ -194,7 +194,7 @@ class BDFWriter:
             values['n_channels'] = dataset.nfeatures
 
             if dataset.feat_lab != None:
-                values['label'] = dataset.feat_lab
+                values['label'] = list(dataset.feat_lab)
 
             sample_rate = psychic.get_samplerate(dataset)
             
