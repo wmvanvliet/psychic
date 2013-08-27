@@ -6,11 +6,20 @@ from psychic.utils import get_samplerate
 from psychic.markers import resample_markers
 
 class Filter(BaseNode):
+  '''
+  Forward-backward filtering node. 
+  
+  Parameters
+  ----------
+  filt_design_func : function
+    A function that takes the sample rate as an argument, and returns the
+    filter coefficients (b, a).
+
+  axis : int (default 1)
+    The axis along which to apply the filter. This should correspond to the
+    axis that contains the EEG samples. Defaults to 1.
+  '''
   def __init__(self, filt_design_func, axis=1):
-    '''
-    Forward-backward filtering node. filt_design_func is a function that takes
-    the sample rate as an argument, and returns the filter coefficients (b, a).
-    '''
     BaseNode.__init__(self)
     self.filt_design_func = filt_design_func
     self.axis = axis
@@ -23,10 +32,19 @@ class Filter(BaseNode):
 
   def apply_(self, d):
     b, a = self.filter
-    ndX = signal.filtfilt(b, a, d.ndX, self.axis)
+    ndX = signal.filtfilt(b, a, d.ndX, axis=self.axis)
     return DataSet(ndX=ndX, default=d)
 
 class OnlineFilter(Filter):
+  '''
+  Forward filtering node suitable for on-line filtering. 
+  
+  Parameters
+  ----------
+  filt_design_func : function
+    A function that takes the sample rate as an argument, and returns the
+    filter coefficients (b, a).
+  '''
   def __init__(self, filt_design_func):
     Filter.__init__(self, filt_design_func)
     self.zi = []
@@ -63,27 +81,20 @@ class Winsorize(BaseNode):
       default=d)
 
 class FFTFilter(BaseNode) :
-    """ Node that applies a bandpass filter by using (inverse) Fast Fourier Transform.
+    '''
+    Node that applies a band-pass filter by using (inverse) Fast Fourier Transform.
     This is usually slower than using an IIR filter, but one does not have to worry
     about filter orders and such.
-    
-    Expected input:
-    instances: samples
-    features: channels
 
-    Output:
-    instances: samples
-    features: channels
-    """
+    Parameters
+    ----------
+    lowcut : float
+        Lower cutoff frequency (in Hz)
+    highcut : float
+        Upper cutoff frequency (in Hz)
+    '''
     
     def __init__(self, lowcut, highcut):
-        """ Create a new FFTFilter node.
-
-        Required parameters:
-        lowcut: Lower cutoff frequency (in Hz)
-        highcut: Upper cutoff frequency (in Hz)
-        """
-
         BaseNode.__init__(self)
         self.lowcut = lowcut
         self.highcut = highcut
@@ -123,20 +134,20 @@ class FFTFilter(BaseNode) :
         return DataSet(xs=np.hstack(xs), default=d)
 
 class Resample(BaseNode) :
-    """ Resamples the signal. """
+    '''
+    Resamples the signal to the given sample rate.
+
+    Parameters
+    ----------
+
+    new_samplerate : float
+        Signal will be resampled to this sample rate
+
+    max_marker_delay: int (default=0)
+        Maximum number of samples the markers are allowed to be delayed because
+        of resampling. Generates error if exeeded.
+    '''
     def __init__(self, new_samplerate, max_marker_delay=0):
-        """
-        Construct a new Resample node.
-
-        required parameters:
-        new_samplerate: Samplerate to resample the signal to.
-
-        optional parameters:
-        max_marker_delay: Maximum number of samples the markers are allowed
-                          to be delayed because of resampling. Generates error
-                          if exeeded. [0]
-        """
-
         BaseNode.__init__(self)
         self.new_samplerate = new_samplerate
         self.max_marker_delay = max_marker_delay

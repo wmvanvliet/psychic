@@ -12,16 +12,16 @@ Contents:
    :maxdepth: 2
 
    intro
-   tutorial
+   nodes
    dataformats
-   nodes 
-   util
-   trials 
    filtering
+   trials 
+   util
    parafac
    plots
    markers
    expinfo
+   api
 
 Indices and tables
 ==================
