@@ -160,14 +160,14 @@ def int24_to_le(ints):
 class BDFWriter:
     """ Class that writes a stream of Golem datasets to a BDF file.
 
-    # example usage:
-    d = golem.DataSet.load('some_data.dat')
-    d2 = golem.DataSet.load('some_more_data.dat')
-    bdf = BDFWriter('test.bdf', dataset=d)
-    bdf.write_header()
-    bdf.write(d)
-    bdf.write(d2)
-    bdf.close()
+    Example usage:
+    >>> d = golem.DataSet.load('some_data.dat')
+    >>> d2 = golem.DataSet.load('some_more_data.dat')
+    >>> bdf = BDFWriter('test.bdf', dataset=d)
+    >>> bdf.write_header()
+    >>> bdf.write(d)
+    >>> bdf.write(d2)
+    >>> bdf.close()
     
     """
     
@@ -363,6 +363,26 @@ class BDFWriter:
         self.f.close()
 
 def load_bdf(fname):
+  '''
+  Load a BDF file. BDF files are a variant of EDF files that are produced by
+  the BioSemi software. See also the `BDF file specifications
+  <http://www.biosemi.com/faq/file_format.htm>`_.
+
+  Parameters
+  ----------
+  fname : string
+    The file name of the BDF file to load.
+
+  Returns
+  -------
+  d : :class:`golem.DataSet`
+    The loaded data:
+
+      - ``d.X`` will be the [channels x samples] EEG data
+      - ``d.Y`` will contain the status channel
+      - ``d.feat_lab`` will contain the channel names
+      - ``d.I`` will contain timestamps for each sample
+  '''
   STATUS = 'Status'
 
   with open(fname, 'rb') as f:

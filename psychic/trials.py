@@ -7,12 +7,18 @@ from matplotlib.mlab import specgram
 
 def baseline(data, baseline_period=None):
     '''
-    For each channel, remove the mean calculated over a certain period from the
-    data.
+    For each channel, calculate and remove the baseline. The baseline is the
+    mean signal calculated over a certain time period.
 
-    :param baseline_period: A tuple (start, end) indicating the start (inclusive)
-        and end (exclusive) indices of the period to calculate the mean over.
-        Values are to be given in samples.
+    Parameters
+    ----------
+    baseline_period : tuple (int, int)
+        The start (inclusive) and end (exclusive) indices of the period to
+        calculate the baseline over. Values are given in samples.
+
+    Returns
+    -------
+    d : The signal
     '''
     if baseline_period:
         assert len(baseline_period) == 2, 'Specify a begin and end point for the baseline period (in samples)'
@@ -38,17 +44,25 @@ def baseline(data, baseline_period=None):
 def erp(data, classes=None, enforce_equal_n=True):
     '''
     For each class, calculate the Event Related Potential by averaging the 
-    corresponding trials. Note: no baselining is performed.
+    corresponding trials. Note: no baselining is performed, see
+    :func:`psychic.baseline`.
 
-    :param data: A golem DataSet containing the trials
-    :param classes: An optional list of class indices. When specified, the ERP
-        is only calculated for these classes.
-    :param enforce_equal_n: When set, each ERP is calculated by averaging the same
-        number of trials. For example, if class1 has m and class2 has n trials
-        and m > n. The ERP for class1 will be calculated by taking n random
-        trials from class1.
+    Parameters
+    ----------
+    data : :class:`golem.DataSet`
+        The trials
+    classes: list (optional)
+        When specified, the ERP is only calculated for the classes with the
+        given indices.
+    enforce_equal_n : bool
+        When set, each ERP is calculated by averaging the same number of
+        trials. For example, if class1 has m and class2 has n trials and m > n.
+        The ERP for class1 will be calculated by taking n random trials from
+        class1.
     
-    returns a golem DataSet containing for each class the ERP.
+    Returns
+    -------
+    d : A golem DataSet containing for each class the ERP.
     '''
     assert data.ndX.ndim > 2
 
@@ -88,11 +102,21 @@ def ttest(data, classes=[0,1], shuffle=True):
     one class has more trials than the other, random trials will be taken to
     ensure an equal number of trials.
 
-    :param classes: A list containing the indices of the classes to compare.
-    :param shuffle: When set, trials will be shuffled prior to comparison.
+    Parameters
+    ----------
 
-    returns a tuple (t-values, p-values) containing the result of the ttests.
-    T-values and p-values are both an [channels x samples] array.
+    classes : list (default=[0, 1])
+        The indices of the classes to compare.
+    shuffle : bool (default=False)
+        When set, trials will be shuffled prior to comparison.
+
+    Returns
+    -------
+    t-values: [channels x samples] array
+        The t-values 
+
+    p-values: [channels x samples] array
+        The p-values 
     '''
     assert data.nd_xs.ndim == 3
     assert data.nclasses >= 2, ('Data must contain at least two classes ',
@@ -113,7 +137,21 @@ def ttest(data, classes=[0,1], shuffle=True):
     return scipy.stats.ttest_ind(c1, c2, axis=2)
 
 def random_groups(d, size):
-    """ For each class, form groups of random trials of the given size """
+    '''
+    For each class, form groups of random trials of the given size.
+
+    Parameters
+    ----------
+    d : :class:`golem.DataSet`
+        The trials.
+    size : int
+        Size of the groups to make.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        The grouped data.
+    '''
 
     d_trials = None
     idxs = []
