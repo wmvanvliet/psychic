@@ -4,7 +4,6 @@ import numpy as np
 from golem import DataSet
 from golem.nodes import BaseNode
 import itertools
-import spectrum
 
 class SLIC(BaseNode) :
     '''
@@ -190,100 +189,107 @@ class SSVEPNoiseReduce(BaseNode):
             
         return DataSet(ndX=filtered_ndX, default=d)
 
-class MNEC(BaseNode):
-    '''
-    SSVEP classifier based on Minimal Noise Energy Combination (MNEC) [1].
 
-    [1] Friman, O., Volosyak, I., & Gräser, A. (2007). Multiple channel
-    detection of steady-state visual evoked potentials for brain-computer
-    interfaces. IEEE transactions on bio-medical engineering, 54(4), 742–50.
-    '''
-    def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, ar_order=20, weights=None, nsamples=None):
-        BaseNode.__init__(self)
-        self.sample_rate = sample_rate
-        self.frequencies = frequencies
-        self.nfrequencies = len(frequencies)
-        self.retain = retain
-        self.ar_order = ar_order
-        self.harmonics = np.arange(nharmonics+1) + 1
-        self.nharmonics = len(self.harmonics)
-        self.nsamples = nsamples
-        self.weights = weights
+try:
+    import spectrum
+    class MNEC(BaseNode):
+        '''
+        SSVEP classifier based on Minimal Noise Energy Combination (MNEC) [1].
 
-        self.noise_filter = SSVEPNoiseReduce(sample_rate, frequencies, nharmonics, retain, nsamples)
+        [1] Friman, O., Volosyak, I., & Gräser, A. (2007). Multiple channel
+        detection of steady-state visual evoked potentials for brain-computer
+        interfaces. IEEE transactions on bio-medical engineering, 54(4), 742–50.
+        '''
+        def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, ar_order=20, weights=None, nsamples=None):
+            BaseNode.__init__(self)
+            self.sample_rate = sample_rate
+            self.frequencies = frequencies
+            self.nfrequencies = len(frequencies)
+            self.retain = retain
+            self.ar_order = ar_order
+            self.harmonics = np.arange(nharmonics+1) + 1
+            self.nharmonics = len(self.harmonics)
+            self.nsamples = nsamples
+            self.weights = weights
 
-    def reset(self):
-        self.noise_filter.reset()
-        self.X = None
+            self.noise_filter = SSVEPNoiseReduce(sample_rate, frequencies, nharmonics, retain, nsamples)
 
-    def train_(self, d):
-        self.noise_filter.train_(d)
+        def reset(self):
+            self.noise_filter.reset()
+            self.X = None
 
-        # Prepare some calculations in advance and store them in matrix X
-        time = np.arange(self.noise_filter.nsamples) / float(self.sample_rate)
-        X = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
-                     [1, 2, self.nharmonics, self.nfrequencies] )
-            
-        for i,freq in enumerate(self.frequencies):
-            X[:,:,:,i] = X[:,:,:,i] * freq
+        def train_(self, d):
+            self.noise_filter.train_(d)
 
-        for i,harm in enumerate(self.harmonics):
-            X[:,:,i,:] = X[:,:,i,:] * harm
-            
-        X[:,0,:,:] = np.sin(X[:,0,:,:])
-        X[:,1,:,:] = np.cos(X[:,1,:,:])
-
-        self.X = X
-
-    def apply_(self, d):
-        S = self.noise_filter.apply_(d).ndX[:, -self.noise_filter.nsamples:, :]
-        nchannels, nsamples, ntrials = S.shape
-
-        X = np.zeros((self.nfrequencies, d.ninstances))
-        for trial in range(ntrials):
-            P = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
-            for freq in range(self.nfrequencies):
-                for ch in range(nchannels):
-                    for harm in range(self.nharmonics):
-                        P[harm,ch,freq] = np.linalg.norm(S[ch,:,trial].dot(self.X[...,harm,freq]))            
-            P = P**2
-            
-            tildeS = S[...,trial].dot(self.noise_filter.SSVEPRemovalMatrix)
-            
-            Pxx = np.zeros((np.ceil((nsamples+1)/2.0), nchannels))
-            nPxxRows = Pxx.shape[0]
-            
-            for ch in range(nchannels):
-                p = spectrum.pyule(tildeS[ch,:], self.ar_order, NFFT=nsamples)
-                p()
-                Pxx[:,ch] = p.psd
+            # Prepare some calculations in advance and store them in matrix X
+            time = np.arange(self.noise_filter.nsamples) / float(self.sample_rate)
+            X = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
+                         [1, 2, self.nharmonics, self.nfrequencies] )
                 
-            sigma = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
-            div = self.sample_rate / float(nsamples)
-            
-            for f, freq in enumerate(self.frequencies):
+            for i,freq in enumerate(self.frequencies):
+                X[:,:,:,i] = X[:,:,:,i] * freq
+
+            for i,harm in enumerate(self.harmonics):
+                X[:,:,i,:] = X[:,:,i,:] * harm
+                
+            X[:,0,:,:] = np.sin(X[:,0,:,:])
+            X[:,1,:,:] = np.cos(X[:,1,:,:])
+
+            self.X = X
+
+        def apply_(self, d):
+            S = self.noise_filter.apply_(d).ndX[:, -self.noise_filter.nsamples:, :]
+            nchannels, nsamples, ntrials = S.shape
+
+            X = np.zeros((self.nfrequencies, d.ninstances))
+            for trial in range(ntrials):
+                P = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
+                for freq in range(self.nfrequencies):
+                    for ch in range(nchannels):
+                        for harm in range(self.nharmonics):
+                            P[harm,ch,freq] = np.linalg.norm(S[ch,:,trial].dot(self.X[...,harm,freq]))            
+                P = P**2
+                
+                tildeS = S[...,trial].dot(self.noise_filter.SSVEPRemovalMatrix)
+                
+                Pxx = np.zeros((np.ceil((nsamples+1)/2.0), nchannels))
+                nPxxRows = Pxx.shape[0]
+                
                 for ch in range(nchannels):
-                    for h, harm in enumerate(self.harmonics):
-                        ind = round(freq * harm / div)
-                        sigma[h,ch,f] = np.mean(Pxx[max(0,ind-1):min(ind+2, nPxxRows-1),ch])
-                        
-            SNRs = np.reshape(P / sigma, (self.nharmonics*nchannels, self.nfrequencies))
-            nSNRs = SNRs.shape[0]
-            
-            if self.weights == None:
-                self.weights = np.ones(nSNRs) / float(nSNRs)
-            else:
-                if len(self.weights) > nSNRs:
-                    self.weights = self.weights[:nSNRs]
-                elif len(self.weights) < nSNRs:
-                     raise ValueError('inconsistent weight vector size')
-                        
-            X[:,trial] = self.weights.dot(SNRs)
+                    p = spectrum.pyule(tildeS[ch,:], self.ar_order, NFFT=nsamples)
+                    p()
+                    Pxx[:,ch] = p.psd
+                    
+                sigma = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
+                div = self.sample_rate / float(nsamples)
+                
+                for f, freq in enumerate(self.frequencies):
+                    for ch in range(nchannels):
+                        for h, harm in enumerate(self.harmonics):
+                            ind = round(freq * harm / div)
+                            sigma[h,ch,f] = np.mean(Pxx[max(0,ind-1):min(ind+2, nPxxRows-1),ch])
+                            
+                SNRs = np.reshape(P / sigma, (self.nharmonics*nchannels, self.nfrequencies))
+                nSNRs = SNRs.shape[0]
+                
+                if self.weights == None:
+                    self.weights = np.ones(nSNRs) / float(nSNRs)
+                else:
+                    if len(self.weights) > nSNRs:
+                        self.weights = self.weights[:nSNRs]
+                    elif len(self.weights) < nSNRs:
+                         raise ValueError('inconsistent weight vector size')
+                            
+                X[:,trial] = self.weights.dot(SNRs)
 
-        feat_shape = X.shape[:-1]
-        feat_lab = ['%d Hz' % f for f in self.frequencies] 
+            feat_shape = X.shape[:-1]
+            feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
-        return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+            return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+except:
+    class MNEC(BaseNode):
+        def __init__(self):
+            raise RuntimeError("Cannot find required module: 'spectrum'.")
 
 class CanonCorr(BaseNode):
     '''
