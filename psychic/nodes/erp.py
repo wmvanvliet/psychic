@@ -108,10 +108,24 @@ class RejectTrials(BaseNode):
     Node that rejects trials which features that exceed a certain threshold.
     Wrapper around psychic.reject_trials()
     """
-    def __init__(self, cutoff=0, range=None):
+    def __init__(self, cutoff=100, std_cutoff=False, range=None):
         BaseNode.__init__(self)
         self.cutoff = cutoff
+        self.std_cutoff = std_cutoff
         self.range = range
+        self.trained = False
+
+    def train_(self, d):
+        nchannels = d.ndX.shape[0]
+        if self.std_cutoff:
+            self.channel_stds = np.array([np.std(d.ndX[i,...]) for i in range(nchannels)])
+            self.cutoff = self.cutoff * self.channel_stds
+        self.trained = True
 
     def apply_(self, d):
-        return reject_trials(d, self.cutoff, self.range)
+        assert (not self.std_cutoff or self.trained), \
+            'When specifying the cutoff in terms of standard deviations, training of the node is mandatory.'
+
+        d, self.reject_mask = reject_trials(d, self.cutoff, self.range)
+        self.log.info('Rejected %d trials' % len(np.flatnonzero(np.logical_not(self.reject_mask))))
+        return d

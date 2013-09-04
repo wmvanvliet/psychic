@@ -12,11 +12,10 @@ Contents:
    :maxdepth: 2
 
    intro
-   tutorial
    dataformats
    nodes 
    util
-   erp_util 
+   trials 
    filtering
    parafac
    plots
