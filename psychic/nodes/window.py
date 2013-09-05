@@ -4,6 +4,9 @@ from golem.nodes import BaseNode
 from ..utils import sliding_window_indices
 
 class SlidingWindow(BaseNode):
+  '''
+  Extracts trials from continuous data by applying a sliding window.
+  '''
   def __init__(self, win_size, win_step, ref_point=.5):
     BaseNode.__init__(self)
     self.win_size = win_size

@@ -54,7 +54,21 @@ def spectrogram(signal, nfft, stepsize):
   return spec
 
 def get_samplerate(d):
-  '''Derive the sample rate from the timestamps d.I[0]'''
+  '''
+  Derive the sample rate from the timestamps given in ``d.I``
+
+  Parameters
+  ----------
+
+  d : :class:`golem.DataSet`
+    The data to estimate the sample rate of. Must contain time stamps
+    in ``d.I``
+
+  Returns
+  -------
+  sample_rate : float
+    The estimated samplerate.
+  '''
   if d.ndX.ndim == 2:
     return np.round(1./np.median(np.diff(d.I[0])))
   elif d.ndX.ndim == 3:
@@ -80,8 +94,20 @@ def find_segments(events, event_indices, start_mark, end_mark):
 
 def cut_segments(d, marker_tuples, offsets=[0, 0]):
   '''
-  Cut a dataset into segment using (start_marker, end_marker) tuples.
-  Returns a list with DataSets.
+  Cut a dataset into segments using (start_marker, end_marker) tuples.
+
+  Parameters
+  ----------
+  d : :class:`golem.DataSet`
+    Continuous data to cut into segments.
+  marker_tuples : list of tuples
+    A list of (start_marker, end_marker) marker codes delimiting each
+    type of segment.
+
+  Returns
+  -------
+  data : list of :class:`golem.DataSet`
+    A list with datasets.
   '''
   start_off, end_off = offsets
   segments = []
