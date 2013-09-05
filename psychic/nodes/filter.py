@@ -65,6 +65,52 @@ class OnlineFilter(Filter):
 
     return DataSet(xs=np.hstack(xs), default=d)
 
+class Butterworth(Filter):
+  '''
+  Node that implements a Butterworth IIR filter. It can be used
+  for band-pass, band-stop, low-pass and high-pass filtering.
+
+  Parameters
+  ----------
+  order : int
+    The order of the filter. A higher order means a higher roll-off at the
+    cost of increase computation time and more temporal smearing.
+
+  cutoff : float or tuple (low high)
+    The cutoff frequency (for a low-pass or high-pass filter) or frequencies
+    (for a band-pass or band-stop filter).
+
+  btype : string (default='bandpass')
+    The requested type of filter. Can be one of:
+    
+    - bandpass
+    - bandstop
+    - lowpass
+    - highpass
+
+  axis : int (default 1)
+    The axis along which to apply the filter. This should correspond to the
+    axis that contains the EEG samples. Defaults to 1.
+
+  This node uses :func:`scipy.signal.iirfilter` to design the filter.
+  '''
+  def __init__(self, order, cutoff, btype='bandpass', axis=1):
+      if btype == 'bandpass' or btype == 'bandstop':
+          assert len(cutoff) == 2, 'Please supply a low and high cutoff.'
+
+      if btype == 'bandpass' or btype == 'bandstop':
+          design_func = lambda s: signal.iirfilter(order, [cutoff[0]/(s/2.0),
+              cutoff[1]/(s/2.0)], btype=btype)
+      else:
+          design_func = lambda s: signal.iirfilter(order, cutoff/(s/2.0),
+              btype=btype)
+
+      self.order = order
+      self.cutoff = cutoff
+      self.btype = btype
+
+      Filter.__init__(self, design_func, axis)
+
 class Winsorize(BaseNode):
   def __init__(self, cutoff=[.05, .95]):
     self.cutoff = np.atleast_1d(cutoff)
@@ -160,7 +206,7 @@ class Resample(BaseNode) :
             return d
 
         new_len = int(d.ninstances * self.new_samplerate/float(self.old_samplerate))
-        idx = np.linspace(0, d.ninstances-1, new_len)
+        idx = np.linspace(0, d.ninstances, new_len, endpoint=False)
 
         ys = [];
         for cl in range(d.Y.shape[0]):
