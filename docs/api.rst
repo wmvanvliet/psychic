@@ -18,8 +18,9 @@ Filtering
     :toctree: generated/
     :template: node.rst
 
-    nodes.Filter
+    nodes.Butterworth
     nodes.FFTFilter
+    nodes.Filter
     nodes.Resample
 
 
@@ -55,8 +56,10 @@ Working with trials
     :toctree: generated/
     :template: function.rst
 
-    erp
+    slice
+    concatenate_trials
     baseline
+    erp
     ttest
 
 Utility functions

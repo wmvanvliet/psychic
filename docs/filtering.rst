@@ -6,23 +6,21 @@ example, a :ref:`frequency filter` or a :ref:`moving average`) and on the :ref:`
 (for example :ref:`laplacian filtering` or :ref:`common spatial patterns`).
 
 .. _time domain:
+
 Time domain filters
 -------------------
 
 A time domain filter operates along the time dimension. Tasks for these filters include
 frequency filtering and downsampling of the signal.
 
+.. _frequency filter:
+
 Frequency filters
 +++++++++++++++++
 
 To apply a band-pass, band-stop, low-pass or high-pass frequency filter, the
-:class:`psychic.nodes.Filter` node can be used. This node is a wrapper around
-SciPy's :func:`scipy.signal.filtfilt` function.
-
-This nodes takes a filter design function as main parameter. Good candidates for
-this function are given by :mod:`scipy.signal`. The function takes as input the
-sample rate of the signal and the expected output is a tuple ``(b, a)`` containing
-the filter coefficients, which can be used by :func:`scipy.signal.filtfilt`.
+:class:`psychic.nodes.Butterworth` node can be used. This node is a wrapper around
+SciPy's :func:`scipy.signal.iirfilter` and :func:`scipy.signal.filtfilt` functions.
 
 As an alternative, the :class:`psychic.nodes.FFTFilter` node can be used. It uses
 the (inverse) fourier transform to filter the data. With a large dataset, this can
@@ -37,16 +35,13 @@ Generating a sample EEG signal to work on:
     >>> d = psychic.fake.gaussian(nchannels=4, duration=10, sample_rate=256)
 
 A 4th order Butterworth IIR low-pass filter, suppressing all frequencies **above** 30 Hz:
-    >>> from scipy.signal import iirfilter
-    >>> filter = psychic.nodes.Filter(lamba s: iirfilter(4, 30/(s/2.0), ftype='lowpass'))
+    >>> filter = psychic.nodes.Butterworth(4, 0.5, btype='lowpass')
 
 A 4th order Butterworth IIR high-pass filter, suppressing all frequencies **below** 0.5 Hz:
-    >>> from scipy.signal import iirfilter
-    >>> filter = psychic.nodes.Filter(lamba s: iirfilter(4, 0.5/(s/2.0), ftype='highpass'))
+    >>> filter = psychic.nodes.Butterworth(4, 30, btype='highpass')
 
 A 4th order Butterworth IIR band-pass filter between 0.5-30 Hz:
-    >>> from scipy.signal import iirfilter
-    >>> filter = psychic.nodes.Filter(lamba s: iirfilter(4, [0.5/(s/2.0), 30/(s/2.0)], ftype='bandpass'))
+    >>> filter = psychic.nodes.Butterworth(4, [0.5, 30], btype='bandpass')
 
 Applying the band-pass filter:
     >>> d_filt = filter.train_apply(d, d)
@@ -77,6 +72,7 @@ Resampling the signal to 100 Hz:
     100.0
 
 .. _sensor domain:
+
 Sensor domain filters
 ---------------------
 

@@ -34,7 +34,7 @@ Training the node:
 
 The learned parameters can now be queried:
     >>> print downsample.old_samplerate, downsample.new_samplerate
-    (2000.0, 100.0)
+    2000.0 100.0
 
 To do the actual downsampling:
     >>> downsampled = downsample.apply(eeg)
@@ -51,8 +51,8 @@ performs the intermediate steps in sequence.
 For example, to first band-pass filter the signal and then downsample:
     >>> import golem
     >>>
-    >>> filter = psychic.node.Filter(lambda s: iirfilter(4, [0.5/(s/2.0), 30/(s/2.0)], ftype='bandpass'))
-    >>> downsample = psychic.node.Resample(100.0)
+    >>> filter = psychic.nodes.Butterworth(4, [0.5, 30])
+    >>> downsample = psychic.nodes.Resample(100.0)
     >>> chain = golem.nodes.Chain([filter, downsample])
     >>>
     >>> chain.train(eeg)
@@ -60,8 +60,8 @@ For example, to first band-pass filter the signal and then downsample:
 
 Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
     >>> pipeline = golem.nodes.Chain([
-    >>>     psychic.node.Filter(lambda s: iirfilter(4, [5/(s/2.0), 30/(s/2.0)], ftype='bandpass')),
-    >>>     psychic.node.Resample(100),
-    >>>     psychic.node.SlidingWindow(win_size=400, win_step=50, ref_point=1.0),
-    >>>     psychic.node.MNEC(sample_rate=100, frequencies=[60/7.,  60/6., 60/5., 60/4.])
-    >>> ])
+    ...     psychic.nodes.Butterworth(4, [5, 30]),
+    ...     psychic.nodes.Resample(100),
+    ...     psychic.nodes.SlidingWindow(win_size=400, win_step=50, ref_point=1.0),
+    ...     psychic.nodes.MNEC(sample_rate=100, frequencies=[60/7.,  60/6., 60/5., 60/4.])
+    ... ])

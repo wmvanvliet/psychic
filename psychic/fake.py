@@ -71,7 +71,7 @@ def gaussian(nchannels, duration, sample_rate):
     time = np.arange(duration * sample_rate) / float(sample_rate)
     nsamples = len(time)
 
-    X = np.random.randn((nchannels, nsamples))
+    X = np.random.randn(nchannels, nsamples)
     Y = np.zeros((1, nsamples))
     I = time
 
