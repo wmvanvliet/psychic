@@ -40,8 +40,9 @@ def sine(freq, nchannels, duration, sample_rate):
     X = np.array([np.sin(freq[x] * 2 * np.pi * time) for x in range(nchannels)])
     Y = np.zeros((1, nsamples))
     I = time
+    feat_lab = ['CH %02d' % (ch+1) for ch in range(nchannels)]
 
-    return DataSet(X=X, Y=Y, I=I)
+    return DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)
 
 def gaussian(nchannels, duration, sample_rate):
     '''
@@ -74,5 +75,6 @@ def gaussian(nchannels, duration, sample_rate):
     X = np.random.randn(nchannels, nsamples)
     Y = np.zeros((1, nsamples))
     I = time
+    feat_lab = ['CH %02d' % (ch+1) for ch in range(nchannels)]
 
-    return DataSet(X=X, Y=Y, I=I)
+    return DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)

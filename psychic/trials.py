@@ -40,7 +40,7 @@ def baseline(data, baseline_period=None):
             ndX[:,:,i] = data.ndX[:,:,i] - np.tile( np.mean(data.ndX[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
         X = ndX.reshape(data.X.shape)
 
-    return golem.DataSet(X=X, default=data)
+    return golem.DataSet(X=X, feat_nd_lab=data.feat_nd_lab, default=data)
 
 def erp(data, classes=None, enforce_equal_n=True):
     '''
@@ -240,8 +240,8 @@ def slice(d, markers_to_class, offsets):
 
     Trials can be extracted in the following manner:
 
-    >>> import psychic
-    >>> d = psychic.example_data.finger_tapping()
+    >>> import psychic, golem
+    >>> d = golem.DataSet.load('finger_tapping_trials.dat')
     >>> mdict = {1:'left finger tapping', 2:'right finger tapping'}
     >>> sample_rate = psychic.get_samplerate(d)
     >>> begin = int(-0.2 * sample_rate)
