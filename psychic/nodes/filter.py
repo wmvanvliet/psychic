@@ -189,9 +189,12 @@ class Resample(BaseNode) :
     new_samplerate : float
         Signal will be resampled to this sample rate
 
-    max_marker_delay: int (default=0)
-        Maximum number of samples the markers are allowed to be delayed because
-        of resampling. Generates error if exeeded.
+    max_marker_delay : int (default=0)
+        when downsampling the signal, markers will be moved to the closest
+        sample to avoid being lost. This can result in two markers occuring at
+        the same time, in which case one of the markers will be be delayed to
+        avoid overlap. this parameter specifies the maximum delay (in samples)
+        before an error is generated. 
     '''
     def __init__(self, new_samplerate, max_marker_delay=0):
         BaseNode.__init__(self)
