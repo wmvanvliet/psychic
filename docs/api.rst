@@ -22,7 +22,18 @@ Filtering
     nodes.FFTFilter
     nodes.Filter
     nodes.Resample
+    nodes.Decimate
 
+Working with trials
++++++++++++++++++++
+
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.Slice
+    nodes.SlidingWindow
+    nodes.Baseline
 
 SSVEP
 +++++
