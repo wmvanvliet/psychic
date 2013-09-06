@@ -11,16 +11,13 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   intro
+   dataset
    nodes
    dataformats
    filtering
    trials 
-   util
-   parafac
+   artifacts
    plots
-   markers
-   expinfo
    api
 
 Indices and tables

@@ -7,4 +7,4 @@ setup(name='psychic',
   author='Boris Reuderink, Marijn van Vliet',
   author_email='b.reuderink@gmail.com, w.m.vanvliet@gmail.com',
   packages=['psychic', 'psychic.nodes', 'psychic.tests', 'psychic.dataformats'],
-  )
+)

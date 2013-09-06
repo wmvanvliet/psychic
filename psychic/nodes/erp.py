@@ -1,8 +1,9 @@
 import golem
 from golem.nodes import BaseNode
 import numpy as np
-from ..erp_util import reject_trials
+from ..trials import reject_trials
 from ..trials import baseline
+from ..trials import erp
 import inspect
 
 class Mean(BaseNode):
@@ -19,6 +20,40 @@ class Mean(BaseNode):
         feat_shape = tuple([dim for i,dim in enumerate(d.feat_shape) if i != self.axis])
         feat_dim_lab = [lab for i,lab in enumerate(d.feat_dim_lab) if i != self.axis]
         return golem.DataSet(X=X, feat_shape=feat_shape, feat_dim_lab=feat_dim_lab, default=d)
+
+class ERP(BaseNode):
+    '''
+    For each class, calculate the Event Related Potential by averaging the 
+    corresponding trials. Note: no baselining is performed, see
+    :class:`psychic.nodes.Baseline`.
+
+    Parameters
+    ----------
+    classes: list (optional)
+        When specified, the ERP is only calculated for the classes with the
+        given indices.
+    enforce_equal_n : bool (default=True)
+        When set, each ERP is calculated by averaging the same number of
+        trials. For example, if class1 has m and class2 has n trials and m > n.
+        The ERP for class1 will be calculated by taking n random trials from
+        class1.
+    axis : int (default=2)
+        Axis along which to take the mean. Defaults to 2, which normally
+        correspond to averaging across trials.
+    '''
+
+    def __init__(self, classes=None, enforce_equal_n=True, axis=2):
+        BaseNode.__init__(self)
+        self.classes = classes
+        self.enforce_equal_n = enforce_equal_n
+        self.axis = axis
+
+    def train_(self, d):
+        if self.classes == None:
+            self.classes = range(d.nclasses)
+
+    def apply_(self, d):
+        return erp(d, classes=self.classes, enforce_equal_n=self.enforce_equal_n)
 
 class Blowup(BaseNode):
     """ Blow up dataset """

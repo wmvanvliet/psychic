@@ -22,20 +22,19 @@ Filtering
     nodes.FFTFilter
     nodes.Filter
     nodes.Resample
+    nodes.Decimate
 
-
-SSVEP
-+++++
-
-Classifiers for Steady State Visual Evoked Potentials
+Working with trials
++++++++++++++++++++
 
 .. autosummary::
     :toctree: generated/
     :template: node.rst
 
-    nodes.MNEC
-    nodes.SLIC
-    nodes.CanonCorr
+    nodes.Slice
+    nodes.SlidingWindow
+    nodes.Baseline
+    nodes.ERP
 
 Functions
 ---------
@@ -70,6 +69,8 @@ Utility functions
     :template: function.rst
 
     get_samplerate
+    rereference_rec
+    find_data_path
 
 Simulating data
 +++++++++++++++
@@ -80,3 +81,13 @@ Simulating data
 
     fake.sine
     fake.gaussian
+
+Plotting
+++++++++
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    plot_eeg
+    plot_erp

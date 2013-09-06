@@ -69,8 +69,8 @@
         {%- block navbar -%}
         <div class="navbar">
             <ul>
-                <li><a href="index.html">Home</a></li>
-            <li><a href="{{pathto('auto_examples/index')}}">Examples</a></li>
+              <li><a href="{{pathto('index')}}">Home</a></li>
+              <li><a href="{{pathto('auto_examples/index')}}">Examples</a></li>
             </ul>
 
             <div class="search_form">
@@ -149,11 +149,6 @@
     {%- endif %}
     </div>
     {% endif %}
-
-    {%- if pagename != "install" %}
-      <p class="doc-version">This documentation is for {{project}} <strong>version {{ release|e }}</strong> &mdash; <a href="http://scikit-learn.org/stable/support.html#documentation-resources">Other versions</a></p>
-    {%- endif %}
-    <p class="citing">If you use the software, please consider <a href="{{pathto('about')}}#citing-scikit-learn">citing scikit-learn</a>.</p>
     {{ toc }}
     </div>
 </div>

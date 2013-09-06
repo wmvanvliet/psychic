@@ -240,13 +240,15 @@ def slice(d, markers_to_class, offsets):
 
     Trials can be extracted in the following manner:
 
-    >>> import psychic, golem
-    >>> d = golem.DataSet.load('finger_tapping_trials.dat')
-    >>> mdict = {1:'left finger tapping', 2:'right finger tapping'}
+    >>> import psychic
+    >>> d = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
+    >>> mdict = {1:'related', 2:'unrelated'}
     >>> sample_rate = psychic.get_samplerate(d)
     >>> begin = int(-0.2 * sample_rate)
     >>> end = int(1.0 * sample_rate)
     >>> trials = psychic.slice(d, mdict, (begin, end))
+    >>> print trials
+    DataSet with 208 instances, 12280 features [40x307], 2 classes: [104, 104], extras: []
      
     Parameters
     ----------
@@ -376,7 +378,6 @@ def trial_specgram(d, samplerate=None, NFFT=256):
     if samplerate == None:
         assert d.feat_nd_lab != None, 'Must either supply samplerate or feat_nd_lab to deduce it.'
         samplerate = np.round(1./np.median(np.diff([float(x) for x in d.feat_nd_lab[1]])))
-        print 'samplerate: %.02f' % samplerate
 
     all_TFs = []
     for trial in range(d.ninstances):

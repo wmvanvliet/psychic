@@ -20,26 +20,34 @@ which has two main methods:
     :class:`golem.DataSet`. Returns the resulting data.
 
 For example, to create a node that downsamples the signal to 100 Hz:
-    >>> import psychic
-    >>> downsample = psychic.nodes.Resample(100.0)
+
+>>> import psychic
+>>> downsample = psychic.nodes.Resample(100.0)
+>>> print downsample
+Resample
 
 Before we can use the node, it must know what the current samplerate of the
 signal is. Therefore it must be 'trained' on the data, before it can be 'applied'.
 
 Creating some fake data (10 Hz sine waves, sampled at 2000 Hz):
-    >>> eeg = psychic.fake.sine(freq=10, nchannels=4, duration=5, sample_rate=2000)
+
+>>> eeg = psychic.fake.sine(freq=10, nchannels=4, duration=5, sample_rate=2000)
 
 Training the node:
-    >>> downsample.train(eeg)
+
+>>> print downsample.train(eeg)
+Resample
 
 The learned parameters can now be queried:
-    >>> print downsample.old_samplerate, downsample.new_samplerate
-    2000.0 100.0
+
+>>> print downsample.old_samplerate, downsample.new_samplerate
+2000.0 100.0
 
 To do the actual downsampling:
-    >>> downsampled = downsample.apply(eeg)
-    >>> print psychic.get_samplerate(downsampled)
-    100.0
+
+>>> downsampled = downsample.apply(eeg)
+>>> print psychic.get_samplerate(downsampled)
+100.0
 
 Chaining nodes
 --------------
@@ -49,19 +57,21 @@ the special :class:`golem.nodes.Chain` node. A chain of nodes behaves like a sin
 performs the intermediate steps in sequence.
 
 For example, to first band-pass filter the signal and then downsample:
-    >>> import golem
-    >>>
-    >>> filter = psychic.nodes.Butterworth(4, [0.5, 30])
-    >>> downsample = psychic.nodes.Resample(100.0)
-    >>> chain = golem.nodes.Chain([filter, downsample])
-    >>>
-    >>> chain.train(eeg)
-    >>> filtered_downsampled = chain.apply(eeg)
+
+>>> import golem
+>>>
+>>> filter = psychic.nodes.Butterworth(4, [0.5, 30])
+>>> downsample = psychic.nodes.Resample(100.0)
+>>> chain = golem.nodes.Chain([filter, downsample]).train(eeg)
+>>> filtered_downsampled = chain.apply(eeg)
 
 Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
-    >>> pipeline = golem.nodes.Chain([
-    ...     psychic.nodes.Butterworth(4, [5, 30]),
-    ...     psychic.nodes.Resample(100),
-    ...     psychic.nodes.SlidingWindow(win_size=400, win_step=50, ref_point=1.0),
-    ...     psychic.nodes.MNEC(sample_rate=100, frequencies=[60/7.,  60/6., 60/5., 60/4.])
-    ... ])
+
+>>> ssvep_data = golem.DataSet.load(psychic.find_data_path('ssvep-cluedo.dat'))
+>>> pipeline = golem.nodes.Chain([
+...     psychic.nodes.Butterworth(2, [1, 30]),
+...     psychic.nodes.SlidingWindow(win_size=20, win_step=20),
+...     psychic.nodes.CanonCorr(sample_rate=128, frequencies=[60/7.,  60/6., 60/5., 60/4.])
+... ])
+>>> print golem.perf.accuracy(pipeline.train_apply(ssvep_data, ssvep_data))
+1.0
