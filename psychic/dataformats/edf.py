@@ -145,6 +145,25 @@ def load_edf(fname, annotation_to_marker):
   annotation_to_marker is a dictionary containing events to keep. This is a
   bit of an hack, but we need to cast the free-form annotations of EDF+ into
   a structured event channel.
+
+  Parameters
+  ----------
+  fname : string
+    The file name of the EDF file to load
+  annotation_to_marker : :class:`dict`
+    A dictionary mapping EDF annotation strings to integer
+    values. 
+
+  Returns
+  -------
+  d : :class:`golem.DataSet` 
+    The loaded data:
+
+      - ``d.X`` will be the [channels x samples] EEG data
+      - ``d.Y`` will contain the status channel
+      - ``d.feat_lab`` will contain the channel names
+      - ``d.I`` will contain timestamps for each sample
+
   '''
   log = logging.getLogger('psychic.utils.load_edf')
   assert 0 not in annotation_to_marker.values()

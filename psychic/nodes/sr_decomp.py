@@ -57,7 +57,7 @@ class SRDecomp(BaseNode):
                     (E[:,i]*self.Y_bar[j,:] - self.E_bar*Y[j,:,i]) / D[:,i], # Formula 10 in paper
                     axis=0))
 
-        return golem.DataSet(X=sc.reshape((-1, d.ninstances)), default=d)
+        return golem.DataSet(ndX=sc, default=d)
 
 def sr_decomp(s, rt):
     '''
@@ -116,8 +116,10 @@ def sr_decomp(s, rt):
     E_bar = np.mean(E, axis=1)
 
     # Preconstruct the denominator
-    D = E.copy()
-    D[0] = 1 # To prevent dividing by 0
+    D = np.zeros((nsamples, ntrials), dtype=np.complex)
+    for i in range(ntrials):
+        D[:,i] = E[:,i] - E_bar
+    D[0,:] = 1 # To prevent dividing by 0
 
     # Estimate the stimulus locked component
     sc = np.zeros(s.shape)

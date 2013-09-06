@@ -7,7 +7,19 @@ from matplotlib.mlab import specgram
 
 def baseline(data, baseline_period=None):
     '''
-    Remove the mean calculated over a certain period from the data.
+    For each channel, calculate and remove the baseline. The baseline is the
+    mean signal calculated over a certain time period.
+
+    Parameters
+    ----------
+    baseline_period : tuple (int, int)
+        The start (inclusive) and end (exclusive) indices of the period to
+        calculate the baseline over. Values are given in samples.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        The baselined trials.
     '''
     if baseline_period:
         assert len(baseline_period) == 2, 'Specify a begin and end point for the baseline period (in samples)'
@@ -30,10 +42,32 @@ def baseline(data, baseline_period=None):
 
     return golem.DataSet(X=X, default=data)
 
-def erp(data, n=0, classes=None, enforce_equal_n=True):
+def erp(data, classes=None, enforce_equal_n=True):
     '''
     For each class, calculate the Event Related Potential by averaging the 
-    corresponding trials.
+    corresponding trials. Note: no baselining is performed, see
+    :func:`psychic.baseline`.
+
+    Parameters
+    ----------
+    data : :class:`golem.DataSet`
+        The trials
+    classes: list (optional)
+        When specified, the ERP is only calculated for the classes with the
+        given indices.
+    enforce_equal_n : bool (default=True)
+        When set, each ERP is calculated by averaging the same number of
+        trials. For example, if class1 has m and class2 has n trials and m > n.
+        The ERP for class1 will be calculated by taking n random trials from
+        class1.
+    
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        A golem DataSet containing for each class the ERP. 
+
+        - ``d.ndX``: [channels x samples x classes]
+        - ``d.Y``: The class labels. Each class has one instance (one ERP).
     '''
     assert data.ndX.ndim > 2
 
@@ -67,16 +101,31 @@ def erp(data, n=0, classes=None, enforce_equal_n=True):
 
     return golem.DataSet(X=X, Y=Y, I=I, feat_shape=feat_shape, cl_lab=cl_lab, default=data)
 
-def ttest(data, classes=None, shuffle=True):
+def ttest(data, classes=[0, 1], shuffle=True):
     '''
-    Calculate ttests between classes for each channel and each sample.
+    Calculate ttests between two classes for each channel and each sample. If
+    one class has more trials than the other, random trials will be taken to
+    ensure an equal number of trials.
+
+    Parameters
+    ----------
+
+    classes : list (default=[0, 1])
+        The indices of the classes to compare.
+    shuffle : bool (default=False)
+        When set, trials will be shuffled prior to comparison.
+
+    Returns
+    -------
+    t-values: [channels x samples] array
+        The t-values 
+
+    p-values: [channels x samples] array
+        The p-values 
     '''
     assert data.nd_xs.ndim == 3
     assert data.nclasses >= 2, ('Data must contain at least two classes ',
                                 'otherwise there is nothing to compare.')
-
-    if classes == None:
-        classes = [0,1]
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
@@ -93,7 +142,21 @@ def ttest(data, classes=None, shuffle=True):
     return scipy.stats.ttest_ind(c1, c2, axis=2)
 
 def random_groups(d, size):
-    """ For each class, form groups of random trials of the given size """
+    '''
+    For each class, form groups of random trials of the given size.
+
+    Parameters
+    ----------
+    d : :class:`golem.DataSet`
+        The trials.
+    size : int
+        Size of the groups to make.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        The grouped data. ``d.ndX`` is [channels x samples x trials x groups]
+    '''
 
     d_trials = None
     idxs = []
@@ -123,36 +186,91 @@ def random_groups(d, size):
 
     return (d_trials, np.hstack(idxs))
 
-def reject_trials(d, cutoff=100, range=None):
+def reject_trials(d, cutoff=100, time_range=None):
     '''
-    Reject trials by thresholding the maximum amplitude. 
-    TODO: Make this function automatically detect outliers
+    Reject trials by thresholding the absolute amplitude. 
 
-    required parameters:
-    d: The dataset to filter
+    Parameters
+    ----------
 
-    optional parameters:
-    cutoff: Any trials with a feature larger than this value are rejected
-            [100]
-    range:  (begin,end) Range along the 2nd dimension (samples) for which 
-            to apply the thresholding [all samples].
+    d : :class:`golem.DataSet`
+        The dataset to filter.
+    cutoff : float (default=100)
+        Any trials with a feature larger than this value are rejected.
+        Alternatively, a list containing cutoff values for each channel can be
+        specified. 
+    time_range : tuple (default=all samples)
+        Range (begin, end) for which to apply the thresholding. Values are
+        given as sample indices.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        Filtered dataset.
+    reject : :class:`numpy.Array`
+        Boolean mask used to reject indices.
     '''
+    if time_range == None:
+        time_range = (0, d.ndX.shape[1])
 
-    if range == None:
-        range = (0, d.ndX.shape[1])
+    if hasattr(cutoff, '__iter__'):
+        nchannels = d.ndX.shape[0]
+        assert len(cutoff) == nchannels
 
-    reject = np.any(
-               np.any(
-                 np.abs(d.ndX[:,range[0]:range[1],:]) > cutoff,
-                 axis=0),
-               axis=0)
+        reject = np.any(
+            [np.any(np.abs(d.ndX[i,time_range[0]:time_range[1],:]) > cutoff[i], axis=0)
+                for i in range(nchannels)],
+            axis=0)
+    else:
+        reject = np.any(np.any(np.abs(d.ndX[:,time_range[0]:time_range[1],:]) > cutoff, axis=0), axis=0)
 
-    return d[np.logical_not(reject)]
+    reject = np.logical_not(reject)
+
+    return (d[reject], reject)
 
 def slice(d, markers_to_class, offsets):
     '''
-    Slice function, used to extract fixed-length segments of EEG from a recording.
-    Returns [channel x frames x segment]
+    Slice function, used to extract fixed-length segments (called trials) of
+    EEG from a recording. Opposite of :func:`psychic.concatenate_trials`.
+    Segments are sliced based on the onset of some event code.
+
+    Given for example an EEG recording which contains two marker codes:
+
+    1. Left finger tapping
+    2. Right finger tapping
+
+    Trials can be extracted in the following manner:
+
+    >>> import psychic, golem
+    >>> d = golem.DataSet.load('finger_tapping_trials.dat')
+    >>> mdict = {1:'left finger tapping', 2:'right finger tapping'}
+    >>> sample_rate = psychic.get_samplerate(d)
+    >>> begin = int(-0.2 * sample_rate)
+    >>> end = int(1.0 * sample_rate)
+    >>> trials = psychic.slice(d, mdict, (begin, end))
+     
+    Parameters
+    ----------
+    markers_to_class : dict
+        A dictionary containing as keys the event codes to use as onset of the
+        trial and as values a class label for the resulting trials. For example
+        ``{1:'left finger tapping', 2:'right finger tapping'}``
+    offsets : tuple
+        Indicates the time (start, end), relative to the onset of marker, to
+        extract as trial. Values are given in samples.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        The extracted segments:
+
+        - ``d.ndX``: [channels x samples x trials]
+        - ``d.Y``: [classes x trials]
+        - ``d.I``: Timestamps indicating the marker onsets
+        - ``d.cl_lab``: The class labels as specified in the ``markers_to_class``
+          dictionary
+        - ``d.feat_nd_lab``: Feature labels for the axes [channels (strings),
+          time in seconds (floats)]
     '''
     assert len(d.feat_shape) == 1
     assert d.nclasses == 1
@@ -184,6 +302,7 @@ def slice(d, markers_to_class, offsets):
     event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
     feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], event_time.tolist()]
     feat_dim_lab = ['channels', 'time']
+
     d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
     feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
     feat_dim_lab=feat_dim_lab, default=d)
@@ -191,8 +310,27 @@ def slice(d, markers_to_class, offsets):
 
 def concatenate_trials(d):
     '''
-    Concatenate trials into a single stream of EEG. Opposite of slice.
-    Returns [channel x frames]
+    Concatenate trials into a single stream of EEG. Opposite of
+    :func:`psychic.slice`.
+
+    Parameters
+    ----------
+    d : :class:`golem.DataSet`
+        Some sliced data.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        A version of the data where the slices are concatenated:
+
+        - ``d.ndX``: [channels x samples]
+        - ``d.Y``: A reconstructed marker stream. All zeros except for the onsets
+          of the trials, where it contains the marker code indicating the class
+          of the trial. This simulated the data as it would be a continuous
+          recording.
+        - ``d.I``: Timestamps for each sample
+        - ``d.feat_lab``: This is set to ``d.feat_nd_lab[0]``, which usually
+          contains the channel names.
     '''
     assert d.ndX.ndim == 3, 'Expecting sliced data'
 
@@ -209,6 +347,30 @@ def concatenate_trials(d):
     return golem.DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)
 
 def trial_specgram(d, samplerate=None, NFFT=256):
+    '''
+    Calculate a spectrogram for each channel and each trial. 
+
+    Parameters
+    ----------
+
+    d : :class:`golem.DataSet`
+        The trials.
+    samplerate : float
+        The sample rate of the data. When omitted,
+        :func:`psychic.get_samplerate` is used to estimate the sample rate.
+    NFFT : int
+        Number of FFT points to use to calculate the spectrograms.
+
+    Returns
+    -------
+    d : :class:`golem.DataSet`
+        The spectrograms:
+
+        - ``d.ndX``: [channels x freqs x samples x trials]
+        - ``d.feat_nd_lab``: The feature labels for the axes [channels
+          (strings), frequencies (floats), time in seconds (floats)]
+
+    '''
     assert d.ndX.ndim == 3
 
     if samplerate == None:

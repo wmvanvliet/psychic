@@ -2,6 +2,7 @@ import golem
 from golem.nodes import BaseNode
 import numpy as np
 from ..erp_util import reject_trials
+from ..trials import baseline
 import inspect
 
 class Mean(BaseNode):
@@ -108,10 +109,62 @@ class RejectTrials(BaseNode):
     Node that rejects trials which features that exceed a certain threshold.
     Wrapper around psychic.reject_trials()
     """
-    def __init__(self, cutoff=0, range=None):
+    def __init__(self, cutoff=100, std_cutoff=False, range=None):
         BaseNode.__init__(self)
         self.cutoff = cutoff
+        self.std_cutoff = std_cutoff
         self.range = range
+        self.trained = False
+
+    def train_(self, d):
+        nchannels = d.ndX.shape[0]
+        if self.std_cutoff:
+            self.channel_stds = np.array([np.std(d.ndX[i,...]) for i in range(nchannels)])
+            self.cutoff = self.cutoff * self.channel_stds
+        self.trained = True
 
     def apply_(self, d):
-        return reject_trials(d, self.cutoff, self.range)
+        assert (not self.std_cutoff or self.trained), \
+            'When specifying the cutoff in terms of standard deviations, training of the node is mandatory.'
+
+        d, self.reject_mask = reject_trials(d, self.cutoff, self.range)
+        self.log.info('Rejected %d trials' % len(np.flatnonzero(np.logical_not(self.reject_mask))))
+        return d
+
+class Baseline(BaseNode):
+    '''
+    Node that performs baselining on trials. For each channel, the baseline
+    voltage is calculate by averaging over the baseline period. The baseline
+    voltage is then substracted from the signal.
+
+    The baseline period is specified as a tuple (begin, end) of two timestamps.
+    These timestamps are compared with ``d.feat_nd_lab[1]`` to determine the
+    corresponding range in terms of samples. For this to work,
+    ``d.feat_nd_lab[1]`` must contain a meaningfull list of timestamps: one for
+    each EEG sample. Trials extracted through :class:`psychic.nodes.Slice`` and
+    :class:`psychic.nodes.SlidingWindow` contain these timestamps.
+
+    See section :ref:`baseline` in the documentation for an example usage.
+
+    Parameters
+    ----------
+    baseline_period : tuple (float, float) (default=entire trial)
+        The start and end (inclusive) of the period to calculate the baseline
+        over. Values are given in seconds relative to the timestamps contained
+        in ``d.feat_nd_lab[1]``.
+    '''
+
+    def __init__(self, baseline_period=None):
+        BaseNode.__init__(self)
+        self.baseline_period = baseline_period
+
+    def train_(self, d):
+        if self.baseline_period == None:
+            self.begin_idx = 0
+            self.end_idx = -1
+        else:
+            self.begin_idx = np.searchsorted(d.feat_nd_lab[1], self.baseline_period[0])
+            self.end_idx = np.searchsorted(d.feat_nd_lab[1], self.baseline_period[1]) + 1
+
+    def apply_(self, d):
+        return baseline(d, [self.begin_idx, self.end_idx])
