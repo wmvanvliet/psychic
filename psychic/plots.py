@@ -359,7 +359,10 @@ def plot_erp(
     channels_per_subplot = int(np.ceil(num_channels / float(num_subplots)))
 
     for subplot in range(num_subplots):
-        axes = plot.subplot(1, num_subplots, subplot+1)
+        if num_subplots == 1:
+            axes = plot.gca()
+        else:
+            axes = plot.subplot(1, num_subplots, subplot+1)
 
         # Determine channels to plot
         channels = np.arange(
