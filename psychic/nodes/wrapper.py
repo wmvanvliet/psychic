@@ -1,7 +1,7 @@
 import numpy as np
 import golem
 from ..utils import get_samplerate
-from ..erp_util import slice
+from ..trials import slice
 from ..filtering import decimate_rec
 from golem.nodes import BaseNode
 from ..markers import markers_to_events
@@ -19,11 +19,13 @@ class Slice(BaseNode):
   
   Trials can be extracted in the following manner:
   
-  >>> import psychic, golem
-  >>> d = golem.DataSet.load('finger_tapping_trials.dat')
-  >>> mdict = {1:'left finger tapping', 2:'right finger tapping'}
+  >>> import psychic
+  >>> d = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
+  >>> mdict = {1:'related', 2:'unrelated'}
   >>> slicer = psychic.nodes.Slice(mdict, (-0.2, 1.0))
   >>> trials = slicer.train_apply(d, d)
+  >>> print trials
+  DataSet with 208 instances, 12280 features [40x307], 2 classes: [104, 104], extras: []
    
   Parameters
   ----------

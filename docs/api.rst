@@ -91,3 +91,13 @@ Simulating data
 
     fake.sine
     fake.gaussian
+
+Plotting
+++++++++
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    plot_eeg
+    plot_erp

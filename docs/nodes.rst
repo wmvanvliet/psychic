@@ -66,9 +66,11 @@ For example, to first band-pass filter the signal and then downsample:
 
 Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
 
+>>> ssvep_data = golem.DataSet.load(psychic.find_data_path('ssvep-cluedo.dat'))
 >>> pipeline = golem.nodes.Chain([
-...     psychic.nodes.Butterworth(4, [5, 30]),
-...     psychic.nodes.Resample(100),
-...     psychic.nodes.SlidingWindow(win_size=4, win_step=0.5, ref_point=1.0),
-...     psychic.nodes.MNEC(sample_rate=100, frequencies=[60/7.,  60/6., 60/5., 60/4.])
+...     psychic.nodes.Butterworth(2, [1, 30]),
+...     psychic.nodes.SlidingWindow(win_size=20, win_step=20),
+...     psychic.nodes.MNEC(sample_rate=128, frequencies=[60/7.,  60/6., 60/5., 60/4.])
 ... ])
+>>> print golem.perf.accuracy(pipeline.train_apply(ssvep_data, ssvep_data))
+1.0

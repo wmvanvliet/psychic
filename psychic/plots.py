@@ -121,7 +121,54 @@ def plot_eeg(
          mlinestyles=['-','-','-','-','-','-','-','-'],
          mlinewidths=[1,1,1,1,1,1,1,1],
          start=0):
-    ''' Plot EEG data contained in a golem dataset. '''
+    '''
+    Plot EEG data contained in a golem dataset.
+
+    Parameters
+    ----------
+    data : :class:`golem.DataSet`
+        The data to plot. Assumed to be continuous data (channels x time)
+    samplerate : float (optional)
+        The sample rate of the data. When omitted,
+        :func:`psychic.get_samplerate` is used to estimate it.
+    vspace : float (optional)
+        The amount of vertical spacing between channels. When omitted, the
+        minimum value is taken so that no channels overlap.
+    draw_markers : bool (default=True)
+        When set, event markers are drawn as vertical lines in the plot.
+    mirror_y : bool (default=False)
+        When set, negative is plotted up. Some publications use this style
+        of plotting.
+    fig : :class:`matplotlib.Figure` (optional)
+        Normally, a new figure is created to hold the plot. However, the user
+        can specify the figure in which to draw. This is useful if the user
+        wants to remain in control of the size of the figure and the location
+        of the axes.
+    mcolors : list (optional)
+        Sets a color for each marker type. The vertical lines and text labels for
+        events of a given type will be drawn in the specified color. Values are given
+        as matplotlib color specifications.
+        See: http://matplotlib.org/api/colors_api.html
+    mlinestyles : list (optional)
+        Line style specifications for each marker type.
+        See: http://matplotlib.org/1.3.0/api/pyplot_api.html#matplotlib.pyplot.plot
+    mlinewidths : list (optional)
+        Line width specifications for each marker type. Vertical lines are
+        drawn at the specified widths. Values are given in points.
+    start : float (default=0)
+        Time which is to be taken as t=0. Normally when plotting a time range,
+        the time axis will reflect absolute time. For example, when plotting
+        the time range 2 to 4 seconds, the time axis will start at 2 seconds.
+        Setting the ``start`` parameter to 2 will in this case make the time
+        axis range from 0 to 2 seconds, and setting this parameter to 3 will
+        make the time axis range from -1 to 1 seconds.
+
+    Returns
+    -------
+    fig : :class:`matplotlib.Figure`
+        The figure object containing the plot. When a figure is specified with
+        the ``fig`` parameter, the same figure is returned.
+    '''
 
     assert data.X.ndim == 2
 
@@ -222,7 +269,7 @@ def plot_specgrams(
 def plot_erp(
         data,
         samplerate=None,
-        baseline_period=(0,0),
+        classes=None,
         vspace=None,
         cl_lab=None,
         ch_lab=None,
@@ -235,52 +282,100 @@ def plot_erp(
         colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
         linestyles=['-','-','-','-','-','-','-','-'],
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
-        classes=None,
-        enforce_equal_n=True,
         fwer=fwer.benjamini_hochberg,
         np_test=False,
-        np_iter=1000
+        np_iter=1000,
+        baseline_period=(0,0),
+        enforce_equal_n=True,
     ):
     '''
     Create an Event Related Potential plot which aims to be as informative as
     possible. The result is aimed to be a publication ready figure, therefore
-    this function supplies a lot of customization.
+    this function supplies a lot of customization. The input can either be a 
+    sliced dataset (``d.ndX`` = [channels x samples x trials]) or a readily computed
+    ERP given by :class:`psychic.nodes.ERP` or :func:`psychic.erp`.
 
-    Required arguments:
-    data - A sliced Golem dataset that will be displayed
+    When possible, regions where ERPs differ significantly are shaded. This is
+    meant to be an early indication of area's of interest and not meant as
+    sound statistical evidence of an actual difference. When a sliced dataset
+    is given, which contains two classes (or two classes are specified using
+    the ``classes`` parameter) t-tests are performed for each sample.
+    Significant sections (see the ``pval`` parameter) are drawn shaded.
+    P-values are corrected using the Benjamini-Hochberg method. See the
+    ``fwer`` parameter for other corrections (or to disable it). See the
+    ``np_test`` parameter for a better (but slower) non-parametric test to
+    determine significant regions.
 
-    Optional arguments:
-    samplerate - By default determined through data.feat_nd_lab[0], but can be
-                 specified when missing.
-    vspace     - Amount of vertical space between the ERP traces, by default
-                 the minumum value so traces don't overlap.
-    cl_lab     - List with a label for each class, by default taken from
-                 data.cl_lab, but can be specified if missing.
-    ch_lab     - List of channel labels, by default taken from data.feat_nd_lab[1], 
-                 but can be specified if missing.
-    draw_scale - Whether to draw a scale next to the plot (defaults to True).
-    ncols      - Number of columns to use for layout (default nchannels/15)
-    start      - Time used as T0, by default timing is taken from
-                 data.feat_nd_lab[0], but can be specified if missing.
-    fig        - If speficied, a reference to the figure in which to draw
-                 the ERP plot. By default a new figure is created.
-    pval       - Minimum p-value at which to color significant regions, set
-                 to 0 to disable it completely.
-    fwer       - Method for pval adjustment to correct for family-wise
-                 errors rising from performing multiple t-tests, choose one of
-                 the methods from the psychic.fwer module, or specify None to
-                 disable this correction. Defaults to fwer.benjamini_hochberg.
-    np_test    - Perform a non-parametric test to determine significant regions.
-                 This is much slower, but a much more powerful statistical
-                 method that deals correctly with the family-wise error
-                 problem. When this method is used, the `fwer` parameter is
-                 ignored. Defaults to False.
-    np_iter    - Number of iterations to perform when using the non-parametric
-                 test. Higher means a better approximation of the true p-values,
-                 at the cost of longer computation time. Defaults to 1000.
+    Parameters
+    ----------
+    data : :class:`golem.DataSet`
+        A sliced Golem dataset that will be displayed.
+    classes : list (default=all)
+        When specified, ERPs will be drawn only for the classes with the given
+        indices.
+    vspace : float (optional)
+        Amount of vertical space between the ERP traces, by default the minumum
+        value so traces don't overlap.
+    samplerate : float (optional)
+        By default determined through ``data.feat_nd_lab[0]``, but can be
+        specified when missing.
+    cl_lab : list (optional)
+        List with a label for each class, by default taken from
+        ``data.cl_lab``, but can be specified if missing.
+    ch_lab : list (optional)
+        List of channel labels, by default taken from ``data.feat_nd_lab[1]``,
+        but can be specified if missing.
+    draw_scale : bool (default=True)
+        Whether to draw a scale next to the plot.
+    ncols : int (default=nchannels/15)
+        Number of columns to use for layout.
+    start : float (optional)
+        Time used as T0, by default timing is taken from
+        ``data.feat_nd_lab[0]``, but can be specified if missing.
+    fig : :class:`matplotlib.Figure`
+        If speficied, a reference to the figure in which to draw the ERP plot.
+        By default a new figure is created.
+    mirror_y : bool (default=False)
+        When set, negative is plotted up. Some publications use this style
+        of plotting.
+    colors : list (optional)
+        Sets a color for each ERP. Values are given as matplotlib color specifications.
+        See: http://matplotlib.org/api/colors_api.html
+    linestyles : list (optional)
+        Line style specifications for each ERP.
+        See: http://matplotlib.org/1.3.0/api/pyplot_api.html#matplotlib.pyplot.plot
+    linewidths : list (optional)
+        Line width specifications for each ERP. Values are given in points.
+    pval : float (default=0.05)
+        Minimum p-value at which to color significant regions, set to 0 to
+        disable it completely.
+    fwer : function (default = :func:`psychic.fwer.benjamini_hochberg`)
+        Method for pval adjustment to correct for family-wise errors rising
+        from performing multiple t-tests, choose one of the methods from the
+        :mod:`psychic.fwer` module, or specify ``None`` to disable this
+        correction.
+    np_test : bool (default=False)
+        Perform a non-parametric test to determine significant regions.  This
+        is much slower, but a much more powerful statistical method that deals
+        correctly with the family-wise error problem. When this method is used,
+        the ``fwer`` parameter is ignored.
+    np_iter : int (default=1000)
+        Number of iterations to perform when using the non-parametric test.
+        Higher means a better approximation of the true p-values, at the cost
+        of longer computation time.
+    baseline_period : tuple of ints (default=None)
+        When specified, trials are first baselined using the given baseline
+        period. By default no baselining is performed. Values are given in
+        samples. See also the :class:`psychic.nodes.Baseline` node.
+    enforce_equal_n : bool (default=True)
+        Enforce that each ERP is calculated using the same number of trials. If
+        one of the classes has more trials than the others, a random subset of
+        the corresponding trials will be taken.
 
-    Returns:
-    A handle to the matplotlib figure.
+    Returns
+    -------
+    fig : :class:`matplotlib.Figure`
+        A handle to the matplotlib figure.
     '''
 
     assert data.ndX.ndim == 3, 'Expecting sliced data'
