@@ -187,8 +187,8 @@ def plot_eeg(
     # Plot EEG
     fig.subplots_adjust(right=0.85)
     axes = plot.subplot(111)
-    _draw_eeg_frame(num_channels, vspace, data.I.T, data.feat_lab, mirror_y)
-    plot.plot(data.I.T, to_plot.T)
+    _draw_eeg_frame(num_channels, vspace, data.I.T-start, data.feat_lab, mirror_y)
+    plot.plot(data.I.T-start, to_plot.T)
 
     # Draw markers
     if draw_markers:
@@ -212,8 +212,6 @@ def plot_eeg(
     plot.ylabel('Channels')
     plot.xlabel('Time (s)')
     plot.grid()
-
-    plot.xlim(np.min(data.I), np.max(data.I))
 
     return fig
 
@@ -317,21 +315,21 @@ def plot_erp(
         Amount of vertical space between the ERP traces, by default the minumum
         value so traces don't overlap.
     samplerate : float (optional)
-        By default determined through ``data.feat_nd_lab[0]``, but can be
+        By default determined through ``data.feat_nd_lab[1]``, but can be
         specified when missing.
     cl_lab : list (optional)
         List with a label for each class, by default taken from
         ``data.cl_lab``, but can be specified if missing.
     ch_lab : list (optional)
-        List of channel labels, by default taken from ``data.feat_nd_lab[1]``,
+        List of channel labels, by default taken from ``data.feat_nd_lab[0]``,
         but can be specified if missing.
     draw_scale : bool (default=True)
         Whether to draw a scale next to the plot.
     ncols : int (default=nchannels/15)
         Number of columns to use for layout.
-    start : float (optional)
+    start : float (default=0)
         Time used as T0, by default timing is taken from
-        ``data.feat_nd_lab[0]``, but can be specified if missing.
+        ``data.feat_nd_lab[1]``, but can be specified if missing.
     fig : :class:`matplotlib.Figure`
         If speficied, a reference to the figure in which to draw the ERP plot.
         By default a new figure is created.
@@ -446,7 +444,7 @@ def plot_erp(
     elif data.feat_nd_lab != None:
         ids = np.array(data.feat_nd_lab[1], dtype=float) - start
     else:
-        ids = np.arange(num_samples)
+        ids = np.arange(num_samples) - start
 
     # Plot ERP
     if fig == None:
@@ -459,7 +457,7 @@ def plot_erp(
 
     for subplot in range(ncols):
         if ncols > 1:
-            axes = plot.subplot(1, ncols, subplot+1)
+            plot.subplot(1, ncols, subplot+1)
 
         # Determine channels to plot
         channels = np.arange(

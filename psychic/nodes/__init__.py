@@ -5,7 +5,7 @@ from filter import Butterworth, Filter, OnlineFilter, Winsorize, FFTFilter, Resa
 from window import SlidingWindow, OnlineSlidingWindow 
 from wrapper import Decimate, Slice, OnlineSlice
 from nonstat import SlowSphering
-from erp import Mean, Blowup, RejectTrials, Baseline
+from erp import Mean, Blowup, RejectTrials, Baseline, ERP
 from ssvep import SLIC, SSVEPNoiseReduce, MNEC, CanonCorr, MSI
 from sr_decomp import SRDecomp
 from eogcorr import EOGCorr

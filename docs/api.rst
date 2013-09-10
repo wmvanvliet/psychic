@@ -34,19 +34,7 @@ Working with trials
     nodes.Slice
     nodes.SlidingWindow
     nodes.Baseline
-
-SSVEP
-+++++
-
-Classifiers for Steady State Visual Evoked Potentials
-
-.. autosummary::
-    :toctree: generated/
-    :template: node.rst
-
-    nodes.MNEC
-    nodes.SLIC
-    nodes.CanonCorr
+    nodes.ERP
 
 Functions
 ---------
@@ -81,6 +69,7 @@ Utility functions
     :template: function.rst
 
     get_samplerate
+    find_data_path
 
 Simulating data
 +++++++++++++++

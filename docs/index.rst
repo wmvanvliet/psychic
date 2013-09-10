@@ -15,6 +15,7 @@ Contents:
    dataformats
    filtering
    trials 
+   artifacts
    plots
    api
 

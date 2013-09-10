@@ -1,3 +1,5 @@
+.. _trials:
+
 Managing trials
 ===============
 
@@ -92,3 +94,29 @@ An example usage of the :class:`psychic.nodes.Baseline` node:
 >>> trials_baselined = baseliner.train_apply(trials, trials)
 >>> print trials_baselined
 DataSet with 208 instances, 12280 features [40x307], 2 classes: [104, 104], extras: []
+
+Constructing ERPs
+-----------------
+
+By averaging trials, the Event-Related Potentials (ERPs) can be studied. The theory is
+that by averaging, any activity that is similar across trials remains, while any activity
+that differs between trials cancels out.
+
+Before doing such analysis, it's important that the ERPs will be lined up correctly. Which
+means frequency filtering (:ref:`frequency filter`) and baselining (:ref:`baseline`) the data
+first.
+
+The :class:`psychic.nodes.ERP` node constructs an ERP by averaging the trials
+belonging to each class. The result is a dataset with the ERPs:
+
+ - ``d.ndX``: [channels x samples x classes] The ERP data 
+ - ``d.Y``: [classes x classes] Identity matrix mapping one ERP to each class
+ - ``d.cl_lab``: The class labels
+
+>>> import golem
+>>> trials = golem.DataSet.load(psychic.find_data_path('priming-trials.dat'))
+>>> trials = psychic.nodes.Butterworth(4, (0.01, 30)).train_apply(trials, trials)
+>>> trials = psychic.nodes.Baseline((-0.2, 0)).train_apply(trials, trials)
+>>> erp = psychic.nodes.ERP().train_apply(trials, trials)
+>>> print erp
+DataSet with 2 instances, 12280 features [40x307], 2 classes: [1, 1], extras: []

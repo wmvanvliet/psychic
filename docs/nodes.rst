@@ -23,6 +23,8 @@ For example, to create a node that downsamples the signal to 100 Hz:
 
 >>> import psychic
 >>> downsample = psychic.nodes.Resample(100.0)
+>>> print downsample
+Resample
 
 Before we can use the node, it must know what the current samplerate of the
 signal is. Therefore it must be 'trained' on the data, before it can be 'applied'.
@@ -33,7 +35,8 @@ Creating some fake data (10 Hz sine waves, sampled at 2000 Hz):
 
 Training the node:
 
->>> downsample.train(eeg)
+>>> print downsample.train(eeg)
+Resample
 
 The learned parameters can now be queried:
 
@@ -59,9 +62,7 @@ For example, to first band-pass filter the signal and then downsample:
 >>>
 >>> filter = psychic.nodes.Butterworth(4, [0.5, 30])
 >>> downsample = psychic.nodes.Resample(100.0)
->>> chain = golem.nodes.Chain([filter, downsample])
->>>
->>> chain.train(eeg)
+>>> chain = golem.nodes.Chain([filter, downsample]).train(eeg)
 >>> filtered_downsampled = chain.apply(eeg)
 
 Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
@@ -70,7 +71,7 @@ Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
 >>> pipeline = golem.nodes.Chain([
 ...     psychic.nodes.Butterworth(2, [1, 30]),
 ...     psychic.nodes.SlidingWindow(win_size=20, win_step=20),
-...     psychic.nodes.MNEC(sample_rate=128, frequencies=[60/7.,  60/6., 60/5., 60/4.])
+...     psychic.nodes.CanonCorr(sample_rate=128, frequencies=[60/7.,  60/6., 60/5., 60/4.])
 ... ])
 >>> print golem.perf.accuracy(pipeline.train_apply(ssvep_data, ssvep_data))
 1.0

@@ -1,0 +1,2 @@
+Dealing with artifacts
+======================
