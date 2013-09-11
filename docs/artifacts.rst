@@ -1,2 +1,4 @@
 Dealing with artifacts
 ======================
+
+

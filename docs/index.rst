@@ -11,6 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   dataset
    nodes
    dataformats
    filtering
