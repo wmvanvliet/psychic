@@ -12,7 +12,7 @@ from matplotlib.lines import Line2D
 from matplotlib import mlab
 import matplotlib.transforms as transforms
 import math
-import erp_util
+import trials
 import golem
 import fwer
 
@@ -398,7 +398,7 @@ def plot_erp(
 
     # Baseline data if requested
     if baseline_period != None and (baseline_period[1]-baseline_period[0]) > 0:
-        data = erp_util.baseline(data, baseline_period)
+        data = trials.baseline(data, baseline_period)
 
     # Determine number of trials
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
@@ -432,7 +432,7 @@ def plot_erp(
         significance_test_performed = False
 
     # Calculate ERP
-    data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    data = trials.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Calculate a sane vspace
     if vspace == None:
@@ -525,8 +525,8 @@ def plot_erp_specdiffs(
     if fig == None:
         fig = plot.figure()
 
-    tf = erp_util.trial_specgram(data, samplerate, NFFT)
-    tf_erp = erp_util.erp(tf)
+    tf = trials.trial_specgram(data, samplerate, NFFT)
+    tf_erp = trials.erp(tf)
     diff = np.log(tf_erp.ndX[...,classes[0]]) - np.log(tf_erp.ndX[...,classes[1]])
 
     if significant_only:
@@ -602,7 +602,7 @@ def plot_erp_specgrams(
     if fig == None:
         fig = plot.figure()
 
-    tf = erp_util.trial_specgram(data, samplerate, NFFT)
+    tf = trials.trial_specgram(data, samplerate, NFFT)
     print tf.ndX.shape
     tf_erp = np.mean(tf.ndX, axis=3)
     print tf_erp.shape
