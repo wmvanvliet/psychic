@@ -1,6 +1,6 @@
 import golem
 import numpy as np
-from ..erp_util import erp
+from ..trials import erp
 from spatialfilter import SpatialBlur
 
 def channel_temporal_offsets(X, k=range(-20, 20)):

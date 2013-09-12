@@ -12,7 +12,7 @@ from matplotlib.lines import Line2D
 from matplotlib import mlab
 import matplotlib.transforms as transforms
 import math
-import erp_util
+import trials
 import golem
 import fwer
 
@@ -398,7 +398,7 @@ def plot_erp(
 
     # Baseline data if requested
     if baseline_period != None and (baseline_period[1]-baseline_period[0]) > 0:
-        data = erp_util.baseline(data, baseline_period)
+        data = trials.baseline(data, baseline_period)
 
     # Determine number of trials
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
@@ -432,7 +432,7 @@ def plot_erp(
         significance_test_performed = False
 
     # Calculate ERP
-    data = erp_util.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    data = trials.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Calculate a sane vspace
     if vspace == None:
@@ -525,8 +525,8 @@ def plot_erp_specdiffs(
     if fig == None:
         fig = plot.figure()
 
-    tf = erp_util.trial_specgram(data, samplerate, NFFT)
-    tf_erp = erp_util.erp(tf)
+    tf = trials.trial_specgram(data, samplerate, NFFT)
+    tf_erp = trials.erp(tf)
     diff = np.log(tf_erp.ndX[...,classes[0]]) - np.log(tf_erp.ndX[...,classes[1]])
 
     if significant_only:
@@ -590,7 +590,81 @@ def plot_erp_specdiffs(
     fig.colorbar(im, cax=cax)
     return fig
 
-def plot_erp_image(d, labels=None, fig=None, smooth=0):
+def plot_erp_specgrams(
+        data,
+        samplerate=None,
+        NFFT=256,
+        freq_range=[0.1, 50],
+        fig=None):
+    assert data.ndX.ndim == 3
+    assert data.feat_nd_lab != None
+
+    if fig == None:
+        fig = plot.figure()
+
+    tf = trials.trial_specgram(data, samplerate, NFFT)
+    print tf.ndX.shape
+    tf_erp = np.mean(tf.ndX, axis=3)
+    print tf_erp.shape
+    
+    ch_labs = tf.feat_nd_lab[0]
+    print ch_labs
+
+    freqs = np.array([float(x) for x in tf.feat_nd_lab[1]])
+    times = np.array([float(x) for x in tf.feat_nd_lab[2]])
+
+    print freqs
+    print times
+
+    selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
+    freqs = freqs[selection]
+    tf_erp = tf_erp[:,selection,:]
+    clim = (-np.max(np.abs(tf_erp)), np.max(np.abs(tf_erp)))
+
+    num_channels = tf_erp.shape[0]
+    num_cols = max(1, num_channels/8)
+    num_rows = min(num_channels, 8)
+
+    fig.subplots_adjust(hspace=0)
+
+    #cdict = {'red': ((0.0, 1.0, 1.0),
+    #                 (0.5, 1.0, 1.0),
+    #                 (1.0, 0.0, 0.0)),
+    #         'green': ((0.0, 0.0, 0.0),
+    #                   (0.5, 1.0, 1.0),
+    #                   (1.0, 0.0, 0.0)),
+    #         'blue': ((0.0, 0.0, 0.0),
+    #                  (0.5, 1.0, 1.0),
+    #                  (1.0, 1.0, 1.0))}
+
+    #cmap = matplotlib.colors.LinearSegmentedColormap('polarity',cdict,256)
+
+    for channel in range(num_channels):
+        s = tf_erp[channel,:,:]
+
+        col = channel / num_rows
+        row = channel % num_rows
+        ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
+        im = plot.imshow(
+            np.flipud(s), aspect='auto',
+            extent=[np.min(times), np.max(times), np.min(freqs), np.max(freqs)],
+            #cmap=cmap
+        )
+
+        plot.ylim(freq_range[0], freq_range[1])
+        plot.clim(clim)
+        plot.ylabel(ch_labs[channel])
+
+        if row == num_rows-1 or channel == num_channels-1:
+            plot.xlabel('Time (s)')
+        else:
+            ax.get_xaxis().set_visible(False)
+
+    cax = fig.add_axes([0.91, 0.1, 0.01, 0.8])
+    fig.colorbar(im, cax=cax)
+    return fig
+
+def plot_erp_image(d, labels=None, fig=None):
     assert d.ndX.ndim == 3, 'Expecting sliced data'
     nchannels, nsamples, ntrials = d.ndX.shape
 
