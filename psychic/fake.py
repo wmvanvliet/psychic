@@ -78,3 +78,4 @@ def gaussian(nchannels, duration, sample_rate):
     feat_lab = ['CH %02d' % (ch+1) for ch in range(nchannels)]
 
     return DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)
+
