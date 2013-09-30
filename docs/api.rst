@@ -69,6 +69,7 @@ Utility functions
     :template: function.rst
 
     get_samplerate
+    rereference_rec
     find_data_path
 
 Simulating data
