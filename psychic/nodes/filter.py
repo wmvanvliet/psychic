@@ -4,6 +4,7 @@ from golem import DataSet
 from golem.nodes import BaseNode
 from psychic.utils import get_samplerate
 from psychic.markers import resample_markers
+from scipy.interpolate import interp1d
 
 class Filter(BaseNode):
   '''
@@ -179,15 +180,16 @@ class FFTFilter(BaseNode) :
 
         return DataSet(xs=np.hstack(xs), default=d)
 
-class Resample(BaseNode) :
+class Resample(BaseNode):
     '''
-    Resamples the signal to the given sample rate.
+    Resamples the signal to the given sample rate. It can downsample as well as
+    upsample.
 
     Parameters
     ----------
 
     new_samplerate : float
-        Signal will be resampled to this sample rate
+        Signal will be resampled to this sample rate.
 
     max_marker_delay : int (default=0)
         when downsampling the signal, markers will be moved to the closest
@@ -208,23 +210,42 @@ class Resample(BaseNode) :
         if self.old_samplerate == self.new_samplerate:
             return d
 
-        new_len = int(d.ninstances * self.new_samplerate/float(self.old_samplerate))
-        idx = np.linspace(0, d.ninstances, new_len, endpoint=False)
+        nchannels, nsamples = d.ndX.shape[:2]
 
-        ys = [];
-        for cl in range(d.Y.shape[0]):
-            ys.append(resample_markers(d.Y[cl,:], new_len, self.max_marker_delay))
+        downsampling = self.new_samplerate < self.old_samplerate
 
-        # Method 1 (fast) use linear subsampling
-        xs = [];
-        for channel in range(d.nfeatures):
-            xs.append( np.interp(idx, range(d.ninstances), d.X[channel,:]) )
+        new_len = int(nsamples * self.new_samplerate/float(self.old_samplerate))
+        if not downsampling:
+            new_len -= 1
 
-        I = np.interp(idx, range(d.ninstances), d.I[0,:])
+        new_shape = list(d.ndX.shape)
+        new_shape[1] = new_len
+        ndX = np.zeros(new_shape)
 
-        return DataSet(X=np.vstack(xs), Y=np.vstack(ys), I=I, default=d )
-        
-        # # Method 2 (slow) use scipy's resampling, which also applies FFT tricks
-        # xs, ids = signal.resample(d.xs, new_len, t=d.ids)
+        if downsampling:
+            sample_points = np.linspace(0, nsamples, new_len, endpoint=False)
 
-        # return DataSet( xs, ys, ids.reshape(-1,1), default=d )
+            # Take the average between sample points
+            for i in range(len(sample_points)):
+                start = int(sample_points[i])
+                stop = int(sample_points[i+1]) if i < len(sample_points)-1 else nsamples
+                ndX[:,i,...] = np.mean(d.ndX[:, start:stop, ...], axis=1)
+        else:
+            sample_points = np.linspace(0, nsamples-1, new_len, endpoint=True)
+
+            # Interpolate the signal at the sample points
+            ndX = np.apply_along_axis(lambda x: interp1d(range(nsamples), x)(sample_points), 1, d.ndX)
+
+        if ndX.ndim >= 3:
+            # With epoched data, resample feat_nd_lab[1] as well
+            feat_nd_lab = list(d.feat_nd_lab)
+            feat_nd_lab[1] = interp1d(range(nsamples), feat_nd_lab[1])(sample_points).tolist()
+            return DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
+        else:
+            # With non-epoched data, sample the marker stream and index as well
+            Y = [];
+            for cl in range(d.Y.shape[0]):
+                 Y.append(resample_markers(d.Y[cl,:], new_len, self.max_marker_delay))
+            Y = np.vstack(Y)
+            I = interp1d(range(nsamples), d.I[0,:])(sample_points) 
+            return DataSet(ndX=ndX, Y=Y, I=I, default=d)
