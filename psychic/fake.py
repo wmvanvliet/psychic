@@ -1,4 +1,6 @@
 from golem import DataSet
+from scipy.stats import norm
+import positions
 import numpy as np
 
 def sine(freq, nchannels, duration, sample_rate):
@@ -79,3 +81,18 @@ def gaussian(nchannels, duration, sample_rate):
 
     return DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)
 
+def generate_erp(time, channels, time_loc, time_scale, space_loc, space_scale, amp_scale):
+    '''
+    Generate an ERP
+    '''
+    X = np.empty((len(channels), len(time)))
+    
+    time_pdf = norm(loc=time_loc, scale=time_scale).pdf
+    space_x_pdf = norm(loc=space_loc[0], scale=space_scale).pdf
+    space_y_pdf = norm(loc=space_loc[1], scale=space_scale).pdf
+
+    locs = np.array([positions.project_scalp(*positions.POS_10_5[lab]) for lab in channels])
+
+    X = (space_x_pdf(locs[:,0]) * space_y_pdf(locs[:,1]))[:, np.newaxis].dot(time_pdf(time)[np.newaxis,:])
+    X /= np.max(X) * amp_scale
+    return X
