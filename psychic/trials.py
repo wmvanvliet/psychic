@@ -141,7 +141,7 @@ def ttest(data, classes=[0, 1], shuffle=True):
 
     return scipy.stats.ttest_ind(c1, c2, axis=2)
 
-def random_groups(d, size):
+def random_groups(d, group_size, groups_per_class=None, mean=False):
     '''
     For each class, form groups of random trials of the given size.
 
@@ -149,42 +149,67 @@ def random_groups(d, size):
     ----------
     d : :class:`golem.DataSet`
         The trials.
-    size : int
+    group_size : int
         Size of the groups to make.
+    groups_per_class : int (default=ninstances_per_class / group_size)
+        Number of groups to make per class.
+    mean : bool (default=False)
+        Return group means (i.e. ERPs) instead of groups
 
     Returns
     -------
     d : :class:`golem.DataSet`
-        The grouped data. ``d.ndX`` is [channels x samples x trials x groups]
+        The grouped data. ``d.ndX`` is [channels x samples x trials x groups] or
+        if mean==True, ``d.ndX`` is [channels x samples x groups]
     '''
 
-    d_trials = None
+    d_trials = []
     idxs = []
+
+    if groups_per_class == None:
+        groups_per_class = np.min(d.ninstances_per_class) / group_size
 
     for cl in range(d.nclasses):
         idx_cl = np.flatnonzero(d.Y[cl,:])
         ninstances = len(idx_cl)
-        ngroups = int(ninstances / size)
 
-        idx = idx_cl[np.random.permutation(ninstances)[:ngroups*size]].reshape(size,-1)
-        d_grouped = golem.DataSet(
-            X = d.ndX[:,:,idx].reshape(-1, ngroups),
-            Y = d.Y[:,idx[0,:]],
-            I = d.I[:,idx[0,:]],
-            feat_shape = d.feat_shape + (size,),
-            feat_dim_lab = d.feat_dim_lab + ['trials'] if d.feat_dim_lab else None,
-            feat_nd_lab = d.feat_nd_lab + [range(size)] if d.feat_nd_lab else None,
-            default = d
-        )
+        groups_to_go = groups_per_class
+        while groups_to_go > 0:
+            ngroups = min(int(ninstances / group_size), groups_to_go)
 
-        if d_trials == None:
-            d_trials = d_grouped
-        else:
-            d_trials += d_grouped
+            idx = idx_cl[np.random.permutation(ninstances)[:ngroups*group_size]].reshape(group_size,-1)
 
-        idxs.append(idx)
+            ndX = d.ndX[:,:,idx]
+            if mean:
+                ndX = np.mean(d.ndX[:,:,idx], axis=2)
 
-    return (d_trials, np.hstack(idxs))
+            if mean:
+                feat_dim_lab = d.feat_dim_lab
+            else:
+                feat_dim_lab = d.feat_dim_lab + ['trials'] if d.feat_dim_lab else None
+
+            if mean:
+                feat_nd_lab = d.feat_nd_lab
+            else:
+                feat_nd_lab = d.feat_nd_lab + [range(group_size)] if d.feat_nd_lab else None
+
+            Y = d.Y[:,idx[0,:]]
+            I = d.I[:,idx[0,:]]
+
+            d_grouped = golem.DataSet(
+                ndX=ndX, Y=Y, I=I, feat_dim_lab=feat_dim_lab,
+                feat_nd_lab=feat_nd_lab, default = d
+            )
+
+            d_trials.append(d_grouped)
+            idxs.append(idx)
+
+            groups_to_go -= ngroups
+
+    if len(d_trials) == 0:
+        return ([], [])
+    else:
+        return (golem.concatenate(d_trials, ignore_index=True), np.hstack(idxs))
 
 def reject_trials(d, cutoff=100, time_range=None):
     '''
