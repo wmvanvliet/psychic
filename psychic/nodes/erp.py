@@ -113,7 +113,6 @@ class Blowup(BaseNode):
                 combinations.append(X[:,:,idx])
                 reverse_idxs.append(reverse_idx[idx])
 
-
             # If num_combinations is not a multitude of len(idx),
             # append some extra
             to_go = (num_repetitions*num_combinations) % len(idx)
