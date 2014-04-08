@@ -43,10 +43,11 @@ class BaseSpatialFilter(BaseNode):
     cov0) for formats (plain recording, trials, covs).
   - Apply the spatial filter to different formats.
   '''
-  def __init__(self, ftype):
+  def __init__(self, ftype, preserve_feat_lab=True):
     BaseNode.__init__(self)
     self.W = None
     self.ftype = ftype
+    self.preserve_feat_lab = preserve_feat_lab
 
   def get_nchannels(self, d):
     if self.ftype == PLAIN:
@@ -66,50 +67,68 @@ class BaseSpatialFilter(BaseNode):
 
   def sfilter(self, d):
     if self.ftype == PLAIN:
-      return sfilter_plain(d, self.W)
+      return sfilter_plain(d, self.W, self.preserve_feat_lab)
     if self.ftype == TRIAL:
-      return sfilter_trial(d, self.W)
+      return sfilter_trial(d, self.W, self.preserve_feat_lab)
     if self.ftype == COV:
-      return sfilter_cov(d, self.W)
+      return sfilter_cov(d, self.W, self.preserve_feat_lab)
 
   def apply_(self, d):
     return self.sfilter(d)
 
-def sfilter_plain(d, W):
+def sfilter_plain(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to plain dataset (as in, before trial extraction).'''
   X = np.dot(W.T, d.X)
-  return DataSet(X=X, feat_shape=(X.shape[0],), feat_lab=None, default=d)
 
-def sfilter_trial(d, W):
+  if preserve_feat_lab and (X.shape == d.X.shape):
+    feat_lab = d.feat_lab
+  else:
+    feat_lab = None
+
+  return DataSet(X=X, feat_shape=(X.shape[0],), feat_lab=feat_lab, default=d)
+
+def sfilter_trial(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to plain sliced dataset (d.nd_xs contains trials).'''
-  ndX = np.zeros((W.shape[1],) + d.ndX.shape[1:])
+  nchannels = W.shape[1]
+  nsamples = d.ndX.shape[1]
+
+  ndX = np.zeros((nchannels, nsamples, d.ninstances))
   for i in range(d.ninstances):
-      ndX[:,:,i] = np.dot(W.T, d.ndX[:,:,i])
-  return DataSet(X=ndX.reshape(-1, d.ninstances), feat_shape=ndX.shape[:-1], 
-    feat_nd_lab=None, default=d)
+    ndX[:,:,i] = np.dot(W.T, d.ndX[:,:,i])
 
-def sfilter_cov(d, W):
+  if preserve_feat_lab and (ndX.shape == d.ndX.shape):
+    feat_nd_lab = d.feat_nd_lab
+  else:
+    if d.feat_nd_lab == None:
+      feat_nd_lab = None
+    else:
+      feat_nd_lab=[['COMP %02d' % (i+1) for i in range(nchannels)], d.feat_nd_lab[1]]
+
+  return DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
+
+def sfilter_cov(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to dataset containing covariance estimates.'''
-  xs = np.array([reduce(np.dot, [W, t, W.T]) for t in d.nd_xs])
-  return DataSet(xs=xs.reshape(xs.shape[0], -1), feat_shape=xs.shape[1:], 
-    feat_lab=None, default=d)
-
   ndX = np.zeros((W.shape[1], W.shape[1], d.ndX.shape[2]))
   for i in range(d.ninstances):
-      ndX[:,:,i] = reduce(np.dot, [W, d.ndX[:,:,i], W.T])
-  return DataSet(X=ndX.reshape(-1, d.ninstances), feat_shape=ndX.shape[:-1], 
-    feat_nd_lab=None, default=d)
+    ndX[:,:,i] = reduce(np.dot, [W, d.ndX[:,:,i], W.T])
+
+  if preserve_feat_lab:
+    feat_nd_lab = d.feat_nd_lab
+  else:
+    feat_nd_lab = None
+
+  return DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
 
 class CAR(BaseSpatialFilter):
   def __init__(self, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype)
+    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
 
   def train_(self, d):
     self.W = car(self.get_nchannels(d))
 
 class Whiten(BaseSpatialFilter):
   def __init__(self, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype)
+    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
 
   def train_(self, d):
     self.W = whitening(self.get_cov(d))
@@ -117,11 +136,11 @@ class Whiten(BaseSpatialFilter):
 class Whitening(Whiten):
   def __init__(self, ftype=TRIAL):
     raise DeprecationWarning('Please use Whiten instead')
-    Whiten.__init__(self, ftype=TRIAL)
+    Whiten.__init__(self, ftype=TRIAL, preserve_feat_lab=True)
 
 class SymWhitening(BaseSpatialFilter):
   def __init__(self, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype)
+    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
 
   def train_(self, d):
     self.W = sym_whitening(self.get_cov(d))
@@ -154,7 +173,7 @@ class Deflate(BaseSpatialFilter):
 
 class SpatialBlur(BaseSpatialFilter):
   def __init__(self, sigma, ftype=PLAIN):
-    BaseSpatialFilter.__init__(self, ftype)
+    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
     self.sigma = sigma
 
   def train_(self, d):
