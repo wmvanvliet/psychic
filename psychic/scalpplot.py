@@ -8,7 +8,7 @@ from matplotlib.patches import PathPatch, Circle
 import positions
 
 def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5, 
-  plot_sensors=True, cmap=plt.cm.jet, clim=None, smark='k.'):
+  plot_sensors=True, cmap=plt.cm.jet, clim=None, smark='k.', linewidth=2, fontsize=8):
 
   # add densities
   if clim == None:
@@ -27,13 +27,12 @@ def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5,
   ax.xaxis.set_ticks([],[])
 
   # add details
-  add_head()
+  add_head(linewidth)
   if plot_sensors:
-    add_sensors(sensors, locs, smark)
+    add_sensors(sensors, locs, smark, fontsize)
  
-def add_head():
+def add_head(linewidth=2):
   '''Draw head outline'''
-  LINEWIDTH = 2
   nose = [(Path.MOVETO, (-.1, 1.)), (Path.LINETO, (0, 1.1)),
     (Path.LINETO, (.1, 1.))]
 
@@ -45,19 +44,19 @@ def add_head():
 
   # plot outline
   ax = plt.gca()
-  ax.add_artist(plt.Circle((0, 0), 1, fill=False, linewidth=LINEWIDTH))
+  ax.add_artist(plt.Circle((0, 0), 1, fill=False, linewidth=linewidth))
 
   # add nose and ears
   for p in [nose, lear, rear]:
     code, verts = zip(*p)
-    ax.add_patch(PathPatch(Path(verts, code), fill=False, linewidth=LINEWIDTH))
+    ax.add_patch(PathPatch(Path(verts, code), fill=False, linewidth=linewidth))
 
 
-def add_sensors(labels, locs, smark='k.'):
+def add_sensors(labels, locs, smark='k.', fontsize=8):
   '''Adds sensor names and markers'''
   for (label, (x, y)) in zip(labels, locs):
     if len(labels) < 32:
-      plt.text(x, y + .03, label, fontsize=8, ha='center')
+      plt.text(x, y + .03, label, fontsize=fontsize, ha='center')
     plt.plot(x, y, smark, ms=2.)
 
 def add_density(dens, locs, cmap=plt.cm.jet, clim=None):
