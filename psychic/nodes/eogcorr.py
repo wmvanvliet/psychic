@@ -5,16 +5,31 @@ import psychic
 from scipy import linalg
 
 class EOGCorr(BaseNode):
-    def __init__(self, heog, veog, reog, mdict, keep_eog=True):
+    def __init__(self, mdict, heog='hEOG', veog='vEOG', reog='rEOG',
+                 keep_eog=True, eeg=None):
         BaseNode.__init__(self)
         self.heog = heog
         self.veog = veog
         self.reog = reog
         self.mdict = mdict
         self.keep_eog = keep_eog
-
+        self.eeg = eeg
 
     def train_(self, d):
+        if type(self.heog) == str:
+            self.heog = d.feat_lab.index(self.heog)
+        if type(self.veog) == str:
+            self.veog = d.feat_lab.index(self.veog)
+        if type(self.reog) == str:
+            self.reog = d.feat_lab.index(self.reog)
+
+        self.eog = set([self.heog, self.veog, self.reog])
+        if self.eeg == None:
+            self.eeg = set(range(d.nfeatures)) - self.eog
+        else:
+            self.eeg = set([d.feat_lab.index(ch) if type(ch) == str else ch
+                            for ch in self.eeg])
+
         s = psychic.get_samplerate(d)
 
         # Extract EOG trials
@@ -53,26 +68,22 @@ class EOGCorr(BaseNode):
         self.Br = coeff2[1,:]
 
     def apply_(self, d):
-        eog_channels = [self.heog, self.veog, self.reog]
-        eeg_channels = set(range(d.nfeatures)).difference(set(eog_channels))
-        X = d.X.copy()
+        ndX = d.ndX.copy()
 
         # Remove HEOG and VEOG from REOG channel
-        X[self.reog, :] = X[self.reog, :] - X[self.heog,:]*self.Bh[self.reog] - X[self.veog,:]*self.Bv[self.reog]
+        reog = ndX[self.reog, :] - ndX[self.heog,:]*self.Bh[self.reog] - ndX[self.veog,:]*self.Bv[self.reog]
 
         # Remove HEOG, VEOG and REOG from EEG channels
-        for channel in range(d.nfeatures):
-            # Do not correct EOG 
-            if channel in eog_channels:
-                continue
-                
-            X[channel,:] = X[channel, :] - X[self.heog,:]*self.Bh[channel] - X[self.veog,:]*self.Bv[channel] - X[self.reog,:]*self.Br[channel]
+        for channel in self.eeg:
+            ndX[channel,:] = (ndX[channel, :] -
+                              ndX[self.heog,:]*self.Bh[channel] -
+                              ndX[self.veog,:]*self.Bv[channel] -
+                              reog*self.Br[channel])
 
         if self.keep_eog:
             feat_lab = d.feat_lab
-            feat_shape = d.feat_shape
         else:
-            feat_lab = [d.feat_lab[i] for i in eeg_channels]
-            feat_shape = (len(feat_lab),)
+            ndX = ndX[list(self.eeg), :]
+            feat_lab = [d.feat_lab[i] for i in self.eeg]
 
-        return DataSet(X=X, feat_lab=feat_lab, feat_shape=feat_shape, default=d)
+        return DataSet(ndX=ndX, feat_lab=feat_lab, default=d)

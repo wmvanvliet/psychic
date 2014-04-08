@@ -10,3 +10,4 @@ from ssvep import SLIC, SSVEPNoiseReduce, MNEC, CanonCorr, MSI
 from sr_decomp import SRDecomp
 from eogcorr import EOGCorr
 from beamformer import BeamformerSNR, BeamformerFC, BeamformerCFMS
+from eeg_montage import EEGMontage
