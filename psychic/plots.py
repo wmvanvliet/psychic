@@ -280,7 +280,7 @@ def plot_erp(
         colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
         linestyles=['-','-','-','-','-','-','-','-'],
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
-        fwer=fwer.benjamini_hochberg,
+        fwer=None,
         np_test=False,
         np_iter=1000,
         baseline_period=(0,0),
@@ -347,7 +347,7 @@ def plot_erp(
     pval : float (default=0.05)
         Minimum p-value at which to color significant regions, set to 0 to
         disable it completely.
-    fwer : function (default = :func:`psychic.fwer.benjamini_hochberg`)
+    fwer : function (default=None)
         Method for pval adjustment to correct for family-wise errors rising
         from performing multiple t-tests, choose one of the methods from the
         :mod:`psychic.fwer` module, or specify ``None`` to disable this
