@@ -189,12 +189,11 @@ class EEGMontage(golem.nodes.BaseNode):
                                       self.heog_idx, self.bipolar_idx_set)
 
     def apply_(self, d):
+        ndX = d.ndX.copy()
+
         # Set bad channels to zero
         if self.bads != None:
-            ndX = d.ndX.copy()
             ndX[list(self.bad_idx), :] = 0
-        else:
-            ndX = d.ndX
 
         # Calculate reference signal
         if self.ref == None:
@@ -269,6 +268,4 @@ class EEGMontage(golem.nodes.BaseNode):
 
         ndX = np.vstack(ndX_list)
 
-        d = golem.DataSet(ndX=ndX, feat_lab=ch_names, default=d)
-        d.extra['montage'] = self
-        return d
+        return golem.DataSet(ndX=ndX, feat_lab=ch_names, default=d)
