@@ -275,15 +275,15 @@ def plot_erp(
         ncols=None,
         start=0,
         fig=None,
-        pval=0.05,
         mirror_y=False,
         colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
         linestyles=['-','-','-','-','-','-','-','-'],
         linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
+        pval=0.05,
         fwer=None,
         np_test=False,
         np_iter=1000,
-        baseline_period=(0,0),
+        conf_inter=None,
         enforce_equal_n=True,
     ):
     '''
@@ -345,7 +345,7 @@ def plot_erp(
     linewidths : list (optional)
         Line width specifications for each ERP. Values are given in points.
     pval : float (default=0.05)
-        Minimum p-value at which to color significant regions, set to 0 to
+        Minimum p-value at which to color significant regions, set to None to
         disable it completely.
     fwer : function (default=None)
         Method for pval adjustment to correct for family-wise errors rising
@@ -361,10 +361,10 @@ def plot_erp(
         Number of iterations to perform when using the non-parametric test.
         Higher means a better approximation of the true p-values, at the cost
         of longer computation time.
-    baseline_period : tuple of ints (default=None)
-        When specified, trials are first baselined using the given baseline
-        period. By default no baselining is performed. Values are given in
-        samples. See also the :class:`psychic.nodes.Baseline` node.
+    conf_inter : float (default=None)
+        Draw given confidence interval of the ERP as a transparent band. The
+        confidence interval can be specified in percent. Set to None to disable
+        drawing of the confidence interval.
     enforce_equal_n : bool (default=True)
         Enforce that each ERP is calculated using the same number of trials. If
         one of the classes has more trials than the others, a random subset of
@@ -383,7 +383,7 @@ def plot_erp(
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
     if cl_lab == None:
-        cl_lab = data.cl_lab if data.cl_lab else ['class %d' % cl for cl in classes]
+        cl_lab = data.cl_lab if data.cl_lab else['class %d' % cl for cl in classes]
 
     if ch_lab == None:
         if data.feat_nd_lab != None:
@@ -395,10 +395,6 @@ def plot_erp(
         classes = range(data.nclasses)
 
     num_classes = len(classes)
-
-    # Baseline data if requested
-    if baseline_period != None and (baseline_period[1]-baseline_period[0]) > 0:
-        data = trials.baseline(data, baseline_period)
 
     # Determine number of trials
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
@@ -414,7 +410,9 @@ def plot_erp(
             # Perform a non-parametric test
             from stats import temporal_permutation_cluster_test as test
             significant_clusters = test(data, np_iter, pval, classes)[:,:3]
-        else:
+            significance_test_performed = True
+
+        elif pval != None:
             # Perform a t-test
             ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
 
@@ -425,24 +423,24 @@ def plot_erp(
                 clusters = np.flatnonzero( np.diff(np.hstack(([False], ps[ch,:] < pval, [False]))) ).reshape(-1,2)
                 for cl, cluster in enumerate(clusters):
                     significant_clusters.append([ch, cluster[0], cluster[1]]) 
-
-        significance_test_performed = True
-
+            significance_test_performed = True
+        else:
+            significance_test_performed = False
     else:
         significance_test_performed = False
 
     # Calculate ERP
-    data = trials.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    erp = trials.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Calculate a sane vspace
     if vspace == None:
-        vspace = (np.max(data.X) - np.min(data.X)) 
+        vspace = (np.max(erp.X) - np.min(erp.X)) 
 
     # Calculate timeline, using the best information available
     if samplerate != None:
         ids = np.arange(num_samples) / float(samplerate) - start
-    elif data.feat_nd_lab != None:
-        ids = np.array(data.feat_nd_lab[1], dtype=float) - start
+    elif erp.feat_nd_lab != None:
+        ids = np.array(erp.feat_nd_lab[1], dtype=float) - start
     else:
         ids = np.arange(num_samples) - start
 
@@ -469,12 +467,9 @@ def plot_erp(
         # Spread out the channels with vspace
         bases = vspace * np.arange(len(channels))[::-1]
         
-        if baseline_period == None:
-            bases -= np.mean(np.mean(data.ndX[channels,:,:], axis=1), axis=1)
-
         to_plot = np.zeros((len(channels), num_samples, num_classes))
         for i in range(len(channels)):
-            to_plot[i,:,:] = (data.ndX[channels[i],:,:] if not mirror_y else -1*data.ndX[channels[i],:,:]) + bases[i]
+            to_plot[i,:,:] = (erp.ndX[channels[i],:,:] if not mirror_y else -1*erp.ndX[channels[i],:,:]) + bases[i]
         
         # Plot each class
         for cl in range(num_classes):
@@ -496,8 +491,21 @@ def plot_erp(
                 y = np.concatenate((y1, y2[::-1]))
                 p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
+        # Plot confidence intervals
+        if conf_inter != None:
+            stds = np.concatenate([
+                np.std(data.get_class(classes[i]).ndX[channels,:,:], axis=2)[:,:,np.newaxis]
+                for i in range(num_classes)
+            ], axis=2)
+
+            x = np.concatenate( (ids, ids[::-1]) )
+            y = np.concatenate((to_plot + stds, to_plot[:, ::-1, :] - stds[:, ::-1, :]), axis=1)
+
+            for i in range(num_classes):
+                for j in range(len(channels)):
+                    plot.fill(x, y[j,:,i], facecolor=colors[i], alpha=0.2)
+
         _draw_eeg_frame(channels_per_col, vspace, ids, np.array(ch_lab)[channels].tolist(), mirror_y, draw_scale=(draw_scale and (subplot == ncols-1)))
-        plot.grid(True) # Why isn't this working?
         plot.axvline(0, 0, 1, color='k')
 
         plot.xlabel('Time (s)')
