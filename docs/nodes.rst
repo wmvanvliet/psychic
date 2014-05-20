@@ -49,12 +49,16 @@ To do the actual downsampling:
 >>> print psychic.get_samplerate(downsampled)
 100.0
 
+A convenience function `train_apply` exists to do both steps in one command:
+
+>>> downsamples = downsample.train_apply(eeg)
+
 Chaining nodes
 --------------
 
 To quickly apply multiple operations on the data, nodes can be chained, using
-the special :class:`golem.nodes.Chain` node. A chain of nodes behaves like a single node that
-performs the intermediate steps in sequence.
+the special :class:`golem.nodes.Chain` node. A chain of nodes behaves like a
+single node that performs the intermediate steps in sequence.
 
 For example, to first band-pass filter the signal and then downsample:
 
@@ -62,8 +66,8 @@ For example, to first band-pass filter the signal and then downsample:
 >>>
 >>> filter = psychic.nodes.Butterworth(4, [0.5, 30])
 >>> downsample = psychic.nodes.Resample(100.0)
->>> chain = golem.nodes.Chain([filter, downsample]).train(eeg)
->>> filtered_downsampled = chain.apply(eeg)
+>>> chain = golem.nodes.Chain([filter, downsample])
+>>> filtered_downsampled = chain.train_apply(eeg)
 
 Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
 
@@ -73,5 +77,5 @@ Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
 ...     psychic.nodes.SlidingWindow(win_size=20, win_step=20),
 ...     psychic.nodes.CanonCorr(sample_rate=128, frequencies=[60/7.,  60/6., 60/5., 60/4.])
 ... ])
->>> print golem.perf.accuracy(pipeline.train_apply(ssvep_data, ssvep_data))
+>>> print golem.perf.accuracy(pipeline.train_apply(ssvep_data))
 1.0
