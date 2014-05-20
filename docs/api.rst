@@ -11,6 +11,14 @@ Nodes
 
 All the nodes provided by Psychic:
 
+Referencing
++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.EEGMontage
+
 Filtering
 +++++++++
 
