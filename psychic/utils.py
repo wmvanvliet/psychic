@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+from golem import DataSet
 
 from markers import markers_to_events
 
@@ -126,3 +127,18 @@ def wolpaw_bitr(N, P):
   if P < 1:
     result += (1 - P) * np.log2((1 - P)/(N - 1.))
   return result
+
+def split_in_bins(data, order, n, legend=lambda i,b: 'slice %d' % i, ascending=True):
+  idx = np.argsort(order)
+  if not ascending:
+    idx = idx[::-1]
+    
+  bin_size = int(len(order) / float(n))
+  bins = [idx[i*bin_size:(i+1)*bin_size] for i in range(n)]
+
+  Y = np.zeros((n, data.ninstances), dtype=np.bool)
+  for i,b in enumerate(bins):
+    Y[i, b] = True
+    cl_lab = [legend(i, bins[i]) for i in range(n)]
+
+  return (bins, DataSet(Y=Y, cl_lab=cl_lab, default=data))
