@@ -429,3 +429,22 @@ def trial_specgram(d, samplerate=None, NFFT=256):
         feat_nd_lab=feat_nd_lab,
         feat_dim_lab=feat_dim_lab,
         default=d)
+
+def align(trials, window, offsets):
+    sample_rate = psychic.get_samplerate(trials)
+    w = np.arange(int(window[0]*sample_rate), int(sample_rate))
+    feat_nd_lab = [ trials.feat_nd_lab[0],
+                    (w / float(sample_rate)).tolist()]
+    feat_shape = (trials.feat_shape[0], len(w))
+
+    ndX = np.zeros(feat_shape + (trials.ninstances,))
+    for i,t in enumerate(offsets):
+        t -= window[0]
+        ndX[:,:,i] = trials.ndX[:,int(t*sample_rate)+w,i]
+
+    trials_aligned = golem.DataSet(X=ndX.reshape((-1, trials.ninstances)),
+                                 feat_nd_lab=feat_nd_lab,
+                                 feat_shape=feat_shape,
+                                 default=trials)
+
+    return trials_aligned
