@@ -3,7 +3,7 @@ Psychic is copyright (c) 2011 by Boris Reuderink
 '''
 import positions
 from utils import sliding_window_indices, sliding_window, stft, spectrogram,\
-  get_samplerate, find_segments, cut_segments
+  get_samplerate, find_segments, cut_segments, split_in_bins
 from markers import markers_to_events, biosemi_find_ghost_markers, \
   resample_markers
 from plots import plot_timeseries, plot_scalpgrid, plot_eeg, plot_erp, plot_specgrams, plot_erp_specgrams, plot_erp_image
@@ -14,7 +14,7 @@ import nodes
 import dataformats
 from dataformats.edf import load_edf
 from dataformats.bdf import load_bdf, BDFWriter
-from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram
+from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram, align
 import fake
 
 import os.path as op
