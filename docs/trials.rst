@@ -41,7 +41,7 @@ event lasting to 1 second after:
 >>> d = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
 >>> mdict = {1:'event type 1', 2:'event_type 2'}
 >>> slicer = psychic.nodes.Slice(mdict, (-0.2, 1.0))
->>> trials = slicer.train_apply(d, d)
+>>> trials = slicer.train_apply(d)
 >>> print trials
 DataSet with 208 instances, 12280 features [40x307], 2 classes: [104, 104], extras: []
 
@@ -62,7 +62,7 @@ is moved across the signal in steps of 1.3 seconds:
 >>> import psychic
 >>> d = psychic.fake.gaussian(nchannels=4, duration=10, sample_rate=100)
 >>> window = psychic.nodes.SlidingWindow(win_size=2, win_step=1.3)
->>> trials = window.train_apply(d, d)
+>>> trials = window.train_apply(d)
 >>> print trials
 DataSet with 7 instances, 800 features [4x200], 1 classes: [7], extras: []
 
@@ -89,9 +89,9 @@ An example usage of the :class:`psychic.nodes.Baseline` node:
 >>> d = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
 >>> mdict = {1:'event type 1', 2:'event_type 2'}
 >>> slicer = psychic.nodes.Slice(mdict, (-0.2, 1.0))
->>> trials = slicer.train_apply(d, d)
+>>> trials = slicer.train_apply(d)
 >>> baseliner = psychic.nodes.Baseline((-0.2, 0))
->>> trials_baselined = baseliner.train_apply(trials, trials)
+>>> trials_baselined = baseliner.train_apply(trials)
 >>> print trials_baselined
 DataSet with 208 instances, 12280 features [40x307], 2 classes: [104, 104], extras: []
 
@@ -115,8 +115,8 @@ belonging to each class. The result is a dataset with the ERPs:
 
 >>> import golem
 >>> trials = golem.DataSet.load(psychic.find_data_path('priming-trials.dat'))
->>> trials = psychic.nodes.Butterworth(4, (0.01, 30)).train_apply(trials, trials)
->>> trials = psychic.nodes.Baseline((-0.7, -0.5)).train_apply(trials, trials)
->>> erp = psychic.nodes.ERP().train_apply(trials, trials)
+>>> trials = psychic.nodes.Butterworth(4, (0.01, 30)).train_apply(trials)
+>>> trials = psychic.nodes.Baseline((-0.7, -0.5)).train_apply(trials)
+>>> erp = psychic.nodes.ERP().train_apply(trials)
 >>> print erp
 DataSet with 2 instances, 17400 features [40x435], 2 classes: [1, 1], extras: []

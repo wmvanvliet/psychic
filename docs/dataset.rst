@@ -301,13 +301,13 @@ DataSet with 30 instances, 870 features [2x435], 2 classes: [16, 14], extras: []
 Creating new datasets
 ---------------------
 
-To create a new instance of :class:`golem.DataSet`, at minumum the ``ndX`` and ``Y``
-parameters should be specified:
+To create a new instance of :class:`golem.DataSet`, at minumum the ``ndX``
+parameter should be specified:
 
 >>> from numpy import zeros
 >>> nfeatures = 4
 >>> ninstances = 1000
->>> d = golem.DataSet(ndX=zeros((nfeatures, ninstances)), Y=zeros(ninstances))
+>>> d = golem.DataSet(ndX=zeros((nfeatures, ninstances)))
 >>> print d
 DataSet with 1000 instances, 4 features [4], 1 classes: [1000], extras: []
 
