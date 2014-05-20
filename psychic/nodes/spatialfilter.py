@@ -1,3 +1,4 @@
+#coding=utf-8
 import itertools
 import numpy as np
 import scipy
@@ -155,6 +156,27 @@ class CSP(BaseSpatialFilter):
     sigma_a = self.get_cov(d.get_class(0))
     sigma_b = self.get_cov(d.get_class(1))
     self.W = csp(sigma_a, sigma_b, self.m)
+
+class SPoC(BaseSpatialFilter):
+  '''
+  Dähne, S., Meinecke, F. C., Haufe, S., Höhne, J., Tangermann, M., Müller,
+  K.-R., & Nikulin, V. V. (2014). SPoC: a novel framework for relating the
+  amplitude of neuronal oscillations to behaviorally relevant parameters.
+  NeuroImage, 86, 111–22. doi:10.1016/j.neuroimage.2013.07.079
+  '''
+  def __init__(self, m, ftype=TRIAL):
+    BaseSpatialFilter.__init__(self, ftype)
+    self.m = m
+
+  def train_(self, d):
+    assert d.nclasses == 2, 'Expected two classes'
+    assert d.ndX.ndim == 3, 'Expected epoched data'
+    covs = [cov0(t) for t in np.rollaxis(d.ndX, -1)]
+    mean_cov = np.mean(covs)
+    weighted_cov = np.mean([d.y[i] * covs[i] for i in range(d.ninstances)])
+
+    [lambdas, W] = np.linalg.eig(weighted_cov, mean_cov);
+    W = W[:, np.argsort(lambdas)[::-1][outer_n(self.m)]].T
 
 class Deflate(BaseSpatialFilter):
   def __init__(self, noise_selector, ftype=PLAIN):
