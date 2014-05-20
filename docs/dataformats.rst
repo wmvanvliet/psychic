@@ -18,36 +18,49 @@ Both functions will return a :class:`golem.DataSet` with the following fields:
  - ``d.feat_lab`` the channel names
  - ``d.I`` timestamps for each sample
 
-Re-referencing
---------------
+Referencing
++++++++++++
 
 EEG measures voltage differences between each of the electrodes and some common
-reference.  The choise of reference can greatly influence your signal-to-noise
-ratio (SNR) and the shape the of the EEG in general. A commonly used reference
-is 'linked mastoids', where an electrodes are placed behind each ear and the
-average signal of the two electrodes is taken as reference.  It is likely that
-the EEG recorder stores the data references to some default location. For
-example, the BioSemi stores it's data referenced to the CMS electrode. When this
-is the case, you need to re-reference the signal.
+reference. The choise of reference can greatly influence your signal-to-noise
+ratio (SNR) and the shape the of the EEG in general. It is likely that the EEG
+recorder stores the data referenced to some default location. For example,
+BioSemi stores it's data referenced to the CMS electrode. When this is the
+case, the signal must be re-referenced to use the actual reference electrodes.
+When your data contains EOG recordings, it is likely you wish to use a bipolar
+referencing scheme for it. 
 
-The :func:`psychic.rereference_rec` function takes as input the data (using whatever
-reference) and a list of electrode indices. The result is a version of the data
-referenced to the average signal of the given electrodes:
+The :class:`psychic.nodes.EEGMontage` node enables you to specify almost any
+referencing scheme imaginable and apply it to your data. Some common examples
+are given below.
+
+A commonly used reference is 'linked mastoids', where an electrodes are placed
+behind each ear and the average signal of the two electrodes is taken as
+reference. 
 
 >>> import psychic
 >>> d = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
->>> # Mastoid electrodes were 36 and 37:
->>> d_referenced = psychic.rereference_rec(d, [36, 37])
+>>> # Mastoid electrodes were EXG1 and EXG2
+>>> montage = psychic.nodes.EEGMontage(ref=['EXG1', 'EXG2'])
+>>> d_referenced = montage.train_apply(d)
 >>> print d_referenced
-DataSet with 149504 instances, 40 features [40], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 41 features [41], 1 classes: [149504], extras: []
 
-Common Average Reference (CAR)
-##############################
+Another useful reference scheme is the Common Average Reference (CAR). Here,
+the reference signal is the average of all EEG electrodes:
 
-Another useful reference scheme is the Common Average Reference (CAR). Here, the reference
-signal is the average of all EEG electrodes:
-
->>> # Re-reference to the average of electrodes 0-31:
->>> d_referenced = psychic.rereference_rec(d, range(32))
+>>> # Speficy all EEG channels (the recording also contains EOG, which
+>>> # we don't want to used as reference)
+>>> montage = psychic.nodes.EEGMontage(eeg=range(32))
+>>> d_referenced = montage.train_apply(d)
 >>> print d_referenced
-DataSet with 149504 instances, 40 features [40], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 41 features [41], 1 classes: [149504], extras: []
+
+Linked mastoid reference, horizontal and vertical EOG (bipolar reference), radial
+EOG to be calculated and 2 channels that are not connected to anything. After
+referencing, drop reference and individual EOG channels.
+
+>>> montage = psychic.nodes.EEGMontage(heog=['EXG3', 'EXG4'], veog=['EXG5', 'EXG6'], calc_reog=True, ref=['EXG1', 'EXG2'], drop=['EXG7', 'EXG8'], drop_ref=True) 
+>>> d_referenced = montage.train_apply(d)
+>>> print d_referenced.feat_lab
+['Fp1', 'AF3', 'F7', 'F3', 'FC1', 'FC5', 'T7', 'C3', 'CP1', 'CP5', 'P7', 'P3', 'Pz', 'PO3', 'O1', 'Oz', 'O2', 'PO4', 'P4', 'P8', 'CP6', 'CP2', 'C4', 'T8', 'FC6', 'FC2', 'F4', 'F8', 'AF4', 'Fp2', 'Fz', 'Cz', 'hEOG', 'vEOG', 'rEOG']

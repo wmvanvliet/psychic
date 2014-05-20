@@ -34,7 +34,7 @@ Will produce:
 
    Plotting some random data with :func:`psychic.plot_eeg`.
 
-Zooming in on the two seconds alone:
+Zooming in on two seconds:
 
 >>> fig = psychic.plot_eeg(d.lix[:, 2:4], vspace=5)
 
@@ -81,8 +81,8 @@ Basic usage:
     :align:   center
 
     ERP of two classes. Channels 'Fz', 'Cz' and 'Pz' are selected. Shaded areas
-    indicate the outcome of sample by sample t-tests (p < 0.05,
-    Benjamini-Hochberg corrected).
+    indicate the outcome of sample by sample t-tests (p < 0.05, not corrected for
+    multiple comparisons).
 
 For large datasets with many trials it might be inefficient to recalculate the
 ERP every time. As an alternative to feeding all trials into

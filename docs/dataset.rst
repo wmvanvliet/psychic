@@ -77,13 +77,13 @@ can change in dimensionality.
 A continuous EEG recording has two dimensions: [40 channels x 14950 samples]
 
 >>> print cont_eeg.ndX.shape
-(40L, 149504L)
+(40, 149504)
 
 When this recording is sliced into trials, it has three dimensions: [40
 channels x 435 samples x 208 trials]
 
 >>> print trials.ndX.shape
-(40L, 435L, 208L)
+(40, 435, 208)
 
 In Psychic, the first dimension is assumed to contain data channels and the second
 dimension time samples. The last dimension always contains the instances:
@@ -172,7 +172,7 @@ There are 17400 features.
 >>> print 'Each trial has', nchannels, 'channels and', nsamples, 'samples.'
 Each trial has 40 channels and 435 samples.
 >>> print 'The shape of ndX is therefore:', trials.ndX.shape
-The shape of ndX is therefore: (40L, 435L, 208L)
+The shape of ndX is therefore: (40, 435, 208)
 
 With continuous EEG data, where for each instance the features are a single
 vector containing the channels, the channel names can be found in ``feat_lab``:

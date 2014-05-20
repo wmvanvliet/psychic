@@ -48,7 +48,7 @@ DataSet with 208 instances, 12280 features [40x307], 2 classes: [104, 104], extr
 Using a sliding window
 ----------------------
 
-Another commonly used approach to obtain trials to apply a sliding window.
+Another commonly used approach to obtain trials is to apply a sliding window.
 
 .. figure::  images/sliding_window.png
    :align:   center
