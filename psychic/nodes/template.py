@@ -22,17 +22,34 @@ class TemplateFilter(BaseNode):
         Regularization parameter for covariance estimation.
         Also known as diagonal loading.
 
+    time_range: tuple (default: False)
+        A tuple (begin, end) of the time range to condider
+
     spatial_only: bool (default: False)
         When set, only spatial filtering is performed. Normally, both spatial
         and temporal filtering are performed.
 
     '''
-    def __init__(self, reg=0.2, spatial_only=False):
+    def __init__(self, reg=0.2, time_range=None, spatial_only=False):
         BaseNode.__init__(self)
         self.reg = reg
+
+        assert time_range == None or len(time_range) == 2,\
+            'Time range should be specified as (begin, end)'
+
+        self.time_range = time_range
         self.spatial_only = spatial_only
 
     def train_(self, d):
+        if self.time_range == None:
+            self.time_range = (0, d.feat_nd_lab[1][-1])
+            self.time_idx = (0, d.ndX.shape[1]+1)
+        else:
+            sample_rate = psychic.get_samplerate(d)
+            offset = d.feat_nd_lab[1][0] * sample_rate
+            self.time_idx = [int(x * sample_rate - offset) for x in self.time_range]
+            self.time_idx[1] += 1
+
         erp = psychic.erp(d)
         diff = erp.ndX[:,:,0] - erp.ndX[:,:,1]
         self.template = golem.DataSet(
@@ -41,16 +58,20 @@ class TemplateFilter(BaseNode):
             feat_lab=erp.feat_nd_lab[0]
         )
 
-        peak = np.argmax(np.abs(np.sum(self.template.X, axis=0)))
+        peak = self.time_idx[0] + np.argmax(np.abs(np.sum(
+            self.template.X[:, self.time_idx[0]:self.time_idx[1]],
+            axis=0)))
         self.spatial_template = self.template.X[:, [peak]]
 
         sigma_x = psychic.nodes.spatialfilter.plain_cov0(self.template)
         sigma_x += self.reg * np.eye(sigma_x.shape[0])
         sigma_x_i = np.linalg.inv(sigma_x)
         W_spatial = sigma_x_i.dot(self.spatial_template)
-        self.temp_template = psychic.nodes.spatialfilter.sfilter_plain(self.template, W_spatial)
 
+        self.temp_template = psychic.nodes.spatialfilter.sfilter_plain(self.template, W_spatial)
         ndX = self.temp_template.ndX.copy()
+        ndX[:,:self.time_idx[0]] = 0
+        ndX[:,self.time_idx[1]:] = 0
         self.temp_template = golem.DataSet(ndX=ndX, default=self.temp_template)
 
     def apply_(self, d):
