@@ -72,7 +72,8 @@ class TemplateFilter(BaseNode):
         ndX = self.temp_template.ndX.copy()
         ndX[:,:self.time_idx[0]] = 0
         ndX[:,self.time_idx[1]:] = 0
-        self.temp_template = golem.DataSet(ndX=ndX, default=self.temp_template)
+        feat_lab=['temp']
+        self.temp_template = golem.DataSet(ndX=ndX, feat_lab=feat_lab, default=self.temp_template)
 
     def apply_(self, d):
         nsamples = min(d.ndX.shape[1], self.template.ndX.shape[1])
