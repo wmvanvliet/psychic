@@ -14,7 +14,7 @@ import nodes
 import dataformats
 from dataformats.edf import load_edf
 from dataformats.bdf import load_bdf, BDFWriter
-from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram, align
+from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram, align, construct_trials
 import fake
 
 import os.path as op
