@@ -5,6 +5,52 @@ import logging
 import psychic
 from matplotlib.mlab import specgram
 
+def construct_trials(datasets, Y=None, cl_lab=None, I=None):
+    '''
+    Given a list of datasets, each containing a single trial (channels x samples),
+    construct a single dataset containing all trials (channel x samples x trials).
+
+    Parameters
+    ----------
+    datasets : list (DataSet)
+        A list of DataSets, each containing a single trial (channels x samples).
+        The feat_lab properties of the DataSets must be equal.
+    Y : list or 2D-array (Default: None)
+        Class labels for the trials. When not specified, each trial will be
+        assigned to a separate class.
+    cl_lab : list (str) (Default: None)
+        Names for the classes. When not specified, nondescriptive names are
+        used.
+    I : list or 2D-array (Default: None)
+        For each trial, a unique label. When not specified, trials are 
+        numbered.
+    '''
+    assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
+    feat_dim = datasets[0].feat_dim
+    for d in datasets:
+        assert feat_dim == d.feat_dim, 'feat_dim of all DataSets must be equal'
+
+    ndX = np.concatenate([d.ndX[:,:,np.newaxis] for d in datasets], axis=2)
+
+    if Y != None:
+        Y = np.atleat_2d(Y)
+        assert Y.shape[1] == len(datasets), 'Y must contain a class label for each trial'
+    else:
+        Y = np.eye(len(datasets), dtype=np.bool)
+
+    if cl_lab == None:
+        cl_lab = ['class %02d' % (i+1) for i in range(len(datasets))]
+
+    if I != None:
+        I = np.atleast_2d(I)
+        assert I.shape[1] == len(datasets), 'I must contain an identifier for each trial'
+    else:
+        I = np.atleast_2d(np.arange(len(datasets)))
+
+    feat_nd_lab = [list(datasets[0].feat_lab), datasets[0].I[0,:].tolist()]
+
+    return golem.DataSet(ndX=ndX, Y=Y, cl_lab=cl_lab, I=I, feat_nd_lab=feat_nd_lab, default=datasets[0])
+
 def baseline(data, baseline_period=None):
     '''
     For each channel, calculate and remove the baseline. The baseline is the
@@ -448,3 +494,4 @@ def align(trials, window, offsets):
                                  default=trials)
 
     return trials_aligned
+
