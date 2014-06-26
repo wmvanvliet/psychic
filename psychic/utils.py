@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from golem import DataSet
+from dataset import DataSet
 
 from markers import markers_to_events
 
@@ -13,6 +13,7 @@ def sliding_window_indices(window_size, window_step, sig_len):
 
 def sliding_window(signal, window_size, window_step, win_func=None):
   '''Apply a sliding window to a 1D signal. Returns [#windows x window_size].'''
+  signal = np.asarray(signal)
   if signal.ndim != 1:
     raise ValueError, 'Sliding window works on 1D arrays only!'
   if win_func != None:
@@ -33,7 +34,7 @@ def stft(signal, nfft, stepsize):
 
 def spectrogram(signal, nfft, stepsize):
   '''
-  Calculate a spectrogram using the STFT. 
+  Calculate a spectrogram using STFT. 
   Returns [windows x frequencies], in units related to power.
   Equivalent to power spectral density.
   '''
@@ -54,26 +55,35 @@ def spectrogram(signal, nfft, stepsize):
   spec *= (1 + (nwins - 1) * overlap) / nwins
   return spec
 
-def get_samplerate(d):
+def get_samplerate(d, axis=1):
   '''
-  Derive the sample rate from the timestamps given in ``d.I``
+  Derive the sample rate from the timestamps given in either ``feat_lab`` or
+  ``d.ids``. The median of the difference between consecutive time stamps is
+  takes to be the sample rate.
 
   Parameters
   ----------
 
-  d : :class:`golem.DataSet`
+  d : :class:`psychic.DataSet`
     The data to estimate the sample rate of. Must contain time stamps
-    in ``d.I``
+    in ``d.ids``
+
+  axis : int (default 1)
+    The axis along which time samples are stored. If the last axis is specified
+    here, time stamps are taken from the ``ids`` property, otherwise they are
+    taken from the corresponding index of ``feat_lab``.
 
   Returns
   -------
   sample_rate : float
     The estimated samplerate.
   '''
-  if d.ndX.ndim == 2:
-    return np.round(1./np.median(np.diff(d.I[0])))
-  elif d.ndX.ndim == 3:
-    return np.round(1./np.median(np.diff([float(i) for i in d.feat_nd_lab[1]])))
+  assert axis < d.data.ndim, 'Invalid axis specified'
+
+  if axis == d.data.ndim - 1:
+      return np.round(1./np.median(np.diff(d.ids[0])))
+  else:
+      return np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[axis]])))
 
 def find_segments(events, event_indices, start_mark, end_mark):
   '''Helper to find matching start/end markers in an event array'''
@@ -99,7 +109,7 @@ def cut_segments(d, marker_tuples, offsets=[0, 0]):
 
   Parameters
   ----------
-  d : :class:`golem.DataSet`
+  d : :class:`psychic.DataSet`
     Continuous data to cut into segments.
   marker_tuples : list of tuples
     A list of (start_marker, end_marker) marker codes delimiting each
@@ -107,12 +117,12 @@ def cut_segments(d, marker_tuples, offsets=[0, 0]):
 
   Returns
   -------
-  data : list of :class:`golem.DataSet`
+  data : list of :class:`psychic.DataSet`
     A list with datasets.
   '''
   start_off, end_off = offsets
   segments = []
-  e, ei = markers_to_events(d.ys.flat)
+  e, ei, _ = markers_to_events(d.labels.flat)
   for (sm, em) in marker_tuples:
     segments.extend(find_segments(e, ei, sm, em))
   segments.sort()
@@ -128,7 +138,7 @@ def wolpaw_bitr(N, P):
     result += (1 - P) * np.log2((1 - P)/(N - 1.))
   return result
 
-def split_in_bins(data, order, n, legend=lambda i,b: 'slice %d' % i, ascending=True):
+def split_in_bins(d, order, n, legend=lambda i,b: 'slice %d' % i, ascending=True):
   idx = np.argsort(order)
   if not ascending:
     idx = idx[::-1]
@@ -136,9 +146,9 @@ def split_in_bins(data, order, n, legend=lambda i,b: 'slice %d' % i, ascending=T
   bin_size = int(len(order) / float(n))
   bins = [idx[i*bin_size:(i+1)*bin_size] for i in range(n)]
 
-  Y = np.zeros((n, data.ninstances), dtype=np.bool)
+  labels = np.zeros((n, d.ninstances), dtype=np.bool)
   for i,b in enumerate(bins):
-    Y[i, b] = True
+    labels[i, b] = True
     cl_lab = [legend(i, bins[i]) for i in range(n)]
 
-  return (bins, DataSet(Y=Y, cl_lab=cl_lab, default=data))
+  return (bins, DataSet(labels=labels, cl_lab=cl_lab, default=d))

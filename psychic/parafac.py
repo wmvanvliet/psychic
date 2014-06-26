@@ -23,9 +23,9 @@ def para_compose(ribs):
 
 def parafac(x, nfactors=3, max_iter=5000):
   '''
-  PARAFAC is a multi-way tensor decomposition method [1]. Given a tensor X, and
-  a number of factors nfactors, PARAFAC decomposes the X in n factors for each
-  dimension in X using alternating least squares:
+  PARAFAC is a multi-way tensor decomposition method [1]. Given a tensor data, and
+  a number of factors nfactors, PARAFAC decomposes the data in n factors for each
+  dimension in data using alternating least squares:
 
   X_{ijk} = \sum_{f} s_{f} a_{fi} b_{fj} c_{fk} + e_{ijk}
 
@@ -46,9 +46,9 @@ def parafac(x, nfactors=3, max_iter=5000):
 
 def parafac_base(x, nfactors, max_iter):
   '''
-  PARAFAC is a multi-way tensor decomposition method. Given a tensor X, and a
-  number of factors nfactors, PARAFAC decomposes the X in n factors for each 
-  dimension in X using alternating least squares:
+  PARAFAC is a multi-way tensor decomposition method. Given a tensor data, and a
+  number of factors nfactors, PARAFAC decomposes the data in n factors for each 
+  dimension in data using alternating least squares:
 
   X_{ijk} = \sum_{f} a_{fi} b_{fj} c_{fk} + e_{ijk}
 
@@ -80,11 +80,11 @@ def parafac_base(x, nfactors, max_iter):
 
       # b) Isolate mode
       Z = Z.reshape(nfactors, -1).T # Z = [long x fact]
-      Y = np.rollaxis(x, mode)
-      Y = Y.reshape(Y.shape[0], -1).T # Y = [mode x long]
+      labels = np.rollaxis(x, mode)
+      labels = labels.reshape(labels.shape[0], -1).T # labels = [mode x long]
 
-      # c) least squares estimation: x = np.lstsq(Z, Y) -> Z x = Y
-      new_fact, _, _, _ = np.linalg.lstsq(Z, Y)
+      # c) least squares estimation: x = np.lstsq(Z, labels) -> Z x = labels
+      new_fact, _, _, _ = np.linalg.lstsq(Z, labels)
       loadings[mode] = new_fact
   if not i < max_iter - 1:
     log.warning('parafac did not converge in %d iterations (mse=%.2g)' %

@@ -1,55 +1,11 @@
-import golem
 import numpy as np
 import scipy
 import logging
-import psychic
+import helpers
+import markers
+import utils
+from dataset import DataSet, concatenate
 from matplotlib.mlab import specgram
-
-def construct_trials(datasets, Y=None, cl_lab=None, I=None):
-    '''
-    Given a list of datasets, each containing a single trial (channels x samples),
-    construct a single dataset containing all trials (channel x samples x trials).
-
-    Parameters
-    ----------
-    datasets : list (DataSet)
-        A list of DataSets, each containing a single trial (channels x samples).
-        The feat_lab properties of the DataSets must be equal.
-    Y : list or 2D-array (Default: None)
-        Class labels for the trials. When not specified, each trial will be
-        assigned to a separate class.
-    cl_lab : list (str) (Default: None)
-        Names for the classes. When not specified, nondescriptive names are
-        used.
-    I : list or 2D-array (Default: None)
-        For each trial, a unique label. When not specified, trials are 
-        numbered.
-    '''
-    assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
-    feat_dim = datasets[0].feat_dim
-    for d in datasets:
-        assert feat_dim == d.feat_dim, 'feat_dim of all DataSets must be equal'
-
-    ndX = np.concatenate([d.ndX[:,:,np.newaxis] for d in datasets], axis=2)
-
-    if Y != None:
-        Y = np.atleat_2d(Y)
-        assert Y.shape[1] == len(datasets), 'Y must contain a class label for each trial'
-    else:
-        Y = np.eye(len(datasets), dtype=np.bool)
-
-    if cl_lab == None:
-        cl_lab = ['class %02d' % (i+1) for i in range(len(datasets))]
-
-    if I != None:
-        I = np.atleast_2d(I)
-        assert I.shape[1] == len(datasets), 'I must contain an identifier for each trial'
-    else:
-        I = np.atleast_2d(np.arange(len(datasets)))
-
-    feat_nd_lab = [list(datasets[0].feat_lab), datasets[0].I[0,:].tolist()]
-
-    return golem.DataSet(ndX=ndX, Y=Y, cl_lab=cl_lab, I=I, feat_nd_lab=feat_nd_lab, default=datasets[0])
 
 def baseline(data, baseline_period=None):
     '''
@@ -58,35 +14,36 @@ def baseline(data, baseline_period=None):
 
     Parameters
     ----------
-    baseline_period : tuple (int, int)
+    baseline_period : tuple (int, int) (default: full range of samples)
         The start (inclusive) and end (exclusive) indices of the period to
-        calculate the baseline over. Values are given in samples.
+        calculate the baseline over. Values are given in samples. 
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`psychic.DataSet`
         The baselined trials.
     '''
     if baseline_period:
-        assert len(baseline_period) == 2, 'Specify a begin and end point for the baseline period (in samples)'
+        assert  len(baseline_period) == 2, \
+          'Specify a begin and end point for the baseline period (in samples)'
     else:
         baseline_period = (0, data.ninstances)
 
-    assert data.ndX.ndim <= 3
+    assert data.data.ndim <= 3
 
-    if data.ndX.ndim == 2:
+    if data.data.ndim == 2:
         num_samples = data.ninstances
-        X = data.X - np.tile( np.mean(data.X[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
+        data = data.data - np.tile( np.mean(data.data[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
 
     else:
-        num_samples = data.ndX.shape[1]
-        ndX = np.zeros(data.ndX.shape, dtype=data.X.dtype)
+        num_samples = data.data.shape[1]
+        data = np.zeros(data.data.shape, dtype=data.data.dtype)
 
         for i in range(data.ninstances):
-            ndX[:,:,i] = data.ndX[:,:,i] - np.tile( np.mean(data.ndX[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
-        X = ndX.reshape(data.X.shape)
+            data[:,:,i] = data.data[:,:,i] - np.tile( np.mean(data.data[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
+        data = data.reshape(data.data.shape)
 
-    return golem.DataSet(X=X, feat_nd_lab=data.feat_nd_lab, default=data)
+    return DataSet(data=data, default=data)
 
 def erp(data, classes=None, enforce_equal_n=True):
     '''
@@ -96,7 +53,7 @@ def erp(data, classes=None, enforce_equal_n=True):
 
     Parameters
     ----------
-    data : :class:`golem.DataSet`
+    data : :class:`psychic.DataSet`
         The trials
     classes: list (optional)
         When specified, the ERP is only calculated for the classes with the
@@ -109,43 +66,46 @@ def erp(data, classes=None, enforce_equal_n=True):
     
     Returns
     -------
-    d : :class:`golem.DataSet`
-        A golem DataSet containing for each class the ERP. 
+    d : :class:`psychic.DataSet`
+        A DataSet containing for each class the ERP. 
 
-        - ``d.ndX``: [channels x samples x classes]
-        - ``d.Y``: The class labels. Each class has one instance (one ERP).
+        - ``d.data``: [channels x samples x classes]
+        - ``d.labels``: The class labels. Each class has one instance (one ERP).
     '''
-    assert data.ndX.ndim > 2
+    assert data.data.ndim > 2
 
     if classes == None or len(classes) == 0:
         # Take all classes with >0 instances
-        classes = [cl for cl in range(data.nclasses) if data.ninstances_per_class[cl] > 0]
-    assert len(classes) > 0, 'No valid classes specified and no classes found with >0 instances'
+        classes = [cl for cl in range(data.nclasses)
+                   if data.ninstances_per_class[cl] > 0]
+    assert  len(classes) > 0, \
+            'No valid classes specified and no classes found with >0 instances'
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
     assert num_trials > 0, 'For one or more classes there are no instances!'
 
     # Calculate ERP
-    erp = np.zeros(data.ndX.shape[:-1] + (len(classes),))
+    erp = np.zeros(data.data.shape[:-1] + (len(classes),))
     for i,cl in enumerate(classes):
-        trials = data.get_class(cl).ndX
+        trials = data.get_class(cl).data
 
         if enforce_equal_n:
-            # Enforce an equal number of trials for all classes. Picking them at random.
-            # Otherwise the ERPs will be skewed, simply because a different number of trials are averaged.
+            # Enforce an equal number of trials for all classes. Picking them
+            # at random.  Otherwise the ERPs will be skewed, simply because a
+            # different number of trials are averaged.
             idx = range(trials.shape[-1])[:num_trials]
             np.random.shuffle(idx)
             erp[...,i] = np.mean(trials[...,idx], axis=trials.ndim-1)
         else:
             erp[...,i] = np.mean(trials, axis=trials.ndim-1)
 
-    X = erp.reshape(-1, len(classes))
-    Y = golem.helpers.to_one_of_n(classes).astype(np.bool)
-    I = np.atleast_2d(classes)
-    feat_shape = data.ndX.shape[:-1]
+    data = erp.reshape(-1, len(classes))
+    labels = helpers.to_one_of_n(classes).astype(np.bool)
+    ids = np.atleast_2d(classes)
     cl_lab = [lab for i,lab in enumerate(data.cl_lab) if i in classes]
 
-    return golem.DataSet(X=X, Y=Y, I=I, feat_shape=feat_shape, cl_lab=cl_lab, default=data)
+    return DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab,
+                   default=data)
 
 def ttest(data, classes=[0,1], shuffle=True):
     '''
@@ -175,12 +135,12 @@ def ttest(data, classes=[0,1], shuffle=True):
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
 
-    c1 = data.ndX[..., data.Y[classes[0],:].astype(np.bool)]
+    c1 = data.data[..., data.labels[classes[0],:].astype(np.bool)]
     if shuffle:
         np.random.shuffle(c1)
     c1 = c1[..., :num_trials]
 
-    c2 = data.ndX[..., data.Y[classes[1],:].astype(np.bool)]
+    c2 = data.data[..., data.labels[classes[1],:].astype(np.bool)]
     if shuffle:
         np.random.shuffle(c2)
     c2 = c2[..., :num_trials]
@@ -193,7 +153,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
 
     Parameters
     ----------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The trials.
     group_size : int
         Size of the groups to make.
@@ -204,9 +164,9 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
-        The grouped data. ``d.ndX`` is [channels x samples x trials x groups] or
-        if mean==True, ``d.ndX`` is [channels x samples x groups]
+    d : :class:`DataSet`
+        The grouped data. ``d.data`` is [channels x samples x trials x groups]
+        or if mean==True, ``d.data`` is [channels x samples x groups]
     '''
 
     d_trials = []
@@ -216,7 +176,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
         groups_per_class = np.min(d.ninstances_per_class) / group_size
 
     for cl in range(d.nclasses):
-        idx_cl = np.flatnonzero(d.Y[cl,:])
+        idx_cl = np.flatnonzero(d.labels[cl,:])
         ninstances = len(idx_cl)
 
         groups_to_go = groups_per_class
@@ -225,9 +185,9 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
 
             idx = idx_cl[np.random.permutation(ninstances)[:ngroups*group_size]].reshape(group_size,-1)
 
-            ndX = d.ndX[:,:,idx]
+            data = d.data[:,:,idx]
             if mean:
-                ndX = np.mean(d.ndX[:,:,idx], axis=2)
+                data = np.mean(d.data[:,:,idx], axis=2)
 
             if mean:
                 feat_dim_lab = d.feat_dim_lab
@@ -235,16 +195,16 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
                 feat_dim_lab = d.feat_dim_lab + ['trials'] if d.feat_dim_lab else None
 
             if mean:
-                feat_nd_lab = d.feat_nd_lab
+                feat_lab = d.feat_lab
             else:
-                feat_nd_lab = d.feat_nd_lab + [range(group_size)] if d.feat_nd_lab else None
+                feat_lab = d.feat_lab + [range(group_size)] if d.feat_lab else None
 
-            Y = d.Y[:,idx[0,:]]
-            I = d.I[:,idx[0,:]]
+            labels = d.labels[:,idx[0,:]]
+            ids = d.ids[:,idx[0,:]]
 
-            d_grouped = golem.DataSet(
-                ndX=ndX, Y=Y, I=I, feat_dim_lab=feat_dim_lab,
-                feat_nd_lab=feat_nd_lab, default = d
+            d_grouped = DataSet(
+                data=data, labels=labels, ids=ids, feat_dim_lab=feat_dim_lab,
+                feat_lab=feat_lab, default = d
             )
 
             d_trials.append(d_grouped)
@@ -255,7 +215,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
     if len(d_trials) == 0:
         return ([], [])
     else:
-        return (golem.concatenate(d_trials, ignore_index=True), np.hstack(idxs))
+        return (concatenate(d_trials, ignore_index=True), np.hstack(idxs))
 
 def reject_trials(d, cutoff=100, time_range=None):
     '''
@@ -264,7 +224,7 @@ def reject_trials(d, cutoff=100, time_range=None):
     Parameters
     ----------
 
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The dataset to filter.
     cutoff : float (default=100)
         Any trials with a feature larger than this value are rejected.
@@ -276,24 +236,24 @@ def reject_trials(d, cutoff=100, time_range=None):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         Filtered dataset.
     reject : :class:`numpy.Array`
         Boolean mask used to reject indices.
     '''
     if time_range == None:
-        time_range = (0, d.ndX.shape[1])
+        time_range = (0, d.data.shape[1])
 
     if hasattr(cutoff, '__iter__'):
-        nchannels = d.ndX.shape[0]
+        nchannels = d.data.shape[0]
         assert len(cutoff) == nchannels
 
         reject = np.any(
-            [np.any(np.abs(d.ndX[i,time_range[0]:time_range[1],:]) > cutoff[i], axis=0)
+                [np.any(np.abs(d.data[i,time_range[0]:time_range[1],...]) > cutoff[i], axis=0)
                 for i in range(nchannels)],
             axis=0)
     else:
-        reject = np.any(np.any(np.abs(d.ndX[:,time_range[0]:time_range[1],:]) > cutoff, axis=0), axis=0)
+        reject = np.any(np.any(np.abs(d.data[:,time_range[0]:time_range[1],...]) > cutoff, axis=0), axis=0)
 
     reject = np.logical_not(reject)
 
@@ -334,51 +294,61 @@ def slice(d, markers_to_class, offsets):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The extracted segments:
 
-        - ``d.ndX``: [channels x samples x trials]
-        - ``d.Y``: [classes x trials]
-        - ``d.I``: Timestamps indicating the marker onsets
-        - ``d.cl_lab``: The class labels as specified in the ``markers_to_class``
-          dictionary
-        - ``d.feat_nd_lab``: Feature labels for the axes [channels (strings),
+        - ``d.data``: [channels x samples x trials]
+        - ``d.labels``: [classes x trials]
+        - ``d.ids``: Timestamps indicating the marker onsets
+        - ``d.cl_lab``: The class labels as specified in the
+          ``markers_to_class`` dictionary
+        - ``d.feat_lab``: Feature labels for the axes [channels (strings),
           time in seconds (floats)]
     '''
     assert len(d.feat_shape) == 1
     assert d.nclasses == 1
     start_off, end_off = offsets
-    X, Y, I = [], [], []
-    
-    feat_shape = d.feat_shape + (end_off - start_off,)
+    data, labels, ids = [], [], []
     
     cl_lab = sorted(set(markers_to_class.values()))
-    events, events_i, events_d = psychic.markers_to_events(d.Y.flat)
+    events, events_i, events_d = markers.markers_to_events(d.labels.flat)
     for (mark, cl) in markers_to_class.items():
         cl_i = cl_lab.index(cl)
         for i in events_i[events==mark]: # fails if there is *ONE* event
             (start, end) = i + start_off, i + end_off
             if start < 0 or end > d.ninstances:
                 logging.getLogger('psychic.utils.slice').warning(
-                    'Cannot extract slice [%d, %d] for class %s' % (start, end, cl))
+                    'Cannot extract slice [%d, %d] for class %s'
+                    % (start, end, cl))
                 continue
             dslice = d[start:end]
-            X.append(dslice.X)
-            Y.append(cl_i)
-            I.append(d.I[:,i])
+            data.append(dslice.data)
+            labels.append(cl_i)
+            ids.append(d.ids[:,i])
     
-    ninstances = len(X)
-    ndX = np.concatenate([x[...,np.newaxis] for x in X], axis=2)
-    Y = golem.helpers.to_one_of_n(Y, class_rows=range(len(cl_lab)))
-    I = np.atleast_2d(np.hstack(I))
-    
-    event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
-    feat_nd_lab = [d.feat_lab if d.feat_lab else ['f%d' % i for i in range(d.nfeatures)], event_time.tolist()]
+    event_time = np.arange(start_off, end_off) / float(utils.get_samplerate(d))
+    feat_lab = [d.feat_lab[0], event_time.tolist()]
+
+    if len(data) == 0:
+        data = np.zeros(d.feat_shape + (len(event_time),0))
+        labels = np.zeros((len(cl_lab),0))
+        ids = np.zeros((1,0))
+    else:
+        data = np.concatenate([x[...,np.newaxis] for x in data], axis=2)
+        labels = helpers.to_one_of_n(labels, class_rows=range(len(cl_lab)))
+        ids = np.atleast_2d(np.vstack(ids).T)
+
     feat_dim_lab = ['channels', 'time']
 
-    d = golem.DataSet(X=ndX.reshape(-1, ninstances), Y=Y, I=I, cl_lab=cl_lab, 
-    feat_shape=feat_shape, feat_nd_lab=feat_nd_lab, 
-    feat_dim_lab=feat_dim_lab, default=d)
+    d = DataSet(
+        data=data,
+        labels=labels,
+        ids=ids,
+        cl_lab=cl_lab, 
+        feat_lab=feat_lab, 
+        feat_dim_lab=feat_dim_lab,
+        default=d
+    )
     return d.sorted()
 
 def concatenate_trials(d):
@@ -388,37 +358,37 @@ def concatenate_trials(d):
 
     Parameters
     ----------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         Some sliced data.
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         A version of the data where the slices are concatenated:
 
-        - ``d.ndX``: [channels x samples]
-        - ``d.Y``: A reconstructed marker stream. All zeros except for the onsets
-          of the trials, where it contains the marker code indicating the class
-          of the trial. This simulated the data as it would be a continuous
-          recording.
-        - ``d.I``: Timestamps for each sample
-        - ``d.feat_lab``: This is set to ``d.feat_nd_lab[0]``, which usually
+        - ``d.data``: [channels x samples]
+        - ``d.labels``: A reconstructed marker stream. All zeros except for the
+          onsets of the trials, where it contains the marker code indicating
+          the class of the trial. This simulated the data as it would be a
+          continuous recording.
+        - ``d.ids``: Timestamps for each sample
+        - ``d.feat_lab``: This is set to ``d.feat_lab[0]``, which usually
           contains the channel names.
 
     '''
-    assert d.ndX.ndim == 3, 'Expecting sliced data'
+    assert d.data.ndim == 3, 'Expecting sliced data'
 
-    nchannels = d.ndX.shape[0]
-    trial_length = d.ndX.shape[1]
+    nchannels = d.data.shape[0]
+    trial_length = d.data.shape[1]
     ninstances = trial_length * d.ninstances
     
-    X = np.transpose(d.ndX, [0,2,1]).reshape((nchannels, -1))
-    Y = np.zeros((1, ninstances))
-    Y[:, np.arange(0, ninstances, trial_length)] = [np.flatnonzero(d.Y[:,i])[0] + 1 for i in range(d.ninstances)]
-    I = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_nd_lab[1]])) )
-    feat_lab = d.feat_nd_lab[0]
+    data = np.transpose(d.data, [0,2,1]).reshape((nchannels, -1))
+    labels = np.zeros((1, ninstances))
+    labels[:, np.arange(0, ninstances, trial_length)] = [np.flatnonzero(d.labels[:,i])[0] + 1 for i in range(d.ninstances)]
+    ids = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_lab[1]])) )
+    feat_lab = [d.feat_lab[0]]
 
-    return golem.DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab)
+    return DataSet(data=data, labels=labels, ids=ids, feat_lab=feat_lab)
 
 def trial_specgram(d, samplerate=None, NFFT=256):
     '''
@@ -427,7 +397,7 @@ def trial_specgram(d, samplerate=None, NFFT=256):
     Parameters
     ----------
 
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The trials.
     samplerate : float
         The sample rate of the data. When omitted,
@@ -437,61 +407,52 @@ def trial_specgram(d, samplerate=None, NFFT=256):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The spectrograms:
 
-        - ``d.ndX``: [channels x freqs x samples x trials]
-        - ``d.feat_nd_lab``: The feature labels for the axes [channels
+        - ``d.data``: [channels x freqs x samples x trials]
+        - ``d.feat_lab``: The feature labels for the axes [channels
           (strings), frequencies (floats), time in seconds (floats)]
 
     '''
-    assert d.ndX.ndim == 3
+    assert d.data.ndim == 3
 
     if samplerate == None:
-        assert d.feat_nd_lab != None, 'Must either supply samplerate or feat_nd_lab to deduce it.'
-        samplerate = np.round(1./np.median(np.diff([float(x) for x in d.feat_nd_lab[1]])))
+        assert d.feat_lab != None, 'Must either supply samplerate or feat_lab to deduce it.'
+        samplerate = np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[1]])))
 
     all_TFs = []
     for trial in range(d.ninstances):
         channel_TFs = []
-        for channel in range(d.ndX.shape[0]):
-            TF, freqs, times = specgram(d.ndX[channel,:,trial], NFFT, samplerate, noverlap=NFFT/2)
-            channel_TFs.append(TF[np.newaxis,:,:])
+        for channel in range(d.data.shape[0]):
+            TF, freqs, times = specgram(d.data[channel,:,trial], NFFT, samplerate, noverlap=NFFT/2)
+            channel_TFs.append(TF.T[np.newaxis,:,:])
 
         all_TFs.append(np.concatenate(channel_TFs, axis=0)[..., np.newaxis])
     all_TFs = np.concatenate(all_TFs, axis=3)
 
     nchannels, nfreqs, nsamples, ninstances = all_TFs.shape
-    feat_shape = (nchannels, nfreqs, nsamples)
-    feat_nd_lab = [d.feat_nd_lab[0],
-                   ['%f' % f for f in freqs],
-                   ['%f' % t for t in times],
-                  ]
-    feat_dim_lab=['channels', 'frequencies', 'time']
+    feat_lab = [d.feat_lab[0], times.tolist(), freqs.tolist()]
+    feat_dim_lab=['channels', 'time', 'frequencies']
 
-    return golem.DataSet(
-        X = all_TFs.reshape(-1, ninstances),
-        feat_shape=feat_shape,
-        feat_nd_lab=feat_nd_lab,
+    return DataSet(
+        data=all_TFs,
+        feat_lab=feat_lab,
         feat_dim_lab=feat_dim_lab,
         default=d)
 
 def align(trials, window, offsets):
-    sample_rate = psychic.get_samplerate(trials)
+    sample_rate = utils.get_samplerate(trials)
     w = np.arange(int(window[0]*sample_rate), int(sample_rate))
-    feat_nd_lab = [ trials.feat_nd_lab[0],
+    feat_lab = [ trials.feat_lab[0],
                     (w / float(sample_rate)).tolist()]
     feat_shape = (trials.feat_shape[0], len(w))
 
-    ndX = np.zeros(feat_shape + (trials.ninstances,))
+    data = np.zeros(feat_shape + (trials.ninstances,))
     for i,t in enumerate(offsets):
         t -= window[0]
-        ndX[:,:,i] = trials.ndX[:,int(t*sample_rate)+w,i]
+        data[:,:,i] = trials.data[:,int(t*sample_rate)+w,i]
 
-    trials_aligned = golem.DataSet(X=ndX.reshape((-1, trials.ninstances)),
-                                 feat_nd_lab=feat_nd_lab,
-                                 feat_shape=feat_shape,
-                                 default=trials)
+    trials_aligned = DataSet(data=data, feat_lab=feat_lab, default=trials)
 
     return trials_aligned
-

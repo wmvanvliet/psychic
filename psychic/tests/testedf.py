@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest, os
-from ..edfreader import *
+from ..dataformats.edf import *
 
 class TestEDFBaseReader(unittest.TestCase):
   def test_synthetic_content(self):

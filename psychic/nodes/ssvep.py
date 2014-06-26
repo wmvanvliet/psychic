@@ -8,7 +8,7 @@ import itertools
 
 def create_sin_cos_matrix(freqs, nharmonics, sample_rate, nsamples):
     '''
-    Construct matrix Y with on the columns sines and cosines of the
+    Construct matrix labels with on the columns sines and cosines of the
     SSVEP frequencies and their harmonics.
     '''
     nfreqs = len(freqs)
@@ -74,14 +74,13 @@ class SLIC(BaseNode) :
 
         mean_corrs = self.slic(d)
 
-        X = np.max(mean_corrs, axis=1)
-        feat_shape = X.shape[:-1]
+        data = np.max(mean_corrs, axis=1)
         feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
-        return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, default=d)
+        return DataSet(data=data, feat_lab=feat_lab, default=d)
 
     def slic(self, d):
-        nchannels, nsamples, ntrials = d.ndX.shape
+        nchannels, nsamples, ntrials = d.data.shape
 
         mean_corrs = np.zeros( (self.nfrequencies, nchannels, ntrials) )
         for f,freq in enumerate(self.frequencies):
@@ -99,7 +98,7 @@ class SLIC(BaseNode) :
 
             for trial in range(ntrials):
                 # Split the signal into periods
-                periods = d.ndX[:,period_idxs,trial]
+                periods = d.data[:,period_idxs,trial]
 
                 # Calculate the mean of the periods
                 avg = np.mean(periods, axis=1)
@@ -119,7 +118,7 @@ class SSVEPNoiseReduce(BaseNode):
     Node that tries to reduce EEG activity that is not informative for SSVEP
     classification using the method described in:
 
-    Friman, O., Volosyak, I., & Gräser, A. (2007). Multiple channel detection
+    Friman, O., Volosyak, ids., & Gräser, A. (2007). Multiple channel detection
     of steady-state visual evoked potentials for brain-computer interfaces.
     IEEE transactions on bio-medical engineering, 54(4), 742–50.
     '''
@@ -148,7 +147,7 @@ class SSVEPNoiseReduce(BaseNode):
         if d == None:
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            self.nsamples = d.ndX.shape[1]
+            self.nsamples = d.data.shape[1]
 
         # Construct a list of the SSVEP frequencies plus their harmonics
         freqs_to_remove = [f*h for f,h in itertools.product(self.frequencies, self.harmonics)]
@@ -169,16 +168,16 @@ class SSVEPNoiseReduce(BaseNode):
         self.SSVEPRemovalMatrix = (np.eye(self.nsamples) - P_A).T 
 
     def apply_(self, d):
-        _, nsamples, ntrials = d.ndX.shape
+        _, nsamples, ntrials = d.data.shape
         assert nsamples >= self.nsamples, 'Filter trained for a different window size.'
 
-        filtered_ndX = np.zeros(d.ndX.shape)
+        filtered_ndX = np.zeros(d.data.shape)
         for trial in range(ntrials):
-            Y = d.ndX[:, -self.nsamples:, trial]
+            labels = d.data[:, -self.nsamples:, trial]
             # TODO: normalize EEG signal power. All channels should have equal energy (variance)
             
             # Remove all SSVEP frequencies from the EEG
-            tildeY = Y.dot(self.SSVEPRemovalMatrix)
+            tildeY = labels.dot(self.SSVEPRemovalMatrix)
             
             # Eigenvalue decomposition of remaining noise
             eigvals, eigvecs = np.linalg.eig(tildeY.dot(tildeY.T))
@@ -206,9 +205,9 @@ class SSVEPNoiseReduce(BaseNode):
             self.W[np.isnan(self.W)] = 0 # rude hack
 
             # Apply the obtained spatial filter
-            filtered_ndX[:,:,trial] = self.W.T.dot(d.ndX[:,:,trial])
+            filtered_ndX[:,:,trial] = self.W.T.dot(d.data[:,:,trial])
             
-        return DataSet(ndX=filtered_ndX, default=d)
+        return DataSet(data=filtered_ndX, default=d)
 
 
 try:
@@ -217,7 +216,7 @@ try:
         '''
         SSVEP classifier based on Minimal Noise Energy Combination (MNEC) [1].
 
-        [1] Friman, O., Volosyak, I., & Gräser, A. (2007). Multiple channel
+        [1] Friman, O., Volosyak, ids., & Gräser, A. (2007). Multiple channel
         detection of steady-state visual evoked potentials for brain-computer
         interfaces. IEEE transactions on bio-medical engineering, 54(4), 742–50.
         '''
@@ -237,38 +236,38 @@ try:
 
         def reset(self):
             self.noise_filter.reset()
-            self.X = None
+            self.data = None
 
         def train_(self, d):
             self.noise_filter.train_(d)
 
-            # Prepare some calculations in advance and store them in matrix X
+            # Prepare some calculations in advance and store them in matrix data
             time = np.arange(self.noise_filter.nsamples) / float(self.sample_rate)
-            X = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
+            data = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
                          [1, 2, self.nharmonics, self.nfrequencies] )
                 
             for i,freq in enumerate(self.frequencies):
-                X[:,:,:,i] = X[:,:,:,i] * freq
+                data[:,:,:,i] = data[:,:,:,i] * freq
 
             for i,harm in enumerate(self.harmonics):
-                X[:,:,i,:] = X[:,:,i,:] * harm
+                data[:,:,i,:] = data[:,:,i,:] * harm
                 
-            X[:,0,:,:] = np.sin(X[:,0,:,:])
-            X[:,1,:,:] = np.cos(X[:,1,:,:])
+            data[:,0,:,:] = np.sin(data[:,0,:,:])
+            data[:,1,:,:] = np.cos(data[:,1,:,:])
 
-            self.X = X
+            self.data = data
 
         def apply_(self, d):
-            S = self.noise_filter.apply_(d).ndX[:, -self.noise_filter.nsamples:, :]
+            S = self.noise_filter.apply_(d).data[:, -self.noise_filter.nsamples:, :]
             nchannels, nsamples, ntrials = S.shape
 
-            X = np.zeros((self.nfrequencies, d.ninstances))
+            data = np.zeros((self.nfrequencies, d.ninstances))
             for trial in range(ntrials):
                 P = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
                 for freq in range(self.nfrequencies):
                     for ch in range(nchannels):
                         for harm in range(self.nharmonics):
-                            P[harm,ch,freq] = np.linalg.norm(S[ch,:,trial].dot(self.X[...,harm,freq]))            
+                            P[harm,ch,freq] = np.linalg.norm(S[ch,:,trial].dot(self.data[...,harm,freq]))            
                 P = P**2
                 
                 tildeS = S[...,trial].dot(self.noise_filter.SSVEPRemovalMatrix)
@@ -301,12 +300,11 @@ try:
                     elif len(self.weights) < nSNRs:
                          raise ValueError('inconsistent weight vector size')
                             
-                X[:,trial] = self.weights.dot(SNRs)
+                data[:,trial] = self.weights.dot(SNRs)
 
-            feat_shape = X.shape[:-1]
             feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
-            return DataSet(X=X, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+            return DataSet(data=data, feat_lab=feat_lab, default=d)
 except:
     class MNEC(BaseNode):
         def __init__(self):
@@ -344,7 +342,7 @@ class CanonCorr(BaseNode):
         if d == None:
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            self.nsamples = d.ndX.shape[1]
+            self.nsamples = d.data.shape[1]
 
         Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
                 self.sample_rate, self.nsamples)
@@ -352,29 +350,29 @@ class CanonCorr(BaseNode):
         # Perform Q-R decomposition on the frequencies
         QYs = []
         for freq in range(self.nfrequencies):
-            Y = Ys[freq,:,:]
-            Y = Y - np.tile(np.mean(Y, axis=0), (self.nsamples, 1))
-            QY,_ = np.linalg.qr(Y)
+            labels = Ys[freq,:,:]
+            labels = labels - np.tile(np.mean(labels, axis=0), (self.nsamples, 1))
+            QY,_ = np.linalg.qr(labels)
             QYs.append(QY)
 
         self.QYs = QYs
 
     def apply_(self, d):
-        assert d.ndX.shape[1] >= self.nsamples, 'Node trained for a different window size.'
-        nchannels, _, ntrials = d.ndX.shape
+        assert d.data.shape[1] >= self.nsamples, 'Node trained for a different window size.'
+        nchannels, _, ntrials = d.data.shape
 
         # Perform Q-R decomposition on the trials
         QXs = []
         for trial in range(ntrials):
-            # The matrix X is our EEG signal, but we transpose it so
+            # The matrix data is our EEG signal, but we transpose it so
             # observations (=samples) are on the rows and variables (=channels)
             # are on the columns.
-            X = d.ndX[:,-self.nsamples:,trial].T
+            data = d.data[:,-self.nsamples:,trial].T
 
             # Center the variables (= remove the mean)
-            X = X - np.tile(np.mean(X, axis=0), (self.nsamples, 1))
+            data = data - np.tile(np.mean(data, axis=0), (self.nsamples, 1))
         
-            QX,_ = np.linalg.qr(X)
+            QX,_ = np.linalg.qr(data)
             QXs.append(QX)
 
             
@@ -388,16 +386,15 @@ class CanonCorr(BaseNode):
                 # Note the first coefficient as the score
                 scores[freq, trial] = D[0]
 
-        feat_shape = scores.shape[:-1]
         feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
-        return DataSet(X=scores, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+        return DataSet(data=scores, feat_lab=feat_lab, default=d)
 
 class MSI(BaseNode):
     '''
     SSVEP classifier based on Multivariate Synchronization Index (MSI) [1].
 
-    [1] Zhang, Y., Xu, P., Cheng, K., & Yao, D. (2013). Multivariate
+    [1] Zhang, labels., Xu, P., Cheng, K., & Yao, D. (2013). Multivariate
     Synchronization Index for Frequency Recognition of SSVEP-based
     Brain-computer Interface. Journal of neuroscience methods, 1–9.
     doi:10.1016/j.jneumeth.2013.07.018
@@ -426,27 +423,27 @@ class MSI(BaseNode):
         if d == None:
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            self.nsamples = d.ndX.shape[1]
+            self.nsamples = d.data.shape[1]
 
         self.Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
             self.sample_rate, self.nsamples)
 
-        self.C22s = [Y.T.dot(Y) / float(self.nsamples) for Y in self.Ys]
+        self.C22s = [labels.T.dot(labels) / float(self.nsamples) for labels in self.Ys]
         self.invC22s = [np.linalg.pinv(scipy.linalg.sqrtm(C22)) for C22 in self.C22s]
 
     def apply_(self, d):
-        assert d.ndX.shape[1] >= self.nsamples, 'Node trained for a different window size.'
-        nchannels, _, ntrials = d.ndX.shape
+        assert d.data.shape[1] >= self.nsamples, 'Node trained for a different window size.'
+        nchannels, _, ntrials = d.data.shape
 
         scores = np.zeros((self.nfrequencies, ntrials))
         for trial in range(d.ninstances):
-            X = d.ndX[:,:,trial]
-            C11 = X.dot(X.T) / float(self.nsamples)
+            data = d.data[:,:,trial]
+            C11 = data.dot(data.T) / float(self.nsamples)
             invC11 = np.linalg.pinv(scipy.linalg.sqrtm(C11)) 
 
             for freq in range(self.nfrequencies):
                 # Formula 4
-                C12 = X.dot(self.Ys[freq]) / float(self.nsamples)
+                C12 = data.dot(self.Ys[freq]) / float(self.nsamples)
                 C21 = C12.T
 
                 # Formula 6
@@ -470,7 +467,6 @@ class MSI(BaseNode):
 
                 scores[freq, trial] = np.real(S)
 
-        feat_shape = scores.shape[:-1]
         feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
-        return DataSet(X=scores, feat_shape=feat_shape, feat_lab=feat_lab, feat_nd_lab=None, default=d)
+        return DataSet(data=scores, feat_lab=feat_lab, default=d)

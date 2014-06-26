@@ -38,10 +38,10 @@ def _calc_beamformer_snr(X1, X2, nc=1, a=1.0):
 
 def _calc_beamformer_fc(Xs, nc=1, theta=1.0):
         nchannels, nsamples = Xs[0].shape[:2]
-        ninstances = [X.shape[2] for X in Xs]
+        ninstances = [data.shape[2] for data in Xs]
         p = [n / float(np.sum(ninstances)) for n in ninstances]
 
-        means = [np.mean(X, axis=2) for X in Xs]
+        means = [np.mean(data, axis=2) for data in Xs]
         grand_avg = np.mean(np.concatenate([m[..., np.newaxis] for m in means], axis=2), axis=2)
 
         S_b = np.zeros((nchannels, nchannels))
@@ -50,15 +50,15 @@ def _calc_beamformer_fc(Xs, nc=1, theta=1.0):
             S_b += p[i] * diff.dot(diff.T)
 
         S_w = np.zeros((nchannels, nchannels))
-        for i,X in enumerate(Xs):
+        for i,data in enumerate(Xs):
             for k in range(ninstances[i]):
-                diff = X[...,k] - means[i]
+                diff = data[...,k] - means[i]
                 S_w += diff.dot(diff.T)
 
-        I = np.identity(nchannels)
+        ids = np.identity(nchannels)
 
-        #V, W = np.linalg.eig(np.linalg.pinv((I-theta).dot(S_w) + theta*I).dot(S_b))
-        V, W = scipy.linalg.eig(S_b, (I-theta).dot(S_w) + theta*I)
+        #V, W = np.linalg.eig(np.linalg.pinv((ids-theta).dot(S_w) + theta*ids).dot(S_b))
+        V, W = scipy.linalg.eig(S_b, (ids-theta).dot(S_w) + theta*ids)
 
         order = np.argsort(V)[::-1]
         V = V[order][:nc]
@@ -87,8 +87,8 @@ class BeamformerSNR(BaseSpatialFilter):
         assert len(d.feat_shape) == 2, 'Expecting sliced data'
         assert d.nclasses == 2, 'Expecting exactly two classes'
 
-        X1 = d.get_class(0).ndX
-        X2 = d.get_class(1).ndX
+        X1 = d.get_class(0).data
+        X2 = d.get_class(1).data
         self.V, self.W = _calc_beamformer_snr(X1, X2, self.nc, self.theta)
 
 class BeamformerFC(BaseSpatialFilter):
@@ -112,7 +112,7 @@ class BeamformerFC(BaseSpatialFilter):
         assert len(d.feat_shape) == 2, 'Expecting sliced data'
         assert d.nclasses > 1, 'Expecting more than one class'
 
-        Xs = [d.get_class(i).ndX for i in range(d.nclasses)]
+        Xs = [d.get_class(i).data for i in range(d.nclasses)]
         self.V, self.W = _calc_beamformer_fc(Xs, self.nc, self.theta)
 
 class BeamformerCFMS(BaseSpatialFilter):
@@ -126,7 +126,7 @@ class BeamformerCFMS(BaseSpatialFilter):
         '''
         Creates an CFMS beamformer that will generate nc components, where half
         of the components are supplied by an FC beamformer and half are supplied
-        by an max-SNR beamformer. NC should therefore alsways be an even number.
+        by an max-SNR beamformer. NC should therefore always be an even number.
         A regularization parameter theta can be supplied (0..1) to prevent
         overfitting. 
         '''
@@ -142,16 +142,16 @@ class BeamformerCFMS(BaseSpatialFilter):
         nchannels = d.feat_shape[0]
 
         # Calculate FC beamformer
-        X1 = d.get_class(0).ndX
-        X2 = d.get_class(1).ndX
+        X1 = d.get_class(0).data
+        X2 = d.get_class(1).data
         _, W_fc = _calc_beamformer_fc([X1, X2], nchannels, self.theta)
 
         # Apply FC beamformer
         d2 = sfilter_trial(d, W_fc)
 
         # Calculate SNR beamformer on the result (skip first nc/2 components)
-        X1 = d2.get_class(0).ndX[self.nc/2:,:,:]
-        X2 = d2.get_class(1).ndX[self.nc/2:,:,:]
+        X1 = d2.get_class(0).data[self.nc/2:,:,:]
+        X2 = d2.get_class(1).data[self.nc/2:,:,:]
         _, W_snr = _calc_beamformer_snr(X1, X2, self.nc/2, self.theta)
 
         # Prepend nc/2 zero-rows in order to make W_snr a proper spatial filter
@@ -160,5 +160,5 @@ class BeamformerCFMS(BaseSpatialFilter):
         # Construct filter that will take the first nc/2 FC components applied
         # to the EEG data, and then the first nc/2 SNR components applied to the
         # FC filtered data.
-        I = np.identity(nchannels)
-        self.W = np.dot(W_fc, np.c_[I[:,:self.nc/2], W_snr])
+        ids = np.identity(nchannels)
+        self.W = np.dot(W_fc, np.c_[ids[:,:self.nc/2], W_snr])

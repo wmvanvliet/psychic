@@ -156,13 +156,13 @@ def load_edf(fname, annotation_to_marker):
 
   Returns
   -------
-  d : :class:`golem.DataSet` 
+  d : :class:`psychic.DataSet` 
     The loaded data:
 
-      - ``d.X`` will be the [channels x samples] EEG data
-      - ``d.Y`` will contain the status channel
+      - ``d.data`` will be the [channels x samples] EEG data
+      - ``d.labels`` will contain the status channel
       - ``d.feat_lab`` will contain the channel names
-      - ``d.I`` will contain timestamps for each sample
+      - ``dids`` will contain timestamps for each sample
 
   '''
   log = logging.getLogger('psychic.utils.load_edf')
@@ -186,22 +186,22 @@ def load_edf(fname, annotation_to_marker):
     # create timestamps
     time = [zip(*recs)[0]][0]
     rec_time = np.linspace(0, reclen, nsamp, endpoint=False)
-    I = np.hstack([t + rec_time for t in time])
+    ids = np.hstack([t + rec_time for t in time])
 
-    # create signal matrix X
-    X = np.hstack(zip(*recs)[1])
+    # create signal matrix data
+    data = np.hstack(zip(*recs)[1])
 
-    # create label matrix Y
+    # create label matrix labels
     annotations = reduce(operator.add, zip(*recs)[2])
     events = [(o, annotation_to_marker.get(a, 0)) 
       for (o, d, aa) in annotations for a in aa]
-    Y = np.zeros(X.shape[1])
+    labels = np.zeros(data.shape[1])
     if events:
       offsets, mi = zip(*events)
-      yi = np.searchsorted(I, offsets)
-      Y[yi] = mi
+      yi = np.searchsorted(ids, offsets)
+      labels[yi] = mi
 
     # construct DataSet
     feat_lab = [lab for lab in reader.header['label'] if lab != EVENT_CHANNEL]
-    return DataSet(X=X, Y=Y, I=I, feat_lab=feat_lab,
+    return DataSet(data=data, labels=labels, ids=ids, feat_lab=feat_lab,
       extra={'edf+_annotations' : annotations})

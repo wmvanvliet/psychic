@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import signal
-from golem import DataSet
+from dataset import DataSet
 from markers import resample_markers
 
 def ewma_filter(alpha):
@@ -31,28 +31,26 @@ def ma(x, n):
   return np.convolve(x, np.ones(n)/n)[:x.size]
 
 
-def filtfilt_rec(d, (b, a)):
+def filtfilt_rec(d, (b, a), axis=1):
   '''
   Apply a filter defined by the filter coefficients (b, a) to a 
   DataSet, *forwards and backwards*. 
-  d.xs is interpreted as [frames x channels].
+  d.data is interpreted as [frames x channels].
   '''
-  return DataSet(xs=np.apply_along_axis(lambda x: signal.filtfilt(b, a, x), 0,
-    d.xs), default=d)
+  return DataSet(data=signal.filtfilt(b, a, d.data, axis=axis), default=d)
 
 def resample_rec(d, factor, max_marker_delay=0):
   '''Resample a recording to length d.ninstances * factor'''
   new_len = int(d.ninstances * factor)
-  ys = resample_markers(d.ys.flatten(), new_len, 
-    max_delay=max_marker_delay).reshape(-1, 1)
+  labels = resample_markers(d.labels.flatten(), new_len, 
+    max_delay=max_marker_delay)
 
-  # calculate xs and ids
-  xs, ids = signal.resample(d.xs, new_len, t=d.ids)
-  xs = xs.astype(d.xs.dtype) # keep old dtype
+  # calculate data and ids
+  data, ids = signal.resample(d.data, new_len, t=d.ids.ravel(), axis=1)
+  data = data.astype(d.data.dtype) # keep old dtype
 
   # construct new DataSet
-  extra = d.extra.copy()
-  return DataSet(xs=xs, ys=ys, ids=ids.reshape(-1, 1), extra=extra, default=d)
+  return DataSet(data=data, labels=labels, ids=ids, default=d)
 
 def decimate_rec(d, factor, max_marker_delay=0):
   '''Decimate a recording using an anti-aliasing filter.'''
@@ -61,17 +59,16 @@ def decimate_rec(d, factor, max_marker_delay=0):
   # anti-aliasing filter
   (b, a) = signal.iirfilter(8, .8 / factor, btype='lowpass', rp=0.05, 
     ftype='cheby1')
-  xs = d.xs.copy()
-  for i in range(d.nfeatures):
-    xs[:,i] = signal.filtfilt(b, a, xs[:, i])
+  data = d.data.copy()
+  data = signal.filtfilt(b, a, data, axis=1)
 
-  xs = np.ascontiguousarray(xs[::factor,:]).astype(d.xs.dtype)
-  ys = resample_markers(d.ys.flatten(), xs.shape[0],
-    max_delay=max_marker_delay).reshape(-1, 1)
-  ids = np.ascontiguousarray(d.ids[::factor,:]).astype(d.ids.dtype)
+  data = np.ascontiguousarray(data[:, ::factor]).astype(d.data.dtype)
+  labels = resample_markers(d.labels.flatten(), data.shape[1],
+    max_delay=max_marker_delay)
+  ids = np.ascontiguousarray(d.ids[:, ::factor]).astype(d.ids.dtype)
 
   # construct new DataSet
-  return DataSet(xs=xs, ys=ys, ids=ids.reshape(-1, 1), default=d)
+  return DataSet(data=data, labels=labels, ids=ids, default=d)
 
 def rereference_rec(d, reference_channels=None, keep=True):
   '''
@@ -115,16 +112,16 @@ def rereference_rec(d, reference_channels=None, keep=True):
         reference_channels[i] = d.feat_lab.index(ref)
 
   if list_of_lists:
-    X = d.X.copy()
+    data = d.data.copy()
     for i in range(nchannels):
-      X[i,:] = X[i,:] - np.mean(X[reference_channels[i], :], axis=0)
+      data[i,:] = data[i,:] - np.mean(data[reference_channels[i], :], axis=0)
   else:
-    X = d.X - np.tile(np.mean(d.X[reference_channels,:], axis=0), (nchannels,1))
+    data = d.data - np.tile(np.mean(d.data[reference_channels,:], axis=0), (nchannels,1))
 
   if not keep:
-    X = X[np.array([not c in reference_channels for c in range(nchannels)], dtype=np.bool), :]
-    feat_lab = [l for i,l in enumerate(d.feat_lab) if not i in reference_channels]
+    data = data[np.array([not c in reference_channels for c in range(nchannels)], dtype=np.bool), :]
+    feat_lab = [l for i,l in enumerate(d.feat_lab[0]) if not i in reference_channels]
   else:
     feat_lab = d.feat_lab
 
-  return DataSet(X=X, feat_shape=(X.shape[0],), feat_lab=feat_lab, default=d)
+  return DataSet(data=data, feat_lab=feat_lab, default=d)

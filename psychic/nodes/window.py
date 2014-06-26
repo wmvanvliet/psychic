@@ -1,16 +1,16 @@
 import numpy as np
-from golem import DataSet
+from ..dataset import DataSet
 from golem.nodes import BaseNode
 from psychic.utils import get_samplerate
 
 class SlidingWindow(BaseNode):
   '''
   Extracts trials from continuous data by applying a sliding window. The
-  resulting :class:`golem.DataSet` *d* will be:
+  resulting :class:`psychic.DataSet` *d* will be:
   
-   - ``d.ndX``: [channels x samples x windows]
-   - ``d.Y``: Class labels for each window (see ``ref_point`` parameter)
-   - ``d.I``: Timestamps for each window (see ``ref_point`` parameter)
+   - ``d.data``: [channels x samples x windows]
+   - ``d.labels``: Class labels for each window (see ``ref_point`` parameter)
+   - ``d.ids``: Timestamps for each window (see ``ref_point`` parameter)
 
   For example:
 
@@ -24,7 +24,7 @@ class SlidingWindow(BaseNode):
   By default, the center of each window is taken as a reference for timestamps
   and class labels:
 
-  >>> print d_windowed.I
+  >>> print d_windowed.ids
   [[ 1.  2.  3.  4.  5.  6.  7.  8.  9.]]
 
   By setting ``ref_point`` to 1.0, the last sample of each window is taken as
@@ -32,7 +32,7 @@ class SlidingWindow(BaseNode):
 
   >>> window = psychic.nodes.SlidingWindow(win_size=2, win_step=1, ref_point=1.0)
   >>> d_windowed = window.train_apply(d, d)
-  >>> print d_windowed.I
+  >>> print d_windowed.ids
   [[ 1.99  2.99  3.99  4.99  5.99  6.99  7.99  8.99  9.99]]
 
   Parameters
@@ -57,37 +57,35 @@ class SlidingWindow(BaseNode):
     self.sample_rate = get_samplerate(d)
 
   def apply_(self, d):
+    assert len(d.feat_shape) == 1, 'Expecting 2D continuous data'
+
     wsize = int(self.win_size * self.sample_rate)
     wstep = int(self.win_step * self.sample_rate)
     refi = int(self.ref_frame * self.sample_rate)
     if refi >= wsize:
         refi = wsize - 1
 
-    X, Y, I = [], [], []
+    data, labels, ids = [], [], []
     for i in range(0, d.ninstances - wsize + 1, wstep):
       win = d[i:i+wsize]
-      X.append(win.ndX)
-      Y.append(win.Y[:, refi])
-      I.append(win.I[:, refi])
+      data.append(win.data[:,:,np.newaxis])
+      labels.append(win.labels[:, refi])
+      ids.append(win.ids[:, refi])
 
-    if len(X) == 0:
-      X = np.zeros((wsize * d.nfeatures, 0)) 
-      feat_shape = (d.nfeatures, wsize)
-      Y = np.zeros((d.nclasses, 0)) 
-      I = np.zeros((d.I.shape[0], 0))
+    if len(data) == 0:
+      data = np.zeros((d.nfeatures, wsize, 0)) 
+      labels = np.zeros((d.labels.shape[0], 0), dtype=d.labels.dtype) 
+      ids = np.zeros((d.ids.shape[0], 0))
     else:
-      X = np.asarray(X)
-      X = np.rollaxis(X, 0, X.ndim)
-      feat_shape = X.shape[:-1]
-      X = X.reshape(-1, X.shape[-1])
-      Y = np.asarray(Y).T
-      I = np.asarray(I).T
+      data = np.concatenate(data, axis=2)
+      labels = np.vstack(labels).T
+      ids = np.vstack(ids).T
 
     timestamps = ((np.arange(wsize) - refi) / float(self.sample_rate)).tolist()
-    feat_nd_lab = [list(d.feat_lab), timestamps]
+    feat_lab = [list(d.feat_lab[0]), timestamps]
       
-    return DataSet(X=X, feat_shape=feat_shape, Y=Y, I=I,
-            feat_nd_lab=feat_nd_lab, default=d)
+    return DataSet(data=data, labels=labels, ids=ids, feat_lab=feat_lab,
+                   default=d)
 
 class OnlineSlidingWindow(SlidingWindow):
   def __init__(self, win_size, win_step, ref_point=0.5):

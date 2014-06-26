@@ -1,15 +1,16 @@
 import unittest, operator
-import golem
 import numpy as np
+import golem
 from ..utils import sliding_window
 from ..nodes import SlidingWindow, OnlineSlidingWindow
+from ..dataset import DataSet
 from scipy import signal
 
 class TestWindowNode(unittest.TestCase):
   def setUp(self):
-    xs = np.arange(300).reshape(-1, 3)
-    ys = np.linspace(0, 3, 100, endpoint=False).astype(int)
-    self.d = golem.DataSet(xs=xs, ys=golem.helpers.to_one_of_n(ys.T).T)
+    data = np.arange(300).reshape(-1, 3).T
+    labels = np.linspace(0, 3, 100, endpoint=False).astype(int)
+    self.d = DataSet(data=data, labels=golem.helpers.to_one_of_n(labels))
 
   def test_sw(self):
     d = self.d
@@ -17,26 +18,29 @@ class TestWindowNode(unittest.TestCase):
       for wstep in [2, 5]:
         for ref_point in [0, .5, 1]:
           sw = SlidingWindow(wsize, wstep, ref_point)
-          d2 = sw.apply(d)
+          d2 = sw.train_apply(d)
 
           # test shapes
-          self.assertEqual(d2.feat_shape, (wsize, d.nfeatures))
+          self.assertEqual(d2.feat_shape, (d.nfeatures, wsize))
 
           # test xs
           offset = wstep * d.nfeatures
-          max_offset = (d.ninstances - wsize) * d.nfeatures + 1
-          base_xs = np.arange(0, max_offset, offset)
-          detail_xs = np.arange(d.nfeatures * wsize).reshape(1, 
-            wsize, d.nfeatures)
-          target = base_xs.reshape(-1, 1, 1) + detail_xs
-          np.testing.assert_equal(target, d2.nd_xs)
+          max_offset = (d.ninstances - wsize) * d.nfeatures
+          base = np.arange(0, max_offset+1, offset)
+          detail = np.arange(d.nfeatures * wsize).reshape(wsize, d.nfeatures).T
+          target = detail[:,:,np.newaxis] + base
+          np.testing.assert_equal(target, d2.data)
 
           # test ids
-          np.testing.assert_equal(np.diff(d2.ids, axis=0), wstep)
-          self.assertEqual(d2.ids[0, 0], int((wsize - 1) * ref_point))
+          np.testing.assert_equal(np.diff(d2.ids[0,:]), wstep)
 
-          # test ys
-          np.testing.assert_equal(d.ys[d2.ids.flatten()], d2.ys)
+          refi = int(wsize * ref_point)
+          if refi >= wsize:
+              refi = wsize - 1
+          self.assertEqual(d2.ids[0, 0], refi)
+
+          # test labels
+          np.testing.assert_equal(d.labels[:, d2.ids.flatten()], d2.labels)
 
   def test_osw(self):
     d = self.d
@@ -49,6 +53,6 @@ class TestWindowNode(unittest.TestCase):
         stream = d
         while len(stream) > 0:
           head, stream = stream[:4], stream[4:]
-          wins.append(osw.apply(head))
+          wins.append(osw.train_apply(head))
 
-        self.assertEqual(sw.apply(d), reduce(operator.add, wins))
+        self.assertEqual(sw.train_apply(d), reduce(operator.add, wins))

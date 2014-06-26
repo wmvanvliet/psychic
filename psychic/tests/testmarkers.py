@@ -6,19 +6,20 @@ class TestMarkerDetection(unittest.TestCase):
   def setUp(self):
     pass
 
-  def check(self, status, events, indices):
-    e, ei = markers.markers_to_events(status)
+  def check(self, status, events, indices, durations):
+    e, ei, ed = markers.markers_to_events(status)
     np.testing.assert_equal(events, e)
     np.testing.assert_equal(indices, ei)
+    np.testing.assert_equal(durations, ed)
 
   def test_single_event(self):
-    self.check([0, 0, 0, 1, 1, 0, 0, 0], [1], [3])
+    self.check([0, 0, 0, 1, 1, 0, 0, 0], [1], [3], [2])
 
   def test_functionality(self):
-    self.check([2, 0, 1, 1, 3, 0, 4], [2, 1, 3, 4], [0, 2, 4, 6])
+    self.check([2, 0, 1, 1, 3, 0, 4], [2, 1, 3, 4], [0, 2, 4, 6], [1,2,1,1])
 
   def test_degenerate(self):
-    self.check([0], [], [])
+    self.check([0], [], [], [])
 
 class TestResampleStatus(unittest.TestCase):
   def test_normal(self):
@@ -53,6 +54,10 @@ class TestResampleStatus(unittest.TestCase):
 
   def test_spacing(self):
     np.testing.assert_equal(
+      markers.resample_markers([1, 0, 2, 0, 0, 0], 3, max_delay=1), [1, 2, 0])
+
+    # Equal markers are not allowed to touch
+    np.testing.assert_equal(
       markers.resample_markers([1, 0, 1, 0, 0, 0], 3, max_delay=1), [1, 0, 1])
 
 class TestGhostMarkers(unittest.TestCase):
@@ -75,6 +80,6 @@ class TestGhostMarkers(unittest.TestCase):
 
   def test_empty(self):
     gm = markers.biosemi_find_ghost_markers
-    np.testing.assert_equal(gm(np.zeros(10)), [])
+    np.testing.assert_equal(gm(np.zeros(10, dtype=np.int)), [])
 
 

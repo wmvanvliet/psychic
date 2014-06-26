@@ -8,13 +8,13 @@ from matplotlib.patches import PathPatch, Circle
 import positions
 
 def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5, 
-  plot_sensors=True, cmap=plt.cm.jet, clim=None, smark='k.', linewidth=2, fontsize=8):
+  plot_sensors=True, plot_contour=True, cmap=plt.cm.jet, clim=None, smark='k.', linewidth=2, fontsize=8):
 
   # add densities
   if clim == None:
     clim = [np.min(densities), np.max(densities)]
   locs = [positions.project_scalp(*sensor_locs[lab]) for lab in sensors]
-  add_density(densities, locs, cmap=cmap, clim=clim)
+  add_density(densities, locs, cmap=cmap, clim=clim, plot_contour=plot_contour)
 
   # setup plot
   MARGIN = 1.2
@@ -55,11 +55,11 @@ def add_head(linewidth=2):
 def add_sensors(labels, locs, smark='k.', fontsize=8):
   '''Adds sensor names and markers'''
   for (label, (x, y)) in zip(labels, locs):
-    if len(labels) < 32:
+    if len(labels) <= 16:
       plt.text(x, y + .03, label, fontsize=fontsize, ha='center')
     plt.plot(x, y, smark, ms=2.)
 
-def add_density(dens, locs, cmap=plt.cm.jet, clim=None):
+def add_density(dens, locs, cmap=plt.cm.jet, clim=None, plot_contour=True):
   '''
   This function draws the densities using the locations provided in
   sensor_dict. The two are connected throught the list labels.  The densities
@@ -74,7 +74,7 @@ def add_density(dens, locs, cmap=plt.cm.jet, clim=None):
   vmin, vmax = clim
 
   # interpolate
-  # TODO: replace with Gaussian process interpolator. I don't trust SciPy's 
+  # TODO: replace with Gaussian process interpolator. ids don't trust SciPy's 
   # interpolation functions (they wiggle and they segfault).
   rbf = interpolate.Rbf(xs, ys, dens, function='linear')
   xg = np.linspace(extent[0], extent[1], RESOLUTION)
@@ -83,10 +83,11 @@ def add_density(dens, locs, cmap=plt.cm.jet, clim=None):
   zg = rbf(xg, yg)
 
   # draw contour
-  plt.contour(xg, yg, np.where(xg ** 2 + yg ** 2 <= RADIUS ** 2, zg, np.nan),
-    np.linspace(vmin, vmax, 13), colors='k', extent=extent, linewidths=.3)
+  if plot_contour:
+    plt.contour(xg, yg, np.where(xg ** 2 + yg ** 2 <= RADIUS ** 2, zg, np.nan),
+      np.linspace(vmin, vmax, 13), colors='k', extent=extent, linewidths=.3)
 
-  # draw grid, needs te be last to enable plt.colormap() to work
+  # draw grid, needs to be last to enable plt.colormap() to work
   im = plt.imshow(zg, origin='lower', extent=extent, vmin=vmin, vmax=vmax, 
     cmap=cmap)
 

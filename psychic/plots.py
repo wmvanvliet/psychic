@@ -26,7 +26,7 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
 
 def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
-  clim=None, cmap=None, titles=None, smark='k.'):
+  clim=None, cmap=None, titles=None, smark='k.', plot_contour=True):
   '''
   Plots a grid with scalpplots. Scalps contains the different scalps in the
   rows, sensors contains the names for the columns of scalps, locs is a dict
@@ -55,7 +55,7 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
   plt.clf()
   for i in range(nscalps):
     subplots.append(plt.subplot(height, width, i + 1))
-    plot_scalp(scalps[i], sensors, locs, clim=clim, cmap=cmap, smark=smark)
+    plot_scalp(scalps[i], sensors, locs, clim=clim, cmap=cmap, smark=smark, plot_contour=plot_contour)
     if titles:
       plt.title(titles[i])
 
@@ -126,7 +126,7 @@ def plot_eeg(
 
     Parameters
     ----------
-    data : :class:`golem.DataSet`
+    data : :class:`psychic.DataSet`
         The data to plot. Assumed to be continuous data (channels x time)
     samplerate : float (optional)
         The sample rate of the data. When omitted,
@@ -170,16 +170,16 @@ def plot_eeg(
         the ``fig`` parameter, the same figure is returned.
     '''
 
-    assert data.X.ndim == 2
+    assert data.data.ndim == 2
 
-    num_channels, num_samples = data.X.shape
+    num_channels, num_samples = data.data.shape
 
     # Spread out the channels
     if vspace == None:
-        vspace = np.max(np.max(data.X, axis=1) - np.min(data.X, axis=1))
+        vspace = np.max(np.max(data.data, axis=1) - np.min(data.data, axis=1))
 
-    bases = vspace * np.arange(0, num_channels)[::-1] - np.mean(data.X, axis=1)
-    to_plot = data.X + np.tile( bases, (num_samples,1) ).T
+    bases = vspace * np.arange(0, num_channels)[::-1] - np.mean(data.data, axis=1)
+    to_plot = data.data + np.tile( bases, (num_samples,1) ).T
 
     if fig == None:
         fig = plot.figure()
@@ -187,21 +187,21 @@ def plot_eeg(
     # Plot EEG
     fig.subplots_adjust(right=0.85)
     axes = plot.subplot(111)
-    _draw_eeg_frame(num_channels, vspace, data.I.T-start, data.feat_lab, mirror_y)
-    plot.plot(data.I.T-start, to_plot.T)
+    _draw_eeg_frame(num_channels, vspace, data.ids.T-start, data.feat_lab[0], mirror_y)
+    plot.plot(data.ids.T-start, to_plot.T)
 
     # Draw markers
     if draw_markers:
         trans = transforms.blended_transform_factory(axes.transData, axes.transAxes)
 
-        events, offsets, _ = markers_to_events(data.Y[0,:])
+        events, offsets, _ = markers_to_events(data.labels[0,:])
         eventi = {}
         for i,e in enumerate(np.unique(events)):
             eventi[e] = i
 
         for e,o in zip(events, offsets):
             i = eventi[e]
-            x = data.I[0,o] # In data coordinates
+            x = data.ids[0,o] # In data coordinates
             y = 1.01        # In axes coordinates
             plot.axvline(x,
                     color=mcolors[i%len(mcolors)],
@@ -239,7 +239,7 @@ def plot_specgrams(
         row = channel % num_rows
 
         ax = plot.subplot(num_rows, num_cols, num_cols*row+col+1)
-        s,freqs,_,_ = plot.specgram(data.X[channel,:], NFFT, samplerate, noverlap=NFFT/2, xextent=(np.min(data.I), np.max(data.I)))
+        s,freqs,_,_ = plot.specgram(data.data[channel,:], NFFT, samplerate, noverlap=NFFT/2, xextent=(np.min(data.ids), np.max(data.ids)))
         selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
 
         s = s[selection,:]
@@ -290,7 +290,7 @@ def plot_erp(
     Create an Event Related Potential plot which aims to be as informative as
     possible. The result is aimed to be a publication ready figure, therefore
     this function supplies a lot of customization. The input can either be a 
-    sliced dataset (``d.ndX`` = [channels x samples x trials]) or a readily computed
+    sliced dataset (``d.data`` = [channels x samples x trials]) or a readily computed
     ERP given by :class:`psychic.nodes.ERP` or :func:`psychic.erp`.
 
     When possible, regions where ERPs differ significantly are shaded. This is
@@ -306,7 +306,7 @@ def plot_erp(
 
     Parameters
     ----------
-    data : :class:`golem.DataSet`
+    data : :class:`psychic.DataSet`
         A sliced Golem dataset that will be displayed.
     classes : list (default=all)
         When specified, ERPs will be drawn only for the classes with the given
@@ -315,13 +315,13 @@ def plot_erp(
         Amount of vertical space between the ERP traces, by default the minumum
         value so traces don't overlap.
     samplerate : float (optional)
-        By default determined through ``data.feat_nd_lab[1]``, but can be
+        By default determined through ``data.feat_lab[1]``, but can be
         specified when missing.
     cl_lab : list (optional)
         List with a label for each class, by default taken from
         ``data.cl_lab``, but can be specified if missing.
     ch_lab : list (optional)
-        List of channel labels, by default taken from ``data.feat_nd_lab[0]``,
+        List of channel labels, by default taken from ``data.feat_lab[0]``,
         but can be specified if missing.
     draw_scale : bool (default=True)
         Whether to draw a scale next to the plot.
@@ -329,7 +329,7 @@ def plot_erp(
         Number of columns to use for layout.
     start : float (default=0)
         Time used as T0, by default timing is taken from
-        ``data.feat_nd_lab[1]``, but can be specified if missing.
+        ``data.feat_lab[1]``, but can be specified if missing.
     fig : :class:`matplotlib.Figure`
         If speficied, a reference to the figure in which to draw the ERP plot.
         By default a new figure is created.
@@ -376,9 +376,9 @@ def plot_erp(
         A handle to the matplotlib figure.
     '''
 
-    assert data.ndX.ndim == 3, 'Expecting sliced data'
+    assert data.data.ndim == 3, 'Expecting sliced data'
 
-    num_channels, num_samples = data.ndX.shape[:2]
+    num_channels, num_samples = data.data.shape[:2]
 
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
@@ -386,8 +386,8 @@ def plot_erp(
         cl_lab = data.cl_lab if data.cl_lab else['class %d' % cl for cl in classes]
 
     if ch_lab == None:
-        if data.feat_nd_lab != None:
-            ch_lab = data.feat_nd_lab[0]
+        if data.feat_lab != None:
+            ch_lab = data.feat_lab[0]
         else:
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
@@ -414,7 +414,7 @@ def plot_erp(
 
         elif pval != None:
             # Perform a t-test
-            ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).ndX, data.get_class(classes[1]).ndX, axis=2)
+            ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).data, data.get_class(classes[1]).data, axis=2)
 
             if fwer != None:
                 ps = fwer(ps.ravel()).reshape(ps.shape)
@@ -434,13 +434,13 @@ def plot_erp(
 
     # Calculate a sane vspace
     if vspace == None:
-        vspace = (np.max(erp.X) - np.min(erp.X)) 
+        vspace = (np.max(erp.data) - np.min(erp.data)) 
 
     # Calculate timeline, using the best information available
     if samplerate != None:
         ids = np.arange(num_samples) / float(samplerate) - start
-    elif erp.feat_nd_lab != None:
-        ids = np.array(erp.feat_nd_lab[1], dtype=float) - start
+    elif erp.feat_lab != None:
+        ids = np.array(erp.feat_lab[1], dtype=float) - start
     else:
         ids = np.arange(num_samples) - start
 
@@ -469,7 +469,7 @@ def plot_erp(
         
         to_plot = np.zeros((len(channels), num_samples, num_classes))
         for i in range(len(channels)):
-            to_plot[i,:,:] = (erp.ndX[channels[i],:,:] if not mirror_y else -1*erp.ndX[channels[i],:,:]) + bases[i]
+            to_plot[i,:,:] = (erp.data[channels[i],:,:] if not mirror_y else -1*erp.data[channels[i],:,:]) + bases[i]
         
         # Plot each class
         for cl in range(num_classes):
@@ -494,7 +494,7 @@ def plot_erp(
         # Plot confidence intervals
         if conf_inter != None:
             stds = np.concatenate([
-                np.std(data.get_class(classes[i]).ndX[channels,:,:], axis=2)[:,:,np.newaxis]
+                np.std(data.get_class(classes[i]).data[channels,:,:], axis=2)[:,:,np.newaxis]
                 for i in range(num_classes)
             ], axis=2)
 
@@ -526,32 +526,32 @@ def plot_erp_specdiffs(
         significant_only=False,
         pval=0.05,
         fig=None):
-    assert data.ndX.ndim == 3
+    assert data.data.ndim == 3
     assert len(classes) == 2
-    assert data.feat_nd_lab != None
+    assert data.feat_lab != None
 
     if fig == None:
         fig = plot.figure()
 
     tf = trials.trial_specgram(data, samplerate, NFFT)
     tf_erp = trials.erp(tf)
-    diff = np.log(tf_erp.ndX[...,classes[0]]) - np.log(tf_erp.ndX[...,classes[1]])
+    diff = np.log(tf_erp.data[...,classes[0]]) - np.log(tf_erp.data[...,classes[1]])
 
     if significant_only:
-        _,ps = scipy.stats.ttest_ind(tf.get_class(classes[0]).ndX,
-                                     tf.get_class(classes[1]).ndX, axis=3)
+        _,ps = scipy.stats.ttest_ind(tf.get_class(classes[0]).data,
+                                     tf.get_class(classes[1]).data, axis=3)
         diff[ps > pval] = 0
     
-    ch_labs = tf_erp.feat_nd_lab[0]
-    freqs = np.array([float(x) for x in tf_erp.feat_nd_lab[1]])
-    times = np.array([float(x) for x in tf_erp.feat_nd_lab[2]])
+    ch_labs = tf_erp.feat_lab[0]
+    freqs = np.array([float(x) for x in tf_erp.feat_lab[1]])
+    times = np.array([float(x) for x in tf_erp.feat_lab[2]])
 
     selection = np.logical_and(freqs >= freq_range[0], freqs <= freq_range[1])
     freqs = freqs[selection]
     diff = diff[:,selection]
     clim = (-np.max(np.abs(diff)), np.max(np.abs(diff)))
 
-    num_channels = data.ndX.shape[0]
+    num_channels = data.data.shape[0]
     num_cols = max(1, num_channels/8)
     num_rows = min(num_channels, 8)
 
@@ -604,22 +604,22 @@ def plot_erp_specgrams(
         NFFT=256,
         freq_range=[0.1, 50],
         fig=None):
-    assert data.ndX.ndim == 3
-    assert data.feat_nd_lab != None
+    assert data.data.ndim == 3
+    assert data.feat_lab != None
 
     if fig == None:
         fig = plot.figure()
 
     tf = trials.trial_specgram(data, samplerate, NFFT)
-    print tf.ndX.shape
-    tf_erp = np.mean(tf.ndX, axis=3)
+    print tf.data.shape
+    tf_erp = np.mean(tf.data, axis=3)
     print tf_erp.shape
     
-    ch_labs = tf.feat_nd_lab[0]
+    ch_labs = tf.feat_lab[0]
     print ch_labs
 
-    freqs = np.array([float(x) for x in tf.feat_nd_lab[1]])
-    times = np.array([float(x) for x in tf.feat_nd_lab[2]])
+    freqs = np.array([float(x) for x in tf.feat_lab[1]])
+    times = np.array([float(x) for x in tf.feat_lab[2]])
 
     print freqs
     print times
@@ -673,8 +673,8 @@ def plot_erp_specgrams(
     return fig
 
 def plot_erp_image(d, labels=None, fig=None):
-    assert d.ndX.ndim == 3, 'Expecting sliced data'
-    nchannels, nsamples, ntrials = d.ndX.shape
+    assert d.data.ndim == 3, 'Expecting sliced data'
+    nchannels, nsamples, ntrials = d.data.shape
 
     if labels == None:
         order = np.arange(ntrials)
@@ -683,15 +683,15 @@ def plot_erp_image(d, labels=None, fig=None):
         labels = labels[order]
         d = d[order]
 
-    ndX = np.zeros(d.ndX.shape)
+    data = np.zeros(d.data.shape)
     for t in range(smooth, ntrials-smooth):
-        ndX[:,:,t] = np.mean(d.ndX[:,:,t-smooth:t+smooth+1], axis=2)
+        data[:,:,t] = np.mean(d.data[:,:,t-smooth:t+smooth+1], axis=2)
 
     if fig == None:
         fig = plt.figure()
 
-    if d.feat_nd_lab != None:
-        time = [float(i) for i in d.feat_nd_lab[1]]
+    if d.feat_lab != None:
+        time = [float(i) for i in d.feat_lab[1]]
     else:
         time = np.arange(nsamples)
 
@@ -700,7 +700,7 @@ def plot_erp_image(d, labels=None, fig=None):
 
     for ch in range(nchannels):
         ax = plt.subplot(nrows, ncols, ch+1)
-        plt.imshow(ndX[ch,:,::-1].T, interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
+        plt.imshow(data[ch,:,::-1].T, interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
 
         if labels != None and labels[0] >= time[0] and labels[-1] <= time[-1]:
            plt.plot(labels, np.arange(ntrials), '-k', linewidth=1)
@@ -711,10 +711,10 @@ def plot_erp_image(d, labels=None, fig=None):
         if ch < (nrows-1)*ncols:
             [l.set_visible(False) for l in ax.get_xticklabels()]
 
-        if d.feat_nd_lab == None:
+        if d.feat_lab == None:
             plt.title('Channel %02d' % (ch+1))
         else:
-            plt.title(d.feat_nd_lab[0][ch])
+            plt.title(d.feat_lab[0][ch])
 
         plt.xlim(time[0], time[-1])
         plt.ylim(0, ntrials)

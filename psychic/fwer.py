@@ -11,7 +11,7 @@ import numpy as np
 
 def _sort(x):
     '''
-    Sort X and also return a reverse index
+    Sort data and also return a reverse index
     '''
     n = len(x)
     o = np.argsort(x)

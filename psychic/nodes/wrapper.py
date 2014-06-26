@@ -68,15 +68,15 @@ class OnlineSlice(Slice):
     # Initialize datasset
     feat_shape = (d.nfeatures, self.offsets_samples[1]-self.offsets_samples[0])
     slices = golem.DataSet(
-      X=np.empty(( feat_shape[0]*feat_shape[1],0 )),
-      Y=np.empty(( len(self.cl_lab),0 )),
-      I=np.empty(( 1,0 )),
+      data=np.empty(( feat_shape[0]*feat_shape[1],0 )),
+      labels=np.empty(( len(self.cl_lab),0 )),
+      ids=np.empty(( 1,0 )),
       feat_shape=feat_shape,
       feat_dim_lab=['channels', 'samples'],
       cl_lab=self.cl_lab
     )
 
-    codes, onsets, durations = markers_to_events(d.Y.flat)
+    codes, onsets, durations = markers_to_events(d.labels.flat)
     if self.buffer != None: 
       onsets = list( np.array(onsets) + self.buffer.ninstances )
       d = self.buffer + d
@@ -94,11 +94,11 @@ class OnlineSlice(Slice):
         break
 
       # Extract slice
-      ndX = d.X[:, onset+self.offsets_samples[0] : onset+self.offsets_samples[1], np.newaxis]
-      Y = np.zeros(( len(self.cl_lab), 1 ))
-      Y[self.cl_lab.index(self.mdict[code]), 0] = 1
-      I = np.atleast_2d(d.I[:,onset+self.offsets_samples[1]-1])
-      s = golem.DataSet(ndX=ndX, Y=Y, I=I, default=slices)
+      data = d.data[:, onset+self.offsets_samples[0] : onset+self.offsets_samples[1], np.newaxis]
+      labels = np.zeros(( len(self.cl_lab), 1 ))
+      labels[self.cl_lab.index(self.mdict[code]), 0] = 1
+      ids = np.atleast_2d(d.ids[:,onset+self.offsets_samples[1]-1])
+      s = golem.DataSet(data=data, labels=labels, ids=ids, default=slices)
       slices += s
 
     if len(events) == 0:

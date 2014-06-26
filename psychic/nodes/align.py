@@ -1,21 +1,21 @@
-import golem
 import numpy as np
 from ..trials import erp
+from ..dataset import DataSet
 from spatialfilter import SpatialBlur
 
-def channel_temporal_offsets(X, k=range(-20, 20)):
+def channel_temporal_offsets(data, k=range(-20, 20)):
     '''
     Calculate temporal shift required for optimal cross channel covariances.
 
     parameters:
-        X - (channels x samples) the signal
+        data - (channels x samples) the signal
         k - maximum number of samples to temporally shift channels
 
     returns:
         Matrix (channels x channels) containing for each channel the temporal
         shift compared to all other channels.
     '''
-    nchannels, nsamples = X.shape
+    nchannels, nsamples = data.shape
 
     T = np.zeros((nchannels, nchannels))
     for m in range(nchannels):
@@ -23,11 +23,11 @@ def channel_temporal_offsets(X, k=range(-20, 20)):
             rs = []
             for t in k:
                 if t > 0:                 
-                    rs.append( np.cov(X[m,t:], X[n,:-t])[0,1] )
+                    rs.append( np.cov(data[m,t:], data[n,:-t])[0,1] )
                 elif t == 0:
-                    rs.append( np.cov(X[m,:], X[n,:])[0,1] )
+                    rs.append( np.cov(data[m,:], data[n,:])[0,1] )
                 else:
-                    rs.append( np.cov(X[m,:t], X[n,-t:])[0,1] )
+                    rs.append( np.cov(data[m,:t], data[n,-t:])[0,1] )
     
             if np.abs(np.max(rs)) < 0.5:
                 T[m,n] = 0
@@ -62,33 +62,29 @@ class AlignedSpatialBlur(SpatialBlur):
 
     def train_(self, d):
         if self.ftype == 0:
-            self.T = channel_temporal_offsets(d.X, self.k)
+            self.T = channel_temporal_offsets(d.data, self.k)
         elif self.ftype == 1:
-            X = np.mean(erp(d).ndX, axis=2)
-            self.T = channel_temporal_offsets(X, self.k)
+            data = np.mean(erp(d).data, axis=2)
+            self.T = channel_temporal_offsets(data, self.k)
         else:
             raise ValueError('Operation not supported on covariance data')
 
         SpatialBlur.train_(self, d)
 
-
     def apply_(self, d):
         t_min = np.min(self.T)
         t_max = np.max(self.T)
 
-        nchannels, nsamples, ntrials = d.ndX.shape
+        nchannels, nsamples, ntrials = d.data.shape
         nsamples -= int(t_max - t_min)
 
-        ndX = np.zeros((nchannels, nsamples, ntrials))
+        data = np.zeros((nchannels, nsamples, ntrials))
         for m in range(nchannels):
             for n in range(nchannels):
                 t = self.T[m,n] - t_min
-                ndX[m, ...] += self.W[m,n] * d.ndX[n,t:t+nsamples,...]
+                data[m, ...] += self.W[m,n] * d.data[n,t:t+nsamples,...]
                 
-        if d.feat_nd_lab != None:
-            feat_nd_lab = list(d.feat_nd_lab)
-            feat_nd_lab[1] = [float(t) + t_min for t in feat_nd_lab[1][:nsamples]]
-        else:
-            feat_nd_lab = None
+        feat_lab = list(d.feat_lab)
+        feat_lab[1] = [float(t) + t_min for t in feat_lab[1][:nsamples]]
             
-        return golem.DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
+        return DataSet(data=data, feat_lab=feat_lab, default=d)

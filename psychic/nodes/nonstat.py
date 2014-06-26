@@ -1,6 +1,6 @@
 import numpy as np
 from golem.nodes import BaseNode
-from golem import DataSet
+from ..dataset import DataSet
 from spatialfilter import sym_whitening, cov0
 from ..utils import get_samplerate
 from scipy import signal
@@ -23,8 +23,8 @@ class SlowSphering(BaseNode):
     self.fil = signal.iirfilter(4, self.cutoff, btype='low')
 
   def apply_(self, d):
-    xs = slow_sphere(d.xs, self.fil, int(self.reest * self.samplerate))
-    return DataSet(xs=xs, default=d)
+    data = slow_sphere(d.data, self.fil, int(self.reest * self.samplerate))
+    return DataSet(data, default=d)
 
 def slow_sphere(samples, (b, a), wstep):
   '''
@@ -43,12 +43,12 @@ def slow_sphere(samples, (b, a), wstep):
   '''
   samples = np.atleast_2d(samples)
 
-  sigs = np.asarray([cov0(samples[i:i+wstep]) for i in 
-    range(0, samples.shape[0], wstep)])
+  sigs = np.asarray([cov0(samples[:, i:i+wstep]) for i in 
+    range(0, samples.shape[1], wstep)])
 
   sigs = signal.lfilter(b, a, sigs, axis=0)
-
   ws = [sym_whitening(s) for s in sigs]
-  return np.vstack([np.dot(samples[i * wstep:(i+1) * wstep], W) 
+
+  return np.hstack([np.dot(W.T, samples[:, i * wstep:(i+1) * wstep]) 
     for i, W in enumerate(ws)])
 
