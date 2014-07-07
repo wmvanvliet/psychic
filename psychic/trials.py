@@ -26,14 +26,14 @@ def construct_trials(datasets, Y=None, cl_lab=None, I=None):
         numbered.
     '''
     assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
-    feat_dim = datasets[0].feat_dim
+    feat_shape = datasets[0].feat_shape
     for d in datasets:
-        assert feat_dim == d.feat_dim, 'feat_dim of all DataSets must be equal'
+        assert feat_shape == d.feat_shape, 'feat_shape of all DataSets must be equal'
 
     ndX = np.concatenate([d.ndX[:,:,np.newaxis] for d in datasets], axis=2)
 
     if Y != None:
-        Y = np.atleat_2d(Y)
+        Y = np.atleast_2d(Y)
         assert Y.shape[1] == len(datasets), 'Y must contain a class label for each trial'
     else:
         Y = np.eye(len(datasets), dtype=np.bool)

@@ -26,7 +26,7 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
 
 def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
-  clim=None, cmap=None, titles=None, smark='k.'):
+  clim=None, cmap=None, titles=None, smark='k.', plot_contour=True):
   '''
   Plots a grid with scalpplots. Scalps contains the different scalps in the
   rows, sensors contains the names for the columns of scalps, locs is a dict
@@ -55,7 +55,7 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
   plt.clf()
   for i in range(nscalps):
     subplots.append(plt.subplot(height, width, i + 1))
-    plot_scalp(scalps[i], sensors, locs, clim=clim, cmap=cmap, smark=smark)
+    plot_scalp(scalps[i], sensors, locs, clim=clim, cmap=cmap, smark=smark, plot_contour=plot_contour)
     if titles:
       plt.title(titles[i])
 
