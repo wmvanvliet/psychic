@@ -126,7 +126,7 @@ class BeamformerCFMS(BaseSpatialFilter):
         '''
         Creates an CFMS beamformer that will generate nc components, where half
         of the components are supplied by an FC beamformer and half are supplied
-        by an max-SNR beamformer. NC should therefore alsways be an even number.
+        by an max-SNR beamformer. NC should therefore always be an even number.
         A regularization parameter theta can be supplied (0..1) to prevent
         overfitting. 
         '''
