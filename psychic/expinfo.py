@@ -73,5 +73,5 @@ class OnlyEEG(BaseNode):
     self.keep_ii = [i for (i, ch) in enumerate(eeg_chan) if ch in eeg_chan]
 
   def apply_(self, d):
-    return DataSet(X=X[self.keep_ii], 
+    return DataSet(data=data[self.keep_ii], 
       fealab=[d.fealab[i] for i in self.keep_ii], default=d)

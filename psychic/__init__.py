@@ -13,9 +13,11 @@ from expinfo import Experiment, ExperimentInfo, add_expinfo
 import nodes
 import dataformats
 from dataformats.edf import load_edf
-from dataformats.bdf import load_bdf, BDFWriter
+from dataformats.bdf import load_bdf, save_bdf
 from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram, align, construct_trials
 import fake
+from dataset import DataSet
+import tests
 
 import os.path as op
 def find_data_path(fname=''):

@@ -71,13 +71,7 @@ class DataSet(object):
     (``data``, ``labels``, and ``ids`` are locked). This way, you can be
     certain that a dataset will not be modified from analysis chain to another.
     
-    **Handy class functions** (where ``d`` is a ``DataSet``): 
-    
-    ``d.save()``
-        Store the dataset to disk.
-    
-    ``DataSet.load(filename)``
-        Load a dataset from disk.
+    **Handy operators** (where ``d`` is a ``DataSet``): 
     
     ``d3 = d1 + d2``
         Concatenating datasets together.
@@ -94,12 +88,6 @@ class DataSet(object):
     ``str(d)``
         Return a string representation of the dataset.
     
-    ``d.shuffled()``
-        Return a dataset copy with the samples shuffled.
-    
-    ``d.sorted()``
-        Return a dataset copy with the samples sorted according to ids.
-    
 
     Attributes
     ----------
@@ -110,11 +98,23 @@ class DataSet(object):
         time samples for each channel. 
     
     DataSet.labels : 2D-array (read-only)
-        The true class labels (or values) for the instances. The ground truth.
-        For each instance, for each class, an indication is given as to the truth
-        or chance or value for this class. For example, if for a certain sample
-        the labels are [0 1 0] this means this sample belongs to the second
-        class. The names of the classes are stored in ``cl_lab``.
+        The true class labels (or values) for the instances. There are three
+        ways of specifying labels:
+
+          1. As a flat list assigning an integer value to each instance.
+          2. As a 2D boolean array, where each row corresponds to a class and
+             each column corresponds to an instance. A value of True means the
+             an instance belongs to a certain class. Instances can belong to
+             multiple classes at the same time.
+          3. As a 3D boolean array, where each row corresponds to a class and
+             each column corresponds to an instance. Each value is a score,
+             describing how much a certain instance belongs to a certain class,
+             for example a probability score. In summary views of the data, each
+             instance will be assigned to the class with the highest score.
+
+        For example, if for a certain sample the labels are [False, True,
+        False] this means this sample belongs to the second class. The names of
+        the classes are stored in ``cl_lab``.
     
     DataSet.ids : 2D-array (read-only)
         A unique identifier per instance. If not provided, it will generate a
@@ -156,7 +156,7 @@ class DataSet(object):
 
     @property
     def X(self):
-        return self._data.reshape(-1, self._data.shape[-1]).T
+        return self._data.reshape(-1, self.ninstances).T
 
     @property
     def y(self):
@@ -186,7 +186,7 @@ class DataSet(object):
             if default != None and default.labels.shape[1] == data.shape[1]: 
                 labels = default.labels
 
-            # Generate an empty Y
+            # Generate an empty labels
             else:
                 labels = np.ones(data.shape[1], dtype=np.bool)
         self._labels = labels = np.atleast_2d(labels)
@@ -200,9 +200,9 @@ class DataSet(object):
 
         # test essential properties
         if self.labels.ndim != 2:
-            raise ValueError('Only 2D arrays are supported for Y.')
+            raise ValueError('Only 2D arrays are supported for labels.')
         if self.ids.ndim != 2:
-            raise ValueError('Only 2D arrays are supported for I.')
+            raise ValueError('Only 2D arrays are supported for ids.')
         if not (self.data.shape[-1] == self.labels.shape[1] == self.ids.shape[1]):
             raise ValueError('Number of instances (cols) does not match')
         if np.unique(self.ids[0]).size != self.ninstances:
@@ -285,10 +285,10 @@ class DataSet(object):
         given class. The desired class is given as an integer index where ``i <
         d.nclasses``.
         """
-        if self.labels.shape[0] == 1:
+        if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             return self[self.labels[0,:] == i]
         elif self.labels.dtype == np.bool:
-            return self[self.Y[i]]
+            return self[self.labels[i]]
         else:
             return self[np.argmax(self.labels, axis=0) == i]
 
@@ -301,7 +301,7 @@ class DataSet(object):
         return self.get_class(self.cl_lab.index(lab))
 
     def sorted(self):
-        '''Return a DataSet sorted on the first row of :py:attr:`I`'''
+        '''Return a DataSet sorted on the first row of :py:attr:`ids`'''
         return self[np.argsort(self.ids[0])]
 
     def shuffled(self):
@@ -408,10 +408,10 @@ class DataSet(object):
         '''
         if self.labels.ndim == 0:
             return 0
-        elif self.labels.shape[0] == 1:
+        elif self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             return len(np.unique(self.labels))
         else:
-            return self.Y.shape[0]
+            return self.labels.shape[0]
                 
     @property
     def ninstances(self):
@@ -430,7 +430,7 @@ class DataSet(object):
         '''
         if self.labels.ndim == 0:
             return []
-        elif self.labels.shape[0] == 1:
+        elif self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             counts = np.bincount(self.labels[0,:])
             return counts[np.flatnonzero(counts)].tolist()
         elif self.labels.dtype == np.bool:
@@ -458,7 +458,7 @@ class DataSet(object):
         '''
         Return the number of features defined in this DataSet.
         '''
-        if self.X.ndim == 0:
+        if self.data.ndim == 0:
             return 0
         return reduce(operator.mul, self.feat_shape)
 
@@ -493,7 +493,7 @@ class DataSet(object):
         '''
         Use this property to index the DataSet as one would do with an
         n-dimensional Numpy array, where the first dimensions are the same as
-        :py:attr:`ndX` and the last dimension are the instances.
+        :py:attr:`data` and the last dimension are the instances.
 
         For example:
         >>> # Create dataset containing 2 trials of (channels x time) data
@@ -519,8 +519,8 @@ class DataSet(object):
         '''
         Use this property to index the DataSet through the feature labels (when
         defined). The usage is similar to the :py:attr:`ix` property, but first
-        a lookup is perfomed in the :py:attr:`feat_lab` and
-        :py:attr:`feat_nd_lab` attributes to determine the indices.
+        a lookup is perfomed in the :py:attr:`feat_lab` attribute to determine
+        the indices.
 
         For example:
         >>> # Create dataset containing 2 trials of (channels x time) data
@@ -636,7 +636,7 @@ class _DataSetLabeledIndexer(_DataSetIndexer):
 
             lab = list(self.d.feat_lab)
 
-            # Add instance labels (DataSet.I)
+            # Add instance labels (DataSet.ids)
             lab += [self.d.ids.flatten().tolist()]
 
             new_key = []
@@ -678,21 +678,21 @@ class _DataSetLabeledIndexer(_DataSetIndexer):
 
 def concatenate(datasets, ignore_index=False):
     """
-    Efficiently concatenate multiple Golem datasets together.
+    Efficiently concatenate multiple psychic datasets together.
 
     Parameters
     ----------
-    datasets : list of :class:`golem.DataSet`s
+    datasets : list of :class:`psychic.DataSet`s
         The datasets to concatenate
     ignore_index : bool (default=False)
-        If set, ignore the ``.I`` attribute of the datasets. The resulting
-        :class:`golem.DataSet` will have an ``.I`` attribute that simply
+        If set, ignore the ``.ids`` attribute of the datasets. The resulting
+        :class:`psychic.DataSet` will have an ``.ids`` attribute that simply
         numbers the instances. This can be useful when concatenating datasets
         with overlapping index labels.
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`psychic.DataSet`
         A dataset that is the result of concatenating the given datasets.
     """
     assert len(datasets) > 0
@@ -701,7 +701,7 @@ def concatenate(datasets, ignore_index=False):
         return datasets[0]
 
     # Handle empty datasets
-    datasets = [d for d in datasets if d.X.ndim > 0]
+    datasets = [d for d in datasets if d.data.ndim > 0]
 
     # Choose the first dataset as 'base'
     base = datasets[0]
@@ -719,18 +719,18 @@ def concatenate(datasets, ignore_index=False):
         if (d.nfeatures != base.nfeatures):
             raise ValueError, 'The #features do not match (%d != %d)' % (d.nfeatures, base.nfeatures)
 
-        # Compare all other members, except X, Y and I
+        # Compare all other members, except data, labels and ids
         for member in d.__dict__.keys():
-            if member not in ['_X', '_Y', '_I']:
+            if member not in ['_data', '_labels', '_ids']:
                 if d.__dict__[member] != base.__dict__[member]:
                     raise ValueError('Cannot add DataSets: %s is different' % member)
 
-    X = np.hstack([d.X for d in datasets])
-    Y = np.hstack([d.Y for d in datasets])
+    data = np.hstack([d.data for d in datasets])
+    labels = np.hstack([d.labels for d in datasets])
 
     if not ignore_index:
-        I = np.hstack([d.I for d in datasets])
+        ids = np.hstack([d.ids for d in datasets])
     else:
-        I = np.atleast_2d(np.arange(X.shape[1]))
+        ids = np.atleast_2d(np.arange(data.shape[1]))
 
-    return DataSet(X=X, Y=Y, I=I, default=base)
+    return DataSet(data, labels, ids, default=base)

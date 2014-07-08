@@ -17,24 +17,24 @@ def to_one_of_n(labels, class_rows=None):
         raise ValueError('Labels should be 1D')
     if not class_rows:
         class_rows = np.unique(a) # is automatically sorted
-    Y = np.zeros((len(class_rows), a.size), dtype=np.bool)
+    labels = np.zeros((len(class_rows), a.size), dtype=np.bool)
     for i, n in enumerate(class_rows):
-        Y[i, a==n] = True
-    return Y
+        labels[i, a==n] = True
+    return labels
 
-def hard_max(X):
+def hard_max(data):
     '''
     Find the maximum of each column and return an array containing 1 on the
     location of each maximum. If a column contains a NaN, the output column
     consists of NaNs.
     '''
-    X = np.atleast_2d(X)
-    assert X.shape[0] != 0
-    if X.shape[1] == 0: 
-        return X.copy()
-    result = np.zeros(X.shape)
-    result[np.argmax(X, axis=0),range(X.shape[1])] = 1
-    result[:, np.any(np.isnan(X), axis=0)] *= np.nan
+    data = np.atleast_2d(data)
+    assert data.shape[0] != 0
+    if data.shape[1] == 0: 
+        return data.copy()
+    result = np.zeros(data.shape)
+    result[np.argmax(data, axis=0),range(data.shape[1])] = 1
+    result[:, np.any(np.isnan(data), axis=0)] *= np.nan
     return result
 
 

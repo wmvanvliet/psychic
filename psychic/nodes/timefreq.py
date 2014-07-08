@@ -22,18 +22,18 @@ class TFC(BaseNode):
     tfc = self.n.apply(d)
     feat_dim_lab = ['time', 'frequency', d.feat_dim_lab[1]]
 
-    if d.feat_nd_lab != None:
-      old_time = np.asarray([float(i) for i in d.feat_nd_lab[0]])
+    if d.feat_lab != None:
+      old_time = np.asarray([float(i) for i in d.feat_lab[0]])
       time = np.mean(sliding_window(old_time, self.nfft, self.win_step), axis=1)
       time = ['%.1f' % i for i in time]
       dt = np.mean(np.diff(old_time))
       dt = (np.max(old_time) - np.min(old_time)) / old_time.size
       freqs = np.fft.fftfreq(self.nfft, dt) 
       freqs = ['%d' % abs(i) for i in freqs[:self.nfft/2 + 1]]
-      channels = d.feat_nd_lab[1]
+      channels = d.feat_lab[1]
 
-      feat_nd_lab = [time, freqs, channels]
+      feat_lab = [time, freqs, channels]
     else:
-      feat_nd_lab = None
-    return DataSet(feat_dim_lab=feat_dim_lab, feat_nd_lab=feat_nd_lab, 
+      feat_lab = None
+    return DataSet(feat_dim_lab=feat_dim_lab, feat_lab=feat_lab, 
       default=tfc)

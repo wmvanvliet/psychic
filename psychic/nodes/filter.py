@@ -1,6 +1,6 @@
 import numpy as np
 from scipy import signal
-from golem import DataSet
+from ..dataset import DataSet
 from golem.nodes import BaseNode
 from psychic.utils import get_samplerate
 from psychic.markers import resample_markers
@@ -33,8 +33,8 @@ class Filter(BaseNode):
 
   def apply_(self, d):
     b, a = self.filter
-    ndX = signal.filtfilt(b, a, d.ndX, axis=self.axis)
-    return DataSet(ndX=ndX, default=d)
+    data = signal.filtfilt(b, a, d.data, axis=self.axis)
+    return DataSet(data=data, default=d)
 
 class OnlineFilter(Filter):
   '''
@@ -56,15 +56,16 @@ class OnlineFilter(Filter):
       self.zi = [signal.lfiltic(b, a, np.zeros(b.size)) for fi in 
         range(d.nfeatures)]
 
-    new_zi = []
-    xs = []
-    for i in range(d.nfeatures):
-      xi, zii = signal.lfilter(b, a, d.xs[:, i], zi=self.zi[i])
-      xs.append(xi.reshape(-1, 1))
-      new_zi.append(zii)
+    data, new_zi = signal.lfilter(b, a, d.data, zi=self.zi, axis=self.axis)
+    #new_zi = []
+    #data = []
+    #for i in range(d.nfeatures):
+    #  xi, zii = signal.lfilter(b, a, d.data[i, :], zi=self.zi[i])
+    #  data.append(xi[np.newaxis, :])
+    #  new_zi.append(zii)
     self.zi = new_zi
 
-    return DataSet(xs=np.hstack(xs), default=d)
+    return DataSet(data=data, default=d)
 
 class Butterworth(Filter):
   '''
@@ -119,12 +120,12 @@ class Winsorize(BaseNode):
     BaseNode.__init__(self)
 
   def train_(self, d):
-    assert len(d.feat_shape) == 1
+    assert len(d.feat_shape) == 1, 'Expecting continuous data'
     self.lims = np.apply_along_axis(lambda x: np.interp(self.cutoff, 
-      np.linspace(0, 1, d.ninstances), np.sort(x)), 0, d.xs)
+      np.linspace(0, 1, d.ninstances), np.sort(x)), 1, d.data)
     
   def apply_(self, d):
-    return DataSet(xs=np.clip(d.xs, self.lims[0,:], self.lims[1:]),
+    return DataSet(np.clip(d.data.T, self.lims[:,0], self.lims[:,1]).T,
       default=d)
 
 class FFTFilter(BaseNode) :
@@ -150,9 +151,11 @@ class FFTFilter(BaseNode) :
         self.samplerate = get_samplerate(d)
 
     def apply_(self, d):
+        assert len(d.feat_shape) == 1, 'Expecting continuous data'
+
         # Frequency vector
-        fv = np.arange(0,d.xs.shape[0]) * ( self.samplerate / float(d.xs.shape[0]) );
-        fv = fv.reshape(d.xs.shape[0],1)
+        nsamples = d.ninstances
+        fv = np.arange(nsamples) * (self.samplerate / float(nsamples))
 
         # Find the frequencies closest to the cutoff range
         if self.lowcut != 0:
@@ -166,19 +169,19 @@ class FFTFilter(BaseNode) :
             idxh = 0;
 
         # Filter the data
-        xs = []
+        data = []
 
         for channel in range(d.nfeatures):
-            X = np.fft.fft(d.xs[:,channel])
+            x = np.fft.fft(d.data[channel,:])
 
-            X[0:idxl] = 0
-            X[-idxl:] = 0
-            X[idxh:] = 0
+            x[0:idxl] = 0
+            x[-idxl:] = 0
+            x[idxh:] = 0
 
-            x = 2 * np.real( np.fft.ifft(X) )
-            xs.append( x.reshape(-1,1) )
+            x = 2 * np.real( np.fft.ifft(x) )
+            data.append(x[np.newaxis,:])
 
-        return DataSet(xs=np.hstack(xs), default=d)
+        return DataSet(data=np.vstack(data), default=d)
 
 class Resample(BaseNode):
     '''
@@ -210,7 +213,7 @@ class Resample(BaseNode):
         if self.old_samplerate == self.new_samplerate:
             return d
 
-        nchannels, nsamples = d.ndX.shape[:2]
+        nchannels, nsamples = d.data.shape[:2]
 
         downsampling = self.new_samplerate < self.old_samplerate
 
@@ -218,9 +221,9 @@ class Resample(BaseNode):
         if not downsampling:
             new_len -= 1
 
-        new_shape = list(d.ndX.shape)
+        new_shape = list(d.data.shape)
         new_shape[1] = new_len
-        ndX = np.zeros(new_shape)
+        data = np.zeros(new_shape)
 
         if downsampling:
             sample_points = np.linspace(0, nsamples, new_len, endpoint=False)
@@ -229,23 +232,23 @@ class Resample(BaseNode):
             for i in range(len(sample_points)):
                 start = int(sample_points[i])
                 stop = int(sample_points[i+1]) if i < len(sample_points)-1 else nsamples
-                ndX[:,i,...] = np.mean(d.ndX[:, start:stop, ...], axis=1)
+                data[:,i,...] = np.mean(d.data[:, start:stop, ...], axis=1)
         else:
             sample_points = np.linspace(0, nsamples-1, new_len, endpoint=True)
 
             # Interpolate the signal at the sample points
-            ndX = np.apply_along_axis(lambda x: interp1d(range(nsamples), x)(sample_points), 1, d.ndX)
+            data = np.apply_along_axis(lambda x: interp1d(range(nsamples), x)(sample_points), 1, d.data)
 
-        if ndX.ndim >= 3:
-            # With epoched data, resample feat_nd_lab[1] as well
-            feat_nd_lab = list(d.feat_nd_lab)
-            feat_nd_lab[1] = interp1d(range(nsamples), feat_nd_lab[1])(sample_points).tolist()
-            return DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
+        if data.ndim >= 3:
+            # With epoched data, resample feat_lab[1] as well
+            feat_lab = list(d.feat_lab)
+            feat_lab[1] = interp1d(range(nsamples), feat_lab[1])(sample_points).tolist()
+            return DataSet(data=data, feat_lab=feat_lab, default=d)
         else:
             # With non-epoched data, sample the marker stream and index as well
-            Y = [];
-            for cl in range(d.Y.shape[0]):
-                 Y.append(resample_markers(d.Y[cl,:], new_len, self.max_marker_delay))
-            Y = np.vstack(Y)
-            I = interp1d(range(nsamples), d.I[0,:])(sample_points) 
-            return DataSet(ndX=ndX, Y=Y, I=I, default=d)
+            labels = [];
+            for cl in range(d.labels.shape[0]):
+                 labels.append(resample_markers(d.labels[cl,:], new_len, self.max_marker_delay))
+            labels = np.vstack(labels)
+            ids = interp1d(range(nsamples), d.ids[0,:])(sample_points) 
+            return DataSet(data=data, labels=labels, ids=ids, default=d)

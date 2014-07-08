@@ -2,7 +2,6 @@ import re, datetime, unittest, logging, struct
 import string
 import numpy as np
 import psychic
-import golem
 
 bdf_log = logging.getLogger('BDFReader')
 
@@ -35,8 +34,8 @@ class BDFReader:
 
   def read_all(self):
     records = [self.buff] + list(self.bdf.records())
-    rframes = np.vstack(records)
-    return rframes * self.bdf.gain + self.bdf.offset
+    rframes = np.hstack(records)
+    return (rframes.T * self.bdf.gain + self.bdf.offset).T
 
   def close(self):
       self.bdf.close()
@@ -65,7 +64,7 @@ class BaseBDFReader:
     # misc
     self.header_nbytes = int(f.read(8))
     format = f.read(44).strip()
-    # BIOSIG toolbox does not set format
+    # BioSig toolbox does not set format
     # assert format == '24BIT'
     h['n_records'] = int(f.read(8))
     h['record_length'] = float(f.read(8)) # in seconds
@@ -88,7 +87,7 @@ class BaseBDFReader:
 
     self.gain = np.array([(h['physical_max'][n] - h['physical_min'][n]) / 
       float(h['digital_max'][n] - h['digital_min'][n]) for n in channels], 
-      np.float32)
+      np.float)
     self.offset = np.array([h['physical_min'][n] - self.gain[n]*h['digital_min'][n] for n in channels])
     return self.header
   
@@ -103,13 +102,13 @@ class BaseBDFReader:
     assert len(np.unique(n_samp)) == 1, \
       'Samplerates differ for different channels'
     n_samp = n_samp[0]
-    result = np.zeros((n_samp, n_channels), np.float32)
+    result = np.zeros((n_channels, n_samp), np.float)
 
     for i in range(n_channels):
       bytes = self.file.read(n_samp * 3)
       if len(bytes) <> n_samp * 3:
         raise BDFEndOfData
-      result[:, i] = le_to_int24(bytes)
+      result[i, :] = le_to_int24(bytes)
 
     return result
   
@@ -157,12 +156,15 @@ def int24_to_le(ints):
   bytes[:, 2] = ((uints >> 16) & 0xff).flatten()
   return bytes.flatten()
 
+def num_to_str(num, strlen):
+    return string.ljust('%d' % num, strlen) 
+
 class BDFWriter:
-    """ Class that writes a stream of Golem datasets to a BDF file.
+    """ Class that writes a stream of Psychic datasets to a BDF file.
 
     Example usage:
-    >>> d = golem.DataSet.load('some_data.dat')
-    >>> d2 = golem.DataSet.load('some_more_data.dat')
+    >>> d = psychic.DataSet.load('some_data.dat')
+    >>> d2 = psychic.DataSet.load('some_more_data.dat')
     >>> bdf = BDFWriter('test.bdf', dataset=d)
     >>> bdf.write_header()
     >>> bdf.write(d)
@@ -171,7 +173,7 @@ class BDFWriter:
     
     """
     
-    def __init__(self, file, samplerate=0, num_channels=0, values={}, dataset=None):
+    def __init__(self, file, samplerate=0, num_channels=0, header={}, dataset=None):
         """ Opens a BDF file for writing.
 
         Required params:
@@ -180,9 +182,9 @@ class BDFWriter:
         Optional params:
             samplerate - Samplerate of the data
             num_channels - Number of channels in the data (not counting the STATUS channel)
-            values  - A dictionary containing header values as obtained by the BDFReader to use as defaults
+            header  - A dictionary containing header values as obtained by the BDFReader to use as defaults
             dataset - As an alternative to the 'values' parameter, vital header fields
-                      can be determined automatically from a golem DataSet"""
+                      can be determined automatically from a psychic.DataSet"""
 
         try:
             self.f = open(file, 'wb') if isinstance(file, str) else file
@@ -191,45 +193,45 @@ class BDFWriter:
 
         if dataset != None:
             # Figure out some values from the datafile
-            values['n_channels'] = dataset.nfeatures
+            header['n_channels'] = dataset.nfeatures
 
             if dataset.feat_lab != None:
-                values['label'] = list(dataset.feat_lab)
+                header['label'] = list(dataset.feat_lab[0])
 
             sample_rate = psychic.get_samplerate(dataset)
             
-            record_length = values['record_length'] if 'record_length' in values else 1
-            values['n_samples_per_record'] = [int(sample_rate*record_length) for x in range(values['n_channels'])]
+            record_length = header['record_length'] if 'record_length' in header else 1
+            header['n_samples_per_record'] = [int(sample_rate*record_length) for x in range(header['n_channels'])]
 
-        # Use supplied values or defaults
+        # Use supplied header or defaults
         self.id_code = '\xffBIOSEMI'
-        self.local_subject_id = values['local_subject_id'] if 'local_subject_id' in values else ''
-        self.local_recording_id = values['local_recording_id'] if 'local_recording_id' in values else ''
+        self.local_subject_id = header['local_subject_id'] if 'local_subject_id' in header else ''
+        self.local_recording_id = header['local_recording_id'] if 'local_recording_id' in header else ''
 
-        start_date_time = values['date_time'] if 'date_time' in values else datetime.datetime.now()
-        self.start_date = values['start_date'] if 'start_date' in values else start_date_time.strftime('%d.%m.%y')
-        self.start_time = values['start_time'] if 'start_time' in values else start_date_time.strftime('%H.%M.%S')
+        start_date_time = header['date_time'] if 'date_time' in header else datetime.datetime.now()
+        self.start_date = header['start_date'] if 'start_date' in header else start_date_time.strftime('%d.%m.%y')
+        self.start_time = header['start_time'] if 'start_time' in header else start_date_time.strftime('%H.%M.%S')
 
-        self.format = values['format'] if 'format' in values else '24BIT'
-        self.n_records = values['n_records'] if 'n_records' in values else -1
-        self.record_length = values['record_length'] if 'record_length' in values else 1
+        self.format = header['format'] if 'format' in header else '24BIT'
+        self.n_records = header['n_records'] if 'n_records' in header else -1
+        self.record_length = header['record_length'] if 'record_length' in header else 1
 
-        n_channels = values['n_channels'] if 'n_channels' in values else num_channels
+        n_channels = header['n_channels'] if 'n_channels' in header else num_channels
         assert n_channels > 0, 'Please supply the number of channels.'
         self.n_channels = n_channels
 
-        self.label = values['label'] if 'label' in values else [('channel %d' % (x+1)) for x in range(n_channels)]
-        self.transducer_type = values['transducer_type'] if 'transducer_type' in values else ['unknown' for x in range(n_channels)]
-        self.units = values['units'] if 'units' in values else ['uV' for x in range(n_channels)]
-        self.physical_min = values['physical_min'] if 'physical_min' in values else [-1 for x in range(n_channels)]
-        self.physical_max = values['physical_max'] if 'physical_max' in values else [1 for x in range(n_channels)]
-        self.digital_min = values['digital_min'] if 'digital_min' in values else [-1 for x in range(n_channels)]
-        self.digital_max = values['digital_max'] if 'digital_max' in values else [1 for x in range(n_channels)]
-        self.prefiltering = values['prefiltering'] if 'prefiltering' in values else ['' for x in range(n_channels)]
-        self.n_samples_per_record = values['n_samples_per_record'] if 'n_samples_per_record' in values else [samplerate for x in range(n_channels)]
+        self.label = header['label'] if 'label' in header else [('channel %d' % (x+1)) for x in range(n_channels)]
+        self.transducer_type = header['transducer_type'] if 'transducer_type' in header else ['unknown' for x in range(n_channels)]
+        self.units = header['units'] if 'units' in header else ['uV' for x in range(n_channels)]
+        self.physical_min = header['physical_min'] if 'physical_min' in header else [-1 for x in range(n_channels)]
+        self.physical_max = header['physical_max'] if 'physical_max' in header else [1 for x in range(n_channels)]
+        self.digital_min = header['digital_min'] if 'digital_min' in header else [-1000 for x in range(n_channels)]
+        self.digital_max = header['digital_max'] if 'digital_max' in header else [1000 for x in range(n_channels)]
+        self.prefiltering = header['prefiltering'] if 'prefiltering' in header else ['' for x in range(n_channels)]
+        self.n_samples_per_record = header['n_samples_per_record'] if 'n_samples_per_record' in header else [samplerate for x in range(n_channels)]
         assert len(np.unique(self.n_samples_per_record)) == 1, 'Samplerates differ for different channels'
         assert self.n_samples_per_record[0] > 0, 'Number of samples per record cannot be determined. Please specify a samplerate.'
-        self.reserved = values['reserved'] if 'reserved' in values else ['' for x in range(n_channels)]
+        self.reserved = header['reserved'] if 'reserved' in header else ['Reserved' for x in range(n_channels)]
 
         self.records_written = 0
         self.samples_left_in_record = None
@@ -238,6 +240,11 @@ class BDFWriter:
         if not 'Status' in self.label:
             self.append_status_channel()
 
+        self.gain = np.array(self.physical_max) - np.array(self.physical_min)
+        self.gain = self.gain.astype(np.float)
+        self.gain /= np.array(self.digital_max) - np.array(self.digital_min)
+        self.inv_gain = 1 / self.gain
+        self.offset = np.array(self.physical_min) - self.gain * np.array(self.digital_min)
         self.header_written = False
 
     def append_status_channel(self):
@@ -278,11 +285,12 @@ class BDFWriter:
                     string.ljust(self.local_recording_id, 80),
                     string.ljust(self.start_date, 8),
                     string.ljust(self.start_time, 8),
-                    '%08d' % (self.n_channels*256 + 256),
+                    num_to_str(self.n_channels*256 + 256, 8),
                     string.ljust(self.format, 44),
-                    '%08d' % self.n_records,
-                    '%08d' % self.record_length,
-                    '%04d' % self.n_channels)
+                    num_to_str(self.n_records, 8), 
+                    num_to_str(self.record_length, 8),
+                    num_to_str(self.n_channels, 4),
+                )
             )
             
             for label in self.label:
@@ -292,17 +300,17 @@ class BDFWriter:
             for units in self.units:
                 self.f.write( struct.pack('8s', string.ljust(units, 8)) )
             for physical_min in self.physical_min:
-                self.f.write( struct.pack('8s', '%08d' % physical_min) )
+                self.f.write( struct.pack('8s', num_to_str(physical_min, 8)) )
             for physical_max in self.physical_max:
-                self.f.write( struct.pack('8s', '%08d' % physical_max) )
+                self.f.write( struct.pack('8s', num_to_str(physical_max, 8)) )
             for digital_min in self.digital_min:
-                self.f.write( struct.pack('8s', '%08d' % digital_min) )
+                self.f.write( struct.pack('8s', num_to_str(digital_min, 8)) )
             for digital_max in self.digital_max:
-                self.f.write( struct.pack('8s', '%08d' % digital_max) )
+                self.f.write( struct.pack('8s', num_to_str(digital_max, 8)) )
             for prefiltering in self.prefiltering:
                 self.f.write( struct.pack('80s', string.ljust(prefiltering, 80)) )
             for n_samples_per_record in self.n_samples_per_record:
-                self.f.write( struct.pack('8s', '%08d' % n_samples_per_record) )
+                self.f.write( struct.pack('8s', num_to_str(n_samples_per_record, 8)) )
             for reserved in self.reserved:
                 self.f.write( struct.pack('32s', string.ljust(reserved, 32)) ) 
             self.f.flush()
@@ -315,20 +323,20 @@ class BDFWriter:
             raise
 
     def write(self, dataset):
-        """ Append a Golem DataSet to the BDF file. Physical values are converted to digital ones using the
+        """ Append a Psychic DataSet to the BDF file. Physical values are converted to digital ones using the
         physical/digital_min/max values supplied."""
-        num_samples, num_channels = dataset.xs.shape
-
-        inv_gain = np.array( [ (self.digital_max[n] - self.digital_min[n]) / float(self.physical_max[n] - self.physical_min[n]) for n in range(num_channels)] )
-        offset = np.array( [self.physical_min[n] * inv_gain[n] - self.digital_min[n] for n in range(num_channels)] )
-
-        self.write_raw( golem.DataSet( xs=((dataset.xs-offset)*inv_gain).astype(np.int32), default=dataset ) )
+        self.write_raw(
+            psychic.DataSet(
+                ((dataset.data.T-self.offset[:-1])*self.inv_gain[:-1]).astype(np.int32).T,
+                default=dataset
+            )
+        )
 
     def write_raw(self, dataset):
-        """ Append a Golem DataSet to the BDF file. No conversion between physical and digital values are performed. """
+        """ Append a Psychic DataSet to the BDF file. No conversion between physical and digital values are performed. """
         assert len(self.n_samples_per_record) > 0 and self.n_samples_per_record[0] > 0, "Number of samples per record not set!"
         assert dataset.nfeatures == self.n_channels-1, 'Number of channels in dataset does not respond to the number of channels set in the header'
-        assert dataset.ys.shape[1] == 1, 'Dimensions of ys must be (samples x 1). It is used as STATUS channel'
+        assert dataset.labels.shape[0] == 1, 'Dimensions of labels must be (samples x 1).idst is used as STATUS channel'
 
         if not self.header_written:
             self.write_header()
@@ -338,15 +346,15 @@ class BDFWriter:
             dataset = self.samples_left_in_record + dataset
             self.samples_left_in_record = None
 
-        num_samples, num_channels = dataset.xs.shape
+        num_channels, num_samples = dataset.data.shape
         for i in range(0, num_samples, self.n_samples_per_record[0]):
             if i+self.n_samples_per_record[0] <= num_samples:
                 # Convert data to 24 bit little endian, two's complement
-                data = int24_to_le(dataset.xs[i:i+self.n_samples_per_record[0],:].T)
+                data = int24_to_le(dataset.data[:, i:i+self.n_samples_per_record[0]])
                 self.f.write(data)
 
                 # Bit 20 is used as overflow detection, this code keeps it fixed at '1' (no overflow) 
-                status = int24_to_le(dataset.ys[i:i+self.n_samples_per_record[0]].astype(np.int) | (1<<19))
+                status = int24_to_le(dataset.y[i:i+self.n_samples_per_record[0]].astype(np.int) | (1<<19))
                 self.f.write(status)
 
                 self.records_written += 1
@@ -375,13 +383,13 @@ def load_bdf(fname):
 
   Returns
   -------
-  d : :class:`golem.DataSet`
+  d : :class:`psychic.DataSet`
     The loaded data:
 
-      - ``d.X`` will be the [channels x samples] EEG data
-      - ``d.Y`` will contain the status channel
+      - ``d.data`` will be the [channels x samples] EEG data
+      - ``d.labels`` will contain the status channel
       - ``d.feat_lab`` will contain the channel names
-      - ``d.I`` will contain timestamps for each sample
+      - ``d.ids`` will contain timestamps for each sample
   '''
   STATUS = 'Status'
 
@@ -393,10 +401,37 @@ def load_bdf(fname):
       status_mask = b.labels.index(STATUS)
       feat_lab = [b.labels[i] for i in data_mask]
       sample_rate = b.sample_rate[0]
-      ids = (np.arange(frames.shape[0]) / float(sample_rate)).reshape(-1, 1)
-      d = golem.DataSet(
-        xs=frames[:,data_mask], 
-        ys=frames[:,status_mask].reshape(-1, 1).astype(int) & 0xffff, 
-        ids=ids, feat_lab=feat_lab, cl_lab=['status'])
+      ids = (np.arange(frames.shape[1]) / float(sample_rate))
+      d = psychic.DataSet(
+        data=frames[data_mask,:], 
+        labels=frames[status_mask,:].astype(int) & 0xffff, 
+        ids=ids, feat_lab=feat_lab)
 
   return d
+
+def save_bdf(d, fname):
+  '''
+  Save a :class:`psychic.DataSet` to a BDF file. BDF files are a variant of EDF
+  files that are produced by BioSemi software. See also the `BDF file
+  specifications <http://www.biosemi.com/faq/file_format.htm>`_.
+
+  Parameters
+  ----------
+  d : :class:`psychic.DataSet`
+    The dataset to save. Must be continous, 2D data.
+
+  fname : string
+    The filename of the BDF file to write to. If the file already exists, it is
+    overwritten.
+  '''
+  assert len(d.feat_shape) == 1, 'Expected 2D continuous data'
+  nchannels = d.nfeatures
+  header={'physical_min': np.floor(np.min(d.data)).repeat(nchannels).tolist(),
+          'physical_max': np.ceil(np.max(d.data)).repeat(nchannels).tolist(),
+          'digital_min': (-8388608*np.ones(nchannels)).tolist(),
+          'digital_max': (8388607*np.ones(nchannels)).tolist()}
+
+  with open(fname, 'wb') as f:
+    w = BDFWriter(f, dataset=d, header=header)
+    w.write(d)
+    w.close()

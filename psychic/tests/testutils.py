@@ -141,95 +141,94 @@ class TestSpectrogram(unittest.TestCase):
     self.assertEqual(np.argmax(np.mean(spec, axis=0)), beta_i)
       
 
-
-class TestSlice(unittest.TestCase):
-  def setUp(self):
-    xs = np.arange(40).reshape(-1, 2)
-    ys = np.zeros((20, 1))
-    ys[[0, 2, 16], 0] = 1
-    ys[[4, 12, 19], 0] = 2
-    ids = np.hstack([np.arange(20).reshape(-1, 1), np.ones((20, 1), int)])
-    self.d = DataSet(xs=xs, ys=ys, ids=ids)
-
-  def test_windows(self):
-    xs = np.random.rand(20, 5)
-    ys = np.zeros((20, 1))
-    ys[[2, 16]] = 1
-    ys[[4, 12]] = 2
-
-    d2 = utils.slice(DataSet(xs=xs, ys=ys), {1:'b', 2:'a'}, offsets=[-2, 4])
-
-    np.testing.assert_equal(d2.ids.flatten(), [2, 4, 12, 16])
-
-    win_base = np.arange(12).reshape(-1, 2)
-    for i, off in enumerate([2, 4, 12, 16]):
-      np.testing.assert_equal(d2.nd_xs[i], xs[off-2:off+4])
-
-  def test_labels(self):
-    xs = np.random.rand(20, 5)
-    ys = np.zeros((20, 1))
-    ys[[2, 16]] = 1
-    ys[[4, 12]] = 2
-    ys[[8]] = 3
-    ys[[9]] = 4
-    d2 = utils.slice(DataSet(xs=xs, ys=ys), {1:'b', 2:'a', 3:'c', 4:'c'}, 
-      offsets=[0, 2])
-    self.assertEqual(d2.cl_lab, ['a', 'b', 'c'])
-    np.testing.assert_equal(d2.get_class(0).ids.flatten(), [4, 12])
-    np.testing.assert_equal(d2.get_class(1).ids.flatten(), [2, 16])
-    np.testing.assert_equal(d2.get_class(2).ids.flatten(), [8, 9])
-
-  def test_few_trials(self):
-    xs = np.random.rand(20, 5)
-    ys = np.zeros((20, 1))
-
-    mdict = {1:'b', 2:'a'}
-  
-    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
-    self.assertEqual(ds.ninstances_per_class, [0, 0])
-    
-    ys[5] = 1
-    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
-    self.assertEqual(ds.ninstances_per_class, [0, 1])
-
-    ys[5] = 2
-    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
-    self.assertEqual(ds.ninstances_per_class, [1, 0])
-
-    ys[6] = 1
-    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
-    self.assertEqual(ds.ninstances_per_class, [1, 1])
-
-  def test_bounds(self):
-    xs = np.random.rand(20, 5)
-    ys = np.zeros((20, 1))
-    ys[[3, 20-3]] = 1
-    ys[[4, 20-4]] = 2
-    logging.getLogger('psychic.utils.slice').setLevel(logging.ERROR)
-    ds = utils.slice(DataSet(xs=xs, ys=ys), {1:'bad', 2:'good'}, [-4, 4])
-    self.assertEqual(ds.ninstances, 2)
-    np.testing.assert_equal(ds.ids.flatten(), [4, 20-4])
-    logging.getLogger('psychic.utils.slice').setLevel(logging.WARNING)
-
-  def test_feat_labs(self):
-    xs = np.random.rand(20, 2)
-    ys = np.zeros((20, 1))
-    ys[10] = 1
-    ids = np.arange(20).reshape(-1, 1) / 10.
-    d = DataSet(xs=xs, ys=ys, ids=ids, feat_lab=['a', 'b'])
-    ds = utils.slice(d, {1:'hit'}, [-2, 2])
-
-    self.assertEqual(ds.feat_nd_lab[0], ['%.3f' % (i / 10.) for i in 
-      range(-2, 2)])
-    self.assertEqual(ds.feat_nd_lab[1], d.feat_lab)
-
-  def test_nd_ids(self):
-    xs = np.random.rand(20, 2)
-    ys = np.zeros((20, 1))
-    ys[[10, 12]] = 1
-    ids = np.hstack([np.arange(20).reshape(-1, 1), np.ones((20, 1))])
-    ds = utils.slice(DataSet(xs=xs, ys=ys, ids=ids), {1:'hit'}, [-2, 2])
-    np.testing.assert_equal(ds.ids, [[10, 1], [12, 1]])
+#class TestSlice(unittest.TestCase):
+#  def setUp(self):
+#    xs = np.arange(40).reshape(-1, 2)
+#    ys = np.zeros((20, 1))
+#    ys[[0, 2, 16], 0] = 1
+#    ys[[4, 12, 19], 0] = 2
+#    ids = np.hstack([np.arange(20).reshape(-1, 1), np.ones((20, 1), int)])
+#    self.d = DataSet(xs=xs, ys=ys, ids=ids)
+#
+#  def test_windows(self):
+#    xs = np.random.rand(20, 5)
+#    ys = np.zeros((20, 1))
+#    ys[[2, 16]] = 1
+#    ys[[4, 12]] = 2
+#
+#    d2 = utils.slice(DataSet(xs=xs, ys=ys), {1:'b', 2:'a'}, offsets=[-2, 4])
+#
+#    np.testing.assert_equal(d2.ids.flatten(), [2, 4, 12, 16])
+#
+#    win_base = np.arange(12).reshape(-1, 2)
+#    for i, off in enumerate([2, 4, 12, 16]):
+#      np.testing.assert_equal(d2.nd_xs[i], xs[off-2:off+4])
+#
+#  def test_labels(self):
+#    xs = np.random.rand(20, 5)
+#    ys = np.zeros((20, 1))
+#    ys[[2, 16]] = 1
+#    ys[[4, 12]] = 2
+#    ys[[8]] = 3
+#    ys[[9]] = 4
+#    d2 = utils.slice(DataSet(xs=xs, ys=ys), {1:'b', 2:'a', 3:'c', 4:'c'}, 
+#      offsets=[0, 2])
+#    self.assertEqual(d2.cl_lab, ['a', 'b', 'c'])
+#    np.testing.assert_equal(d2.get_class(0).ids.flatten(), [4, 12])
+#    np.testing.assert_equal(d2.get_class(1).ids.flatten(), [2, 16])
+#    np.testing.assert_equal(d2.get_class(2).ids.flatten(), [8, 9])
+#
+#  def test_few_trials(self):
+#    xs = np.random.rand(20, 5)
+#    ys = np.zeros((20, 1))
+#
+#    mdict = {1:'b', 2:'a'}
+#  
+#    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
+#    self.assertEqual(ds.ninstances_per_class, [0, 0])
+#    
+#    ys[5] = 1
+#    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
+#    self.assertEqual(ds.ninstances_per_class, [0, 1])
+#
+#    ys[5] = 2
+#    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
+#    self.assertEqual(ds.ninstances_per_class, [1, 0])
+#
+#    ys[6] = 1
+#    ds = utils.slice(DataSet(xs=xs, ys=ys.copy()), mdict, [0, 2])
+#    self.assertEqual(ds.ninstances_per_class, [1, 1])
+#
+#  def test_bounds(self):
+#    xs = np.random.rand(20, 5)
+#    ys = np.zeros((20, 1))
+#    ys[[3, 20-3]] = 1
+#    ys[[4, 20-4]] = 2
+#    logging.getLogger('psychic.utils.slice').setLevel(logging.ERROR)
+#    ds = utils.slice(DataSet(xs=xs, ys=ys), {1:'bad', 2:'good'}, [-4, 4])
+#    self.assertEqual(ds.ninstances, 2)
+#    np.testing.assert_equal(ds.ids.flatten(), [4, 20-4])
+#    logging.getLogger('psychic.utils.slice').setLevel(logging.WARNING)
+#
+#  def test_feat_labs(self):
+#    xs = np.random.rand(20, 2)
+#    ys = np.zeros((20, 1))
+#    ys[10] = 1
+#    ids = np.arange(20).reshape(-1, 1) / 10.
+#    d = DataSet(xs=xs, ys=ys, ids=ids, feat_lab=['a', 'b'])
+#    ds = utils.slice(d, {1:'hit'}, [-2, 2])
+#
+#    self.assertEqual(ds.feat_nd_lab[0], ['%.3f' % (i / 10.) for i in 
+#      range(-2, 2)])
+#    self.assertEqual(ds.feat_nd_lab[1], d.feat_lab)
+#
+#  def test_nd_ids(self):
+#    xs = np.random.rand(20, 2)
+#    ys = np.zeros((20, 1))
+#    ys[[10, 12]] = 1
+#    ids = np.hstack([np.arange(20).reshape(-1, 1), np.ones((20, 1))])
+#    ds = utils.slice(DataSet(xs=xs, ys=ys, ids=ids), {1:'hit'}, [-2, 2])
+#    np.testing.assert_equal(ds.ids, [[10, 1], [12, 1]])
 
 
 class TestFindSegments(unittest.TestCase):

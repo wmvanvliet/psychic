@@ -1,5 +1,6 @@
 import unittest, os.path
-from ..utils import slice, spectrogram
+from ..utils import spectrogram
+from ..trials import slice
 from ..nodes import TFC
 from golem import DataSet
 

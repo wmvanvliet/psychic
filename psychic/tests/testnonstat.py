@@ -1,7 +1,7 @@
 import unittest
 from ..utils import stft, get_samplerate
 from ..nodes.nonstat import *
-from golem import DataSet
+from ..dataset import DataSet
 from scipy import signal
 import matplotlib.pyplot as plt
 
@@ -22,7 +22,7 @@ class TestSlowSphere(unittest.TestCase):
     xs = xs-np.mean(xs, axis=0)
 
     # perform slow sphering
-    xs2 = slow_sphere(xs, signal.iirfilter(2, .1, btype='low'), 10)
+    xs2 = slow_sphere(xs.T, signal.iirfilter(2, .1, btype='low'), 10).T
 
     # test slowness property
     wstep = 20
@@ -44,8 +44,7 @@ class TestSlowSphere(unittest.TestCase):
       np.arange(4))
 
   def test_nodes_filter(self):
-    d = DataSet(xs=np.zeros((1000, 10)), ys=np.ones((1000, 1)),
-      ids=np.arange(1000).reshape(-1, 1) * (1./128))
+    d = DataSet(data=np.zeros((10, 1000)), ids=np.arange(1000) / 128.)
     self.assertEqual(get_samplerate(d), 128)
 
     for isi in [5, 10]:

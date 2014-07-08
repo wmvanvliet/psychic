@@ -74,7 +74,7 @@ def add_density(dens, locs, cmap=plt.cm.jet, clim=None, plot_contour=True):
   vmin, vmax = clim
 
   # interpolate
-  # TODO: replace with Gaussian process interpolator. I don't trust SciPy's 
+  # TODO: replace with Gaussian process interpolator. ids don't trust SciPy's 
   # interpolation functions (they wiggle and they segfault).
   rbf = interpolate.Rbf(xs, ys, dens, function='linear')
   xg = np.linspace(extent[0], extent[1], RESOLUTION)

@@ -53,13 +53,17 @@ def resample_markers(markers, newlen, max_delay=0):
   old_ei = ei.copy()
 
   for i in range(1, len(ei)):
-    ei[i] = max(ei[i], ei[i-1]+ed[i-1])
+    if e[i] == e[i-1]:
+      # Two markers with the same value are not allowed to touch
+      ei[i] = max(ei[i], ei[i-1]+ed[i-1]+1)
+    else:
+      ei[i] = max(ei[i], ei[i-1]+ed[i-1])
 
   if len(ei) > 0:
     assert np.max(np.abs(ei - old_ei)) <= max_delay, \
       'Markers are delayed too much'
     assert max(ei)+ed[np.argmax(ei)]-1 < newlen, 'Delayed markers out of bounds'
-  ys = np.zeros(newlen)
+  ys = np.zeros(newlen, dtype=np.int)
 
   for i in range( len(ei) ):
     ys[ei[i]:ei[i]+ed[i]] = e[i]

@@ -56,24 +56,24 @@ def spectrogram(signal, nfft, stepsize):
 
 def get_samplerate(d):
   '''
-  Derive the sample rate from the timestamps given in ``d.I``
+  Derive the sample rate from the timestamps given in ``d.ids``
 
   Parameters
   ----------
 
   d : :class:`golem.DataSet`
     The data to estimate the sample rate of. Must contain time stamps
-    in ``d.I``
+    in ``d.ids``
 
   Returns
   -------
   sample_rate : float
     The estimated samplerate.
   '''
-  if d.ndX.ndim == 2:
-    return np.round(1./np.median(np.diff(d.I[0])))
-  elif d.ndX.ndim == 3:
-      return np.round(1./np.median(np.diff([float(x) for x in d.feat_nd_lab[1]])))
+  if d.data.ndim == 2:
+    return np.round(1./np.median(np.diff(d.ids[0])))
+  elif d.data.ndim == 3:
+      return np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[1]])))
   else:
       raise ValueError('Data should be either continuous EEG (2D) or sliced (3D)')
 
@@ -138,9 +138,9 @@ def split_in_bins(data, order, n, legend=lambda i,b: 'slice %d' % i, ascending=T
   bin_size = int(len(order) / float(n))
   bins = [idx[i*bin_size:(i+1)*bin_size] for i in range(n)]
 
-  Y = np.zeros((n, data.ninstances), dtype=np.bool)
+  labels = np.zeros((n, data.ninstances), dtype=np.bool)
   for i,b in enumerate(bins):
-    Y[i, b] = True
+    labels[i, b] = True
     cl_lab = [legend(i, bins[i]) for i in range(n)]
 
-  return (bins, DataSet(Y=Y, cl_lab=cl_lab, default=data))
+  return (bins, DataSet(labels=labels, cl_lab=cl_lab, default=data))

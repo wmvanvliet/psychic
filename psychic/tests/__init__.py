@@ -1,0 +1,13 @@
+import testedf
+import testbdf
+import testexpinfo
+import testfiltering
+import testmarkers
+import testnonstat
+import testparafac
+import testplots
+import testpositions
+import testslidingwindow
+import testspatialfilter
+import testtimefreq
+import testutils

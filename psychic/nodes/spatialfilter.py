@@ -12,23 +12,23 @@ from ..positions import POS_10_5
 
 PLAIN, TRIAL, COV = range(3)
 
-def cov0(X):
+def cov0(data):
   '''
-  Calculate X X.T, a covariance estimate for zero-mean data, 
+  Calculate data data.T, a covariance estimate for zero-mean data, 
   normalized by the number of samples minus one (1/N-1).
   Note that the different observations are stored in the rows,
   and the variables are stored in the columns.
   '''
-  return np.dot(X, X.T) / X.shape[1]
+  return np.dot(data, data.T) / data.shape[1]
 
 def plain_cov0(d):
-  return cov0(d.X)
+  return cov0(d.data)
 
 def trial_cov0(d):
-  return np.mean([cov0(t) for t in np.rollaxis(d.ndX, -1)], axis=0)
+  return np.mean([cov0(t) for t in np.rollaxis(d.data, -1)], axis=0)
 
 def cov_cov0(d):
-  return np.mean(d.ndX, axis=2)
+  return np.mean(d.data, axis=2)
 
 class BaseSpatialFilter(BaseNode):
   '''
@@ -79,46 +79,46 @@ class BaseSpatialFilter(BaseNode):
 
 def sfilter_plain(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to plain dataset (as in, before trial extraction).'''
-  X = np.dot(W.T, d.X)
+  data = np.dot(W.T, d.data)
 
-  if preserve_feat_lab and (X.shape == d.X.shape):
+  if preserve_feat_lab and (data.shape == d.data.shape):
     feat_lab = d.feat_lab
   else:
     feat_lab = None
 
-  return DataSet(X=X, feat_shape=(X.shape[0],), feat_lab=feat_lab, default=d)
+  return DataSet(data=data, feat_shape=(data.shape[0],), feat_lab=feat_lab, default=d)
 
 def sfilter_trial(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to plain sliced dataset (d.nd_xs contains trials).'''
   nchannels = W.shape[1]
-  nsamples = d.ndX.shape[1]
+  nsamples = d.data.shape[1]
 
-  ndX = np.zeros((nchannels, nsamples, d.ninstances))
+  data = np.zeros((nchannels, nsamples, d.ninstances))
   for i in range(d.ninstances):
-    ndX[:,:,i] = np.dot(W.T, d.ndX[:,:,i])
+    data[:,:,i] = np.dot(W.T, d.data[:,:,i])
 
-  if preserve_feat_lab and (ndX.shape == d.ndX.shape):
-    feat_nd_lab = d.feat_nd_lab
+  if preserve_feat_lab and (data.shape == d.data.shape):
+    feat_lab = d.feat_lab
   else:
-    if d.feat_nd_lab == None:
-      feat_nd_lab = None
+    if d.feat_lab == None:
+      feat_lab = None
     else:
-      feat_nd_lab=[['COMP %02d' % (i+1) for i in range(nchannels)], d.feat_nd_lab[1]]
+      feat_lab=[['COMP %02d' % (i+1) for i in range(nchannels)], d.feat_lab[1]]
 
-  return DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
+  return DataSet(data=data, feat_lab=feat_lab, default=d)
 
 def sfilter_cov(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to dataset containing covariance estimates.'''
-  ndX = np.zeros((W.shape[1], W.shape[1], d.ndX.shape[2]))
+  data = np.zeros((W.shape[1], W.shape[1], d.data.shape[2]))
   for i in range(d.ninstances):
-    ndX[:,:,i] = reduce(np.dot, [W, d.ndX[:,:,i], W.T])
+    data[:,:,i] = reduce(np.dot, [W, d.data[:,:,i], W.T])
 
   if preserve_feat_lab:
-    feat_nd_lab = d.feat_nd_lab
+    feat_lab = d.feat_lab
   else:
-    feat_nd_lab = None
+    feat_lab = None
 
-  return DataSet(ndX=ndX, feat_nd_lab=feat_nd_lab, default=d)
+  return DataSet(data=data, feat_lab=feat_lab, default=d)
 
 class CAR(BaseSpatialFilter):
   def __init__(self, ftype=TRIAL):
@@ -170,8 +170,8 @@ class SPoC(BaseSpatialFilter):
 
   def train_(self, d):
     assert d.nclasses == 2, 'Expected two classes'
-    assert d.ndX.ndim == 3, 'Expected epoched data'
-    covs = [cov0(t) for t in np.rollaxis(d.ndX, -1)]
+    assert d.data.ndim == 3, 'Expected epoched data'
+    covs = [cov0(t) for t in np.rollaxis(d.data, -1)]
     mean_cov = np.mean(covs)
     weighted_cov = np.mean([d.y[i] * covs[i] for i in range(d.ninstances)])
 
@@ -202,7 +202,7 @@ class SpatialBlur(BaseSpatialFilter):
     if self.ftype == PLAIN:
       positions = d.feat_lab
     elif self.ftype == TRIAL:
-      positions = d.feat_nd_lab[0]
+      positions = d.feat_lab[0]
     else:
       raise ValueError('Operation not supported on covariance data')
   
@@ -274,14 +274,14 @@ def deflate(sigma, noise_selector):
   Remove cross-correlation between noise channels and the other channels. 
   Based on [1]. It asumes the following model:
   
-   X = S + A N
+   data = S + A N
 
   Where S are the EEG sources, N are the EOG sources, and A is a mixing matrix,
-  and X is the recorded data. It finds a spatial filter W, such that W X = S.
+  and data is the recorded data. It finds a spatial filter W, such that W data = S.
 
   Therefore, W Sigma W^T = Sigma_S
 
-  @@TODO: W X and X W is not consistent yet.
+  @@TODO: W data and data W is not consistent yet.
 
   [1] Alois Schloegl, Claudia Keinrath, Doris Zimmermann, Reinhold Scherer,
   Robert Leeb, and Gert Pfurtscheller. A fully automated correction method of

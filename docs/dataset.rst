@@ -1,24 +1,24 @@
-The :class:`golem.DataSet` object
+The :class:`psychic.DataSet` object
 =================================
 
-The main datastructure used by Python is the :class:`golem.DataSet` class. It's
-was designed for usage in machine learning so it's property names come from the
-machine learning literature. This section explains how the class is used to
-represent EEG data.
+The main datastructure used by Psychic is the :class:`psychic.DataSet` class. It
+is a flexible container for EEG data that supports easy mangling, chopping,
+twisting and pounding of the data, while always enforcing proper meta-data,
+such as channel names and time stamps. 
 
 The following code loads an example EEG recording will produce a
-:class:`golem.DataSet` object and prints it to display some summary information
+:class:`psychic.DataSet` object and prints it to display some summary information
 about it:
 
 >>> import psychic
 >>> cont_eeg = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
 >>> print cont_eeg
-DataSet with 149504 instances, 40 features [40], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 40 features [40], 3 classes: [148792, 355, 357], extras: []
 
 Instances, features and classes
 -------------------------------
 
-A :class:`golem.DataSet` is a collection of *instances*, where each instance is
+A :class:`psychic.DataSet` is a collection of *instances*, where each instance is
 described by a number of *features*. An instance is a single unit that we wish to
 analyze; what constitutes a 'single unit' can change along the analysis (could
 be a single EEG sample, or a trial, or even a group of trials).
@@ -62,68 +62,68 @@ two classes: all trials where the subject was reading a related word-pair are
 assigned to class 1 and all unrelated word-pairs are assigned to class 2. The
 experiment was balanced: there were 104 related and 104 unrelated word-pairs.
 
-The most important properties: ``ndX`` and ``Y``
+The most important properties: ``data`` and `labels``
 ------------------------------------------------
 
-``ndX``
+``data``
 +++++++
 
 The actual data (be it EEG or some result from a computation) is stored in
-``ndX``: a multidimensional array. An 'array' is a term used in computer science;
+``data``: a multidimensional array. An 'array' is a term used in computer science;
 mathematics calls an array with one dimension a vector, with two dimensions a
 matrix and three or more dimensions a tensor. During EEG analysis, the data
 can change in dimensionality.
 
 A continuous EEG recording has two dimensions: [40 channels x 14950 samples]
 
->>> print cont_eeg.ndX.shape
+>>> print cont_eeg.data.shape
 (40, 149504)
 
 When this recording is sliced into trials, it has three dimensions: [40
 channels x 435 samples x 208 trials]
 
->>> print trials.ndX.shape
+>>> print trials.data.shape
 (40, 435, 208)
 
 In Psychic, the first dimension is assumed to contain data channels and the second
 dimension time samples. The last dimension always contains the instances:
 
->>> print cont_eeg.ninstances == cont_eeg.ndX.shape[1]
+>>> print cont_eeg.ninstances == cont_eeg.data.shape[1]
 True
->>> print trials.ninstances == trials.ndX.shape[2]
+>>> print trials.ninstances == trials.data.shape[2]
 True
 
-``Y``
+`labels``
 +++++
 
 Instances are assigned to one or more classes. This mapping is stored in the
-``Y`` property of the dataset. Theoretically,  ``Y`` is a matrix [classes x
+`labels`` property of the dataset. Theoretically,  `labels`` is a matrix [classes x
 instances] which contains for each instance a score indicating 'how much' it
 belongs to a certain class. Practically, this means there are a few flavors of
-``Y`` matrices, depending on the datatype of ``Y``:
+`labels`` matrices, depending on the datatype of `labels``:
 
 Each instance belongs to a class yes or no
 ##########################################
 
 In many cases, an instance either belongs to a class or not. In this case the
-datatype of ``Y`` can be boolean. For example, to assign 6 instances to 2
+datatype of `labels`` can be boolean. For example, to assign 6 instances to 2
 classes:
     
->>> import golem
+>>> import psychic
 >>> import numpy as np
->>> ndX = np.zeros((4,6)) # 4 features, 6 instances
->>> Y = [[True,  True,  False, True,  False, False],
+>>> data = np.zeros((4,6)) # 4 features, 6 instances
+>>>labels = [[True,  True,  False, True,  False, False],
 ...      [False, False, True,  False, True,  True ]]
->>> print golem.DataSet(ndX=ndX, Y=Y)
+>>> print psychic.DataSet(data=data,labelslabels)
 DataSet with 6 instances, 4 features [4], 2 classes: [3, 3], extras: []
 
 to assign 6 instances to 3 classes, one instance can belong to more than one
 class, or to none:
 
->>> Y = [[True,  True,  True, False, False, False],
+>>>labels = [[True,  True,  True, False, False, False],
 ...      [False, True,  True, True,  False, False],
 ...      [False, False, True, True,  True,  False]]
->>> print golem.DataSet(ndX=ndX, Y=Y)
+>>> print psychic.DataSet(data=data,labelslabels)
 DataSet with 6 instances, 4 features [4], 3 classes: [3, 3, 3], extras: []
 
 Each instance is belongs a little to each class (fuzzy assignment)
@@ -136,9 +136,9 @@ class a certain instance belongs, it will reply with the class with the highest
 score. Scores can be probabilities, but do not have to be (they do not have to
 sum to one). For example, to assign 6 instances to 2 classes:
 
->>> Y = [[0.5, 0.5, 0.8, 0.9, 0.1, 0.2],
+>>>labels = [[0.5, 0.5, 0.8, 0.9, 0.1, 0.2],
 ...      [0.2, 0.3, 0.6, 0.7, 0.3, 0.5]]
->>> print golem.DataSet(ndX=ndX, Y=Y)
+>>> print psychic.DataSet(data=data,labelslabels)
 DataSet with 6 instances, 4 features [4], 2 classes: [4, 2], extras: []
 
 .. _informative:
@@ -146,7 +146,7 @@ DataSet with 6 instances, 4 features [4], 2 classes: [4, 2], extras: []
 Informative properties
 ----------------------
 
-Apart from ``ndX`` and ``Y``, :class:`golem.DataSet` objects have many properties
+Apart from ``data`` and `labels``, :class:`psychic.DataSet` objects have many properties
 to query metadata. We already saw a useful feature: printing a dataset gives a
 usefull summary:
 
@@ -171,8 +171,8 @@ There are 17400 features.
 >>> nchannels, nsamples = trials.feat_shape
 >>> print 'Each trial has', nchannels, 'channels and', nsamples, 'samples.'
 Each trial has 40 channels and 435 samples.
->>> print 'The shape of ndX is therefore:', trials.ndX.shape
-The shape of ndX is therefore: (40, 435, 208)
+>>> print 'The shape of data is therefore:', trials.data.shape
+The shape of data is therefore: (40, 435, 208)
 
 With continuous EEG data, where for each instance the features are a single
 vector containing the channels, the channel names can be found in ``feat_lab``:
@@ -214,7 +214,7 @@ The number of instances belonging to each class are: [104, 104]
 Selecting parts of the data
 ---------------------------
 
-The :class:`golem.DataSet` class supports Python's indexing and slicing syntax to select
+The :class:`psychic.DataSet` class supports Python's indexing and slicing syntax to select
 instances and ranges of instances. Below are a few examples.
 
 To select the first EEG sample from a continuous recording:
@@ -231,7 +231,7 @@ The last time stamp: 0.99609375
 
 A dataset object provides the ``ix`` property, which can be used for advanced
 indexing and is therefore referred to as an *indexer*. When using the ``ix``
-indexer, you can pretend to index the ``ndX`` property like you would an NumPy
+indexer, you can pretend to index the ``data`` property like you would an NumPy
 array and the rest of the dataset (feature labels, class labels, etc.) will
 magically follow suit:
 
@@ -245,7 +245,7 @@ DataSet with 256 instances, 2 features [2], 1 classes: [256], extras: []
 >>> print cont_eeg.ix[[2,3,19], :]
 DataSet with 149504 instances, 3 features [3], 1 classes: [149504], extras: []
 
-This also works when ``ndX`` has more than two dimensions. For example using the
+This also works when ``data`` has more than two dimensions. For example using the
 ``trials`` dataset:
 
 >>> # The first two channels:
@@ -301,42 +301,42 @@ DataSet with 30 instances, 870 features [2x435], 2 classes: [16, 14], extras: []
 Creating new datasets
 ---------------------
 
-To create a new instance of :class:`golem.DataSet`, at minumum the ``ndX``
+To create a new instance of :class:`psychic.DataSet`, at minumum the ``data``
 parameter should be specified:
 
 >>> from numpy import zeros
 >>> nfeatures = 4
 >>> ninstances = 1000
->>> d = golem.DataSet(ndX=zeros((nfeatures, ninstances)))
+>>> d = psychic.DataSet(data=zeros((nfeatures, ninstances)))
 >>> print d
 DataSet with 1000 instances, 4 features [4], 1 classes: [1000], extras: []
 
 In order to maintain data integrety, a dataset is read only. For example, this fails::
 
-   d.ndX = [1,2,3]
+   d.data = [1,2,3]
 
 This means that to make any changes to the data, a new dataset must be constructed. To
-aid in this, the constructor of :class:`golem.DataSet` takes the parameter ``default``,
+aid in this, the constructor of :class:`psychic.DataSet` takes the parameter ``default``,
 which can be set to an existing dataset. Any fields missing in the constructor will be
 copied from this dataset:
 
 >>> from numpy.random import randn
->>> d_rand = golem.DataSet(ndX=randn(nfeatures, ninstances), default=d)
+>>> d_rand = psychic.DataSet(data=randn(nfeatures, ninstances), default=d)
 >>> print d_rand
 DataSet with 1000 instances, 4 features [4], 1 classes: [1000], extras: []
 
 Any of the :ref:`informative` can be passed in the constructor as well:
 
->>> d_annotated = golem.DataSet(feat_lab=['feature 1', 'feature 2', 'feature 3', 'feature 4'], default=d_rand)
+>>> d_annotated = psychic.DataSet(feat_lab=['feature 1', 'feature 2', 'feature 3', 'feature 4'], default=d_rand)
 >>> print d_annotated.feat_lab
 ['feature 1', 'feature 2', 'feature 3', 'feature 4']
 
 Loading and saving datasets
 ---------------------------
 
-A dataset can be loaded with the :func:`golem.DataSet.load` function and saved
-with the :func:`golem.DataSet.save` function. Both functions take a single
+A dataset can be loaded with the :func:`psychic.DataSet.load` function and saved
+with the :func:`psychic.DataSet.save` function. Both functions take a single
 argument, which can either be a python file object, or a string filename::
 
-    d = golem.DataSet.load(psychic.find_data_path('priming-trials.dat')
+    d = psychic.DataSet.load(psychic.find_data_path('priming-trials.dat')
     d.save('some-filename.dat')
