@@ -2,7 +2,7 @@ import unittest, os.path
 from ..utils import spectrogram
 from ..trials import slice
 from ..nodes import TFC
-from golem import DataSet
+from ..dataset import DataSet
 
 import pylab
 import numpy as np
@@ -11,17 +11,17 @@ FS = 256.
 
 class TestTFC(unittest.TestCase):
   def setUp(self):
-    xs = np.array([np.sin(i * 4 * 60 * np.linspace(0, np.pi * 2, 60 * FS)) 
-      for i in range(16)]).T
-    ys = np.zeros((xs.shape[0], 1))
-    ys[[1000, 2000, 3000, 4000], :] = 1
-    ids = np.arange(xs.shape[0]).reshape(-1, 1) / FS
+    data = np.array([np.sin(i * 4 * 60 * np.linspace(0, np.pi * 2, 60 * FS)) 
+      for i in range(16)])
+    labels = np.zeros(data.shape[1])
+    labels[[1000, 2000, 3000, 4000]] = 1
+    ids = np.arange(data.shape[1]) / FS
 
-    self.d = slice(DataSet(xs=xs, ys=ys, ids=ids), {1:'fake'}, [-512, 512])
+    self.d = slice(DataSet(data, labels, ids), {1:'fake'}, [-512, 512])
     
   def test_setup(self):
     d = self.d
-    self.assertEqual(d.feat_shape, (1024, 16))
+    self.assertEqual(d.feat_shape, (16, 1024))
     self.assertEqual(d.nclasses, 1)
     self.assertEqual(d.ninstances, 4)
 
@@ -39,8 +39,8 @@ class TestTFC(unittest.TestCase):
     self.assertEqual(td.ninstances, d.ninstances)
 
     for ci in range(td.feat_shape[2]):
-      a = td.nd_xs[0,:,:,ci]
-      b = spectrogram(d.nd_xs[0,:,ci], w_size, w_step)
+      a = td.data[0,:,:,ci]
+      b = spectrogram(d.data[0,:,ci], w_size, w_step)
       np.testing.assert_equal(a, b)
     self.assertEqual(td.feat_dim_lab, ['time', 'frequency', 'channels'])
 
