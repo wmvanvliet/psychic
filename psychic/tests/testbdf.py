@@ -66,7 +66,7 @@ class TestBDFWriter(unittest.TestCase):
 
   def test_data(self):
     d2 = load_bdf(psychic.find_data_path('sine-256Hz-test.bdf'))
-    self.assertTrue(np.allclose(self.d.data, d2.data, atol=0.05))
+    np.testing.assert_allclose(self.d.data, d2.data, atol=0.05)
 
 class TestBDF(unittest.TestCase):
   def test_load(self):
@@ -87,11 +87,11 @@ class TestBDF(unittest.TestCase):
     self.assertEqual(d.extra, {})
 
   def test_save(self):
-    d = load_bdf(os.path.join('data', 'sine-256Hz.bdf'))
-    save_bdf(d, os.path.join('data', 'sine-256Hz-test.bdf'))
-    d2 = load_bdf(os.path.join('data', 'sine-256Hz-test.bdf'))
+    d = load_bdf(psychic.find_data_path('sine-256Hz.bdf'))
+    save_bdf(d, psychic.find_data_path('sine-256Hz-test.bdf'))
+    d2 = load_bdf(psychic.find_data_path('sine-256Hz-test.bdf'))
 
     self.assertEqual(d.feat_lab, d2.feat_lab)
-    self.assertTrue(np.allclose(d.data, d2.data, atol=0.0001))
-    self.assertTrue(np.allclose(d.labels, d2.labels))
-    self.assertTrue(np.allclose(d.ids, d2.ids))
+    np.testing.assert_allclose(d.data, d2.data, atol=0.0001)
+    np.testing.assert_allclose(d.labels, d2.labels)
+    np.testing.assert_allclose(d.ids, d2.ids)

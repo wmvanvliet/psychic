@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 import scipy
 from numpy import linalg as la
-from golem import DataSet
+from ..dataset import DataSet
 from golem.nodes import BaseNode
 from ..positions import POS_10_5
 
@@ -44,7 +44,7 @@ class BaseSpatialFilter(BaseNode):
     cov0) for formats (plain recording, trials, covs).
   - Apply the spatial filter to different formats.
   '''
-  def __init__(self, ftype, preserve_feat_lab=True):
+  def __init__(self, ftype, preserve_feat_lab=False):
     BaseNode.__init__(self)
     self.W = None
     self.ftype = ftype
@@ -86,7 +86,7 @@ def sfilter_plain(d, W, preserve_feat_lab=False):
   else:
     feat_lab = None
 
-  return DataSet(data=data, feat_shape=(data.shape[0],), feat_lab=feat_lab, default=d)
+  return DataSet(data=data, feat_lab=feat_lab, default=d)
 
 def sfilter_trial(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to plain sliced dataset (d.nd_xs contains trials).'''
@@ -111,7 +111,7 @@ def sfilter_cov(d, W, preserve_feat_lab=False):
   '''Apply spatial filter to dataset containing covariance estimates.'''
   data = np.zeros((W.shape[1], W.shape[1], d.data.shape[2]))
   for i in range(d.ninstances):
-    data[:,:,i] = reduce(np.dot, [W, d.data[:,:,i], W.T])
+    data[:,:,i] = reduce(np.dot, [W.T, d.data[:,:,i], W])
 
   if preserve_feat_lab:
     feat_lab = d.feat_lab

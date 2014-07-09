@@ -61,7 +61,7 @@ def get_samplerate(d):
   Parameters
   ----------
 
-  d : :class:`golem.DataSet`
+  d : :class:`psychic.DataSet`
     The data to estimate the sample rate of. Must contain time stamps
     in ``d.ids``
 
@@ -101,7 +101,7 @@ def cut_segments(d, marker_tuples, offsets=[0, 0]):
 
   Parameters
   ----------
-  d : :class:`golem.DataSet`
+  d : :class:`psychic.DataSet`
     Continuous data to cut into segments.
   marker_tuples : list of tuples
     A list of (start_marker, end_marker) marker codes delimiting each
@@ -109,12 +109,12 @@ def cut_segments(d, marker_tuples, offsets=[0, 0]):
 
   Returns
   -------
-  data : list of :class:`golem.DataSet`
+  data : list of :class:`psychic.DataSet`
     A list with datasets.
   '''
   start_off, end_off = offsets
   segments = []
-  e, ei, _ = markers_to_events(d.ys.flat)
+  e, ei, _ = markers_to_events(d.labels.flat)
   for (sm, em) in marker_tuples:
     segments.extend(find_segments(e, ei, sm, em))
   segments.sort()
@@ -130,7 +130,7 @@ def wolpaw_bitr(N, P):
     result += (1 - P) * np.log2((1 - P)/(N - 1.))
   return result
 
-def split_in_bins(data, order, n, legend=lambda i,b: 'slice %d' % i, ascending=True):
+def split_in_bins(d, order, n, legend=lambda i,b: 'slice %d' % i, ascending=True):
   idx = np.argsort(order)
   if not ascending:
     idx = idx[::-1]
@@ -138,9 +138,9 @@ def split_in_bins(data, order, n, legend=lambda i,b: 'slice %d' % i, ascending=T
   bin_size = int(len(order) / float(n))
   bins = [idx[i*bin_size:(i+1)*bin_size] for i in range(n)]
 
-  labels = np.zeros((n, data.ninstances), dtype=np.bool)
+  labels = np.zeros((n, d.ninstances), dtype=np.bool)
   for i,b in enumerate(bins):
     labels[i, b] = True
     cl_lab = [legend(i, bins[i]) for i in range(n)]
 
-  return (bins, DataSet(labels=labels, cl_lab=cl_lab, default=data))
+  return (bins, DataSet(labels=labels, cl_lab=cl_lab, default=d))

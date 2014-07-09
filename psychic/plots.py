@@ -126,7 +126,7 @@ def plot_eeg(
 
     Parameters
     ----------
-    data : :class:`golem.DataSet`
+    data : :class:`psychic.DataSet`
         The data to plot. Assumed to be continuous data (channels x time)
     samplerate : float (optional)
         The sample rate of the data. When omitted,
@@ -306,7 +306,7 @@ def plot_erp(
 
     Parameters
     ----------
-    data : :class:`golem.DataSet`
+    data : :class:`psychic.DataSet`
         A sliced Golem dataset that will be displayed.
     classes : list (default=all)
         When specified, ERPs will be drawn only for the classes with the given

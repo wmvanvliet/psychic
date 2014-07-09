@@ -1,6 +1,6 @@
 import unittest, os.path, logging
 import numpy as np
-from golem import DataSet, helpers
+from ..dataset import DataSet
 from .. import utils
 
 import matplotlib.pyplot as plt
@@ -273,14 +273,14 @@ class TestGetSamplerate(unittest.TestCase):
     np.random.seed(0)
 
   def test_get_samplerate(self):
-    d = DataSet(xs=np.random.rand(100, 10), ys=np.zeros((100, 1)))
+    d = DataSet(np.random.rand(10, 100))
     for f in [2, 10, 2048]:
-      df = DataSet(ids = np.arange(100).reshape(-1, 1)/float(f), default=d)
+      df = DataSet(ids=np.arange(100)/float(f), default=d)
       self.assertEqual(utils.get_samplerate(df), f)
 
   def test_noise(self):
-    d = DataSet(xs=np.random.rand(100, 10), ys=np.zeros((100, 1)), 
-      ids=np.arange(100).reshape(-1, 1) / 10. + 0.01 * np.random.rand(100, 1))
+    d = DataSet(data=np.random.rand(10, 100),
+      ids=np.arange(100) / 10. + 0.01 * np.random.rand(100))
     self.assertEqual(utils.get_samplerate(d), 10)
 
 
@@ -292,3 +292,31 @@ class TestBitrate(unittest.TestCase):
     self.assertAlmostEqual(utils.wolpaw_bitr(3, 1/3.), 0)
     self.assertAlmostEqual(utils.wolpaw_bitr(4, 1/4.), 0)
     self.assertAlmostEqual(utils.wolpaw_bitr(4, 1), 2)
+
+class TestSplitInBins(unittest.TestCase):
+  def setUp(self):
+    np.random.seed(0)
+    self.order = [8, 6, 2, 9, 7, 3, 1, 5, 4, 0]
+
+    self.data_2D = DataSet( np.random.rand(4,10) )
+    self.data_3D = DataSet( np.random.rand(4,100,10) )
+
+  def test_ascending(self):
+    bins, d = utils.split_in_bins(self.data_2D, self.order, 5)
+    self.assertEqual(d.nclasses, 5)
+    np.testing.assert_equal(np.array(d.ninstances_per_class), 2)
+    np.testing.assert_equal(d.y, [4, 3, 1, 4, 3, 1, 0, 2, 2, 0])
+    np.testing.assert_equal(np.array(bins), [[9,6],[2,5],[8,7],[1,4],[0,3]])
+
+  def test_descending(self):
+    bins, d = utils.split_in_bins(self.data_2D, self.order, 5, ascending=False)
+    self.assertEqual(d.nclasses, 5)
+    np.testing.assert_equal(np.array(d.ninstances_per_class), 2)
+    np.testing.assert_equal(d.y, [0, 1, 3, 0, 1, 3, 4, 2, 2, 4])
+    np.testing.assert_equal(np.array(bins), [[3,0],[4,1],[7,8],[5,2],[6,9]]) 
+
+  def test_cl_lab(self):
+    legend = lambda i,b: '%d%s' % (i,b)
+    _, d = utils.split_in_bins(self.data_2D, self.order, 5, legend=legend)
+    self.assertEqual(d.cl_lab, ['0[9 6]','1[2 5]','2[8 7]','3[1 4]','4[0 3]'])
+

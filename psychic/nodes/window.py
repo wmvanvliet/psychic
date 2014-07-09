@@ -1,12 +1,12 @@
 import numpy as np
-from golem import DataSet
+from ..dataset import DataSet
 from golem.nodes import BaseNode
 from psychic.utils import get_samplerate
 
 class SlidingWindow(BaseNode):
   '''
   Extracts trials from continuous data by applying a sliding window. The
-  resulting :class:`golem.DataSet` *d* will be:
+  resulting :class:`psychic.DataSet` *d* will be:
   
    - ``d.data``: [channels x samples x windows]
    - ``d.labels``: Class labels for each window (see ``ref_point`` parameter)
@@ -57,6 +57,8 @@ class SlidingWindow(BaseNode):
     self.sample_rate = get_samplerate(d)
 
   def apply_(self, d):
+    assert len(d.feat_shape) == 1, 'Expecting 2D continuous data'
+
     wsize = int(self.win_size * self.sample_rate)
     wstep = int(self.win_step * self.sample_rate)
     refi = int(self.ref_frame * self.sample_rate)
@@ -66,28 +68,24 @@ class SlidingWindow(BaseNode):
     data, labels, ids = [], [], []
     for i in range(0, d.ninstances - wsize + 1, wstep):
       win = d[i:i+wsize]
-      data.append(win.data)
+      data.append(win.data[:,:,np.newaxis])
       labels.append(win.labels[:, refi])
       ids.append(win.ids[:, refi])
 
     if len(data) == 0:
-      data = np.zeros((wsize * d.nfeatures, 0)) 
-      feat_shape = (d.nfeatures, wsize)
-      labels = np.zeros((d.nclasses, 0)) 
+      data = np.zeros((d.nfeatures, wsize, 0)) 
+      labels = np.zeros((d.labels.shape[0], 0), dtype=d.labels.dtype) 
       ids = np.zeros((d.ids.shape[0], 0))
     else:
-      data = np.asarray(data)
-      data = np.rollaxis(data, 0, data.ndim)
-      feat_shape = data.shape[:-1]
-      data = data.reshape(-1, data.shape[-1])
-      labels = np.asarray(labels).T
-      ids = np.asarray(ids).T
+      data = np.concatenate(data, axis=2)
+      labels = np.vstack(labels).T
+      ids = np.vstack(ids).T
 
     timestamps = ((np.arange(wsize) - refi) / float(self.sample_rate)).tolist()
-    feat_lab = [list(d.feat_lab), timestamps]
+    feat_lab = [list(d.feat_lab[0]), timestamps]
       
-    return DataSet(data=data, feat_shape=feat_shape, labels=labels, ids=ids,
-            feat_lab=feat_lab, default=d)
+    return DataSet(data=data, labels=labels, ids=ids, feat_lab=feat_lab,
+                   default=d)
 
 class OnlineSlidingWindow(SlidingWindow):
   def __init__(self, win_size, win_step, ref_point=0.5):

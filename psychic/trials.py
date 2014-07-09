@@ -3,6 +3,7 @@ import numpy as np
 import scipy
 import logging
 import psychic
+from dataset import DataSet
 from matplotlib.mlab import specgram
 
 def construct_trials(datasets, labels=None, cl_lab=None, ids=None):
@@ -12,7 +13,7 @@ def construct_trials(datasets, labels=None, cl_lab=None, ids=None):
 
     Parameters
     ----------
-    datasets : list (DataSet)
+    datasets : list of :class:`psychic.DataSet`s
         A list of DataSets, each containing a single trial (channels x samples).
         The feat_lab properties of the DataSets must be equal.
     labels : list or 2D-array (Default: None)
@@ -49,7 +50,7 @@ def construct_trials(datasets, labels=None, cl_lab=None, ids=None):
 
     feat_lab = [list(datasets[0].feat_lab[0]), datasets[0].ids[0,:].tolist()]
 
-    return golem.DataSet(data=data, labels=labels, cl_lab=cl_lab, ids=ids, feat_lab=feat_lab, default=datasets[0])
+    return DataSet(data=data, labels=labels, cl_lab=cl_lab, ids=ids, feat_lab=feat_lab, default=datasets[0])
 
 def baseline(data, baseline_period=None):
     '''
@@ -64,7 +65,7 @@ def baseline(data, baseline_period=None):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`psychic.DataSet`
         The baselined trials.
     '''
     if baseline_period:
@@ -86,7 +87,7 @@ def baseline(data, baseline_period=None):
             data[:,:,i] = data.data[:,:,i] - np.tile( np.mean(data.data[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
         data = data.reshape(data.data.shape)
 
-    return golem.DataSet(data=data, default=data)
+    return DataSet(data=data, default=data)
 
 def erp(data, classes=None, enforce_equal_n=True):
     '''
@@ -96,7 +97,7 @@ def erp(data, classes=None, enforce_equal_n=True):
 
     Parameters
     ----------
-    data : :class:`golem.DataSet`
+    data : :class:`psychic.DataSet`
         The trials
     classes: list (optional)
         When specified, the ERP is only calculated for the classes with the
@@ -109,8 +110,8 @@ def erp(data, classes=None, enforce_equal_n=True):
     
     Returns
     -------
-    d : :class:`golem.DataSet`
-        A golem DataSet containing for each class the ERP. 
+    d : :class:`psychic.DataSet`
+        A DataSet containing for each class the ERP. 
 
         - ``d.data``: [channels x samples x classes]
         - ``d.labels``: The class labels. Each class has one instance (one ERP).
@@ -144,7 +145,7 @@ def erp(data, classes=None, enforce_equal_n=True):
     ids = np.atleast_2d(classes)
     cl_lab = [lab for i,lab in enumerate(data.cl_lab) if i in classes]
 
-    return golem.DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab, default=data)
+    return DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab, default=data)
 
 def ttest(data, classes=[0, 1], shuffle=True):
     '''
@@ -192,7 +193,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
 
     Parameters
     ----------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The trials.
     group_size : int
         Size of the groups to make.
@@ -203,7 +204,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The grouped data. ``d.data`` is [channels x samples x trials x groups] or
         if mean==True, ``d.data`` is [channels x samples x groups]
     '''
@@ -241,7 +242,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
             labels = d.labels[:,idx[0,:]]
             ids = d.ids[:,idx[0,:]]
 
-            d_grouped = golem.DataSet(
+            d_grouped = DataSet(
                 data=data, labels=labels, ids=ids, feat_dim_lab=feat_dim_lab,
                 feat_lab=feat_lab, default = d
             )
@@ -263,7 +264,7 @@ def reject_trials(d, cutoff=100, time_range=None):
     Parameters
     ----------
 
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The dataset to filter.
     cutoff : float (default=100)
         Any trials with a feature larger than this value are rejected.
@@ -275,7 +276,7 @@ def reject_trials(d, cutoff=100, time_range=None):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         Filtered dataset.
     reject : :class:`numpy.Array`
         Boolean mask used to reject indices.
@@ -333,7 +334,7 @@ def slice(d, markers_to_class, offsets):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The extracted segments:
 
         - ``d.data``: [channels x samples x trials]
@@ -373,7 +374,7 @@ def slice(d, markers_to_class, offsets):
     feat_lab = [d.feat_lab[0], event_time.tolist()]
     feat_dim_lab = ['channels', 'time']
 
-    d = golem.DataSet(
+    d = DataSet(
         data=data,
         labels=labels,
         ids=ids,
@@ -391,12 +392,12 @@ def concatenate_trials(d):
 
     Parameters
     ----------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         Some sliced data.
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         A version of the data where the slices are concatenated:
 
         - ``d.data``: [channels x samples]
@@ -420,7 +421,7 @@ def concatenate_trials(d):
     ids = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_lab[1]])) )
     feat_lab = [d.feat_lab[0]]
 
-    return golem.DataSet(data=data, labels=labels, ids=ids, feat_lab=feat_lab)
+    return DataSet(data=data, labels=labels, ids=ids, feat_lab=feat_lab)
 
 def trial_specgram(d, samplerate=None, NFFT=256):
     '''
@@ -429,7 +430,7 @@ def trial_specgram(d, samplerate=None, NFFT=256):
     Parameters
     ----------
 
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The trials.
     samplerate : float
         The sample rate of the data. When omitted,
@@ -439,7 +440,7 @@ def trial_specgram(d, samplerate=None, NFFT=256):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`DataSet`
         The spectrograms:
 
         - ``d.data``: [channels x freqs x samples x trials]
@@ -471,7 +472,7 @@ def trial_specgram(d, samplerate=None, NFFT=256):
                   ]
     feat_dim_lab=['channels', 'frequencies', 'time']
 
-    return golem.DataSet(
+    return DataSet(
         data=all_TFs.reshape(-1, ninstances),
         feat_shape=feat_shape,
         feat_lab=feat_lab,
@@ -490,9 +491,7 @@ def align(trials, window, offsets):
         t -= window[0]
         data[:,:,i] = trials.data[:,int(t*sample_rate)+w,i]
 
-    trials_aligned = golem.DataSet(data=data,
-                                 feat_lab=feat_lab,
-                                 default=trials)
+    trials_aligned = DataSet(data=data, feat_lab=feat_lab, default=trials)
 
     return trials_aligned
 
