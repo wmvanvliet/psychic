@@ -80,6 +80,6 @@ class TestGhostMarkers(unittest.TestCase):
 
   def test_empty(self):
     gm = markers.biosemi_find_ghost_markers
-    np.testing.assert_equal(gm(np.zeros(10)), [])
+    np.testing.assert_equal(gm(np.zeros(10, dtype=np.int)), [])
 
 
