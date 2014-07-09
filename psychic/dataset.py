@@ -186,9 +186,10 @@ class DataSet(object):
             if default != None and default.labels.shape[1] == data.shape[1]: 
                 labels = default.labels
 
-            # Generate an empty labels
+            # Assign all instances to the same class
             else:
                 labels = np.ones(data.shape[1], dtype=np.bool)
+
         self._labels = labels = np.atleast_2d(labels)
 
         if ids == None:

@@ -10,7 +10,7 @@ from ..nodes import OnlineFilter, Winsorize
 class TestResample(unittest.TestCase):
   def setUp(self):
     data = np.arange(1000).reshape(2, -1)
-    labels = np.zeros((1, 500))
+    labels = np.zeros((1, 500), dtype=np.int)
     labels[0, ::4] = 2
     self.d = DataSet(data=data, labels=labels)
 
@@ -39,7 +39,7 @@ class TestResample(unittest.TestCase):
 class TestDecimate(unittest.TestCase):
   def setUp(self):
     data = np.arange(100).reshape(2, -1)
-    labels = np.zeros((1, 50))
+    labels = np.zeros((1, 50), dtype=np.int)
     labels[0,::4] = 2
     self.d = DataSet(data, labels=labels)
 
@@ -50,7 +50,7 @@ class TestDecimate(unittest.TestCase):
     data[8] = 1 # LF
     data = np.fft.irfft(data) + 1
 
-    labels = np.zeros(data.shape)
+    labels = np.zeros(data.shape, dtype=np.int)
     labels[::4] = 2
     d = DataSet(data=data, labels=labels)
 
