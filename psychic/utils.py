@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from golem import DataSet
+from dataset import DataSet
 
 from markers import markers_to_events
 
@@ -114,7 +114,7 @@ def cut_segments(d, marker_tuples, offsets=[0, 0]):
   '''
   start_off, end_off = offsets
   segments = []
-  e, ei = markers_to_events(d.ys.flat)
+  e, ei, _ = markers_to_events(d.ys.flat)
   for (sm, em) in marker_tuples:
     segments.extend(find_segments(e, ei, sm, em))
   segments.sort()

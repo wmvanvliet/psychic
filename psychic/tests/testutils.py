@@ -252,9 +252,9 @@ class TestFindSegments(unittest.TestCase):
 
 class TestCutSegments(unittest.TestCase):
   def setUp(self):
-    ys = np.array([0, 0, 3, 0, 7, 4, 0, 0, 1, 0, 2, 1, 8, 0, 2]).reshape(-1, 1)
-    xs = np.arange(ys.size).reshape(-1, 1)
-    self.d = DataSet(xs, ys)
+    labels = [0, 0, 3, 0, 7, 4, 0, 0, 1, 0, 2, 1, 8, 0, 2]
+    data = np.arange(len(labels))
+    self.d = DataSet(data, labels)
 
   def test_cut_segments(self):
     ds = utils.cut_segments(self.d, [(1, 2), (3, 4)])
