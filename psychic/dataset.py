@@ -188,7 +188,7 @@ class DataSet(object):
 
             # Assign all instances to the same class
             else:
-                labels = np.ones(data.shape[1], dtype=np.bool)
+                labels = np.ones(data.shape[-1], dtype=np.bool)
 
         self._labels = labels = np.atleast_2d(labels)
 
@@ -196,7 +196,7 @@ class DataSet(object):
             if default != None and default.ids.shape[1] == data.shape[1]:
                 ids = default.ids
             else:
-                ids = np.arange(self.ninstances)
+                ids = np.arange(data.shape[-1], dtype=np.int)
         self._ids = ids = np.atleast_2d(ids)
 
         # test essential properties
