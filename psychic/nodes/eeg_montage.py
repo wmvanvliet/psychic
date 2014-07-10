@@ -107,7 +107,7 @@ class EEGMontage(golem.nodes.BaseNode):
         self.drop_ref = drop_ref
 
     def train_(self, d):
-        self.all_channels = set(range(d.data.shape[0]))
+        self.all_channels = set(range(d.ndX.shape[0]))
 
         # EEG channels
         if self.eeg == None:
@@ -189,20 +189,24 @@ class EEGMontage(golem.nodes.BaseNode):
                                       self.heog_idx, self.bipolar_idx_set)
 
     def apply_(self, d):
-        data = d.data.copy()
+        ndX = d.ndX.copy()
 
         # Set bad channels to zero
         if self.bads != None:
-            data[list(self.bad_idx), :] = 0
+            ndX[list(self.bad_idx), :] = 0
 
         # Calculate reference signal
         if self.ref == None:
             ref = None
         elif self.ref == []:
             # CAR
-            ref = np.mean(d.data[list(self.ref_idx - self.bad_idx), :], axis=0)
+            ref = np.mean(d.ndX[list(self.eeg_idx - self.bad_idx), :], axis=0)
         else:
-            ref = np.mean(d.data[list(self.ref_idx), :], axis=0)
+            ref = np.mean(d.ndX[list(self.ref_idx), :], axis=0)
+
+        # Reference signal (do not reference the reference and bad channels)
+        if ref != None:
+            ndX[list(self.all_channels - self.ref_idx - self.bad_idx),:] -= ref
 
         # Bipolar channels
         if self.bipolar == None:
@@ -211,22 +215,24 @@ class EEGMontage(golem.nodes.BaseNode):
             bipolar = {}
             for name, channels in self.bipolar_idx.items():
                 channels = list(channels)
-                bipolar[name] = data[channels[0],:] - data[channels[1],:]
+                bipolar[name] = ndX[channels[0],:] - ndX[channels[1],:]
 
         # Calculate hEOG and vEOG
         if self.heog == None:
             heog = None
         else:
-            heog = data[list(self.heog_idx)[0], :] - data[list(self.heog_idx)[1], :]
+            heog = ndX[list(self.heog_idx)[0], :] - ndX[list(self.heog_idx)[1], :]
 
         if self.veog == None:
             veog = None
         else:
-            veog = data[list(self.veog_idx)[0], :] - data[list(self.veog_idx)[1], :]
+            veog = ndX[list(self.veog_idx)[0], :] - ndX[list(self.veog_idx)[1], :]
 
         # Calculate the rEOG if possible (and desired)
-        if self.calc_reog and len(self.eog_idx) > 0 and ref != None:
-            reog = np.mean(data[list(self.eog_idx),:], axis=0) - ref
+        if self.calc_reog:
+            assert(len(self.eog_idx) > 0, 'Must specify EOG channels in order to calculate rEOG')
+            #reog = np.mean(ndX[list(self.eog_idx),:], axis=0) - ref
+            reog = np.mean(ndX[list(self.eog_idx),:], axis=0)
         else:
             reog = None
 
@@ -236,17 +242,13 @@ class EEGMontage(golem.nodes.BaseNode):
         else:
             drop_idx = self.drop_idx
 
-        # Reference signal (do not reference the reference and bad channels)
-        if ref != None:
-            data[list(self.all_channels - self.ref_idx - self.bad_idx),:] -= ref
-        
         # Drop the channels that should be dropped
-        data = data[list(self.all_channels - drop_idx), :]
+        ndX = ndX[list(self.all_channels - drop_idx), :]
         ch_names = [d.feat_lab[ch] for ch in self.all_channels
                     if ch not in drop_idx]
 
         # Put everything in a DataSet
-        ndX_list = [data]
+        ndX_list = [ndX]
         
         if bipolar != None:
             for name, channel in bipolar.items():
@@ -266,6 +268,6 @@ class EEGMontage(golem.nodes.BaseNode):
             ndX_list.append(ref[np.newaxis, :])
             ch_names.append('REF')
 
-        data = np.vstack(ndX_list)
+        ndX = np.vstack(ndX_list)
 
-        return golem.DataSet(data=data, feat_lab=ch_names, default=d)
+        return golem.DataSet(ndX=ndX, feat_lab=ch_names, default=d)
