@@ -1,56 +1,11 @@
-import golem
 import numpy as np
 import scipy
 import logging
-import psychic
-from dataset import DataSet
+import helpers
+import markers
+import utils
+from dataset import DataSet, concatenate
 from matplotlib.mlab import specgram
-
-def construct_trials(datasets, labels=None, cl_lab=None, ids=None):
-    '''
-    Given a list of datasets, each containing a single trial (channels x samples),
-    construct a single dataset containing all trials (channel x samples x trials).
-
-    Parameters
-    ----------
-    datasets : list of :class:`psychic.DataSet`s
-        A list of DataSets, each containing a single trial (channels x samples).
-        The feat_lab properties of the DataSets must be equal.
-    labels : list or 2D-array (Default: None)
-        Class labels for the trials. When not specified, each trial will be
-        assigned to a separate class.
-    cl_lab : list (str) (Default: None)
-        Names for the classes. When not specified, nondescriptive names are
-        used.
-    ids : list or 2D-array (Default: None)
-        For each trial, a unique label. When not specified, trials are 
-        numbered.
-    '''
-    assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
-    feat_shape = datasets[0].feat_shape
-    for d in datasets:
-        assert feat_shape == d.feat_shape, 'feat_shape of all DataSets must be equal'
-
-    data = np.concatenate([d.data[:,:,np.newaxis] for d in datasets], axis=2)
-
-    if labels != None:
-        labels = np.atleast_2d(labels)
-        assert labels.shape[1] == len(datasets), 'labels must contain a class label for each trial'
-    else:
-        labels = np.eye(len(datasets), dtype=np.bool)
-
-    if cl_lab == None:
-        cl_lab = ['class %02d' % (i+1) for i in range(len(datasets))]
-
-    if ids != None:
-        ids = np.atleast_2d(ids)
-        assert ids.shape[1] == len(datasets), 'ids must contain an identifier for each trial'
-    else:
-        ids = np.atleast_2d(np.arange(len(datasets)))
-
-    feat_lab = [list(datasets[0].feat_lab[0]), datasets[0].ids[0,:].tolist()]
-
-    return DataSet(data=data, labels=labels, cl_lab=cl_lab, ids=ids, feat_lab=feat_lab, default=datasets[0])
 
 def baseline(data, baseline_period=None):
     '''
@@ -59,9 +14,9 @@ def baseline(data, baseline_period=None):
 
     Parameters
     ----------
-    baseline_period : tuple (int, int)
+    baseline_period : tuple (int, int) (default: full range of samples)
         The start (inclusive) and end (exclusive) indices of the period to
-        calculate the baseline over. Values are given in samples.
+        calculate the baseline over. Values are given in samples. 
 
     Returns
     -------
@@ -69,7 +24,8 @@ def baseline(data, baseline_period=None):
         The baselined trials.
     '''
     if baseline_period:
-        assert len(baseline_period) == 2, 'Specify a begin and end point for the baseline period (in samples)'
+        assert (len(baseline_period) == 2,
+          'Specify a begin and end point for the baseline period (in samples)')
     else:
         baseline_period = (0, data.ninstances)
 
@@ -120,8 +76,10 @@ def erp(data, classes=None, enforce_equal_n=True):
 
     if classes == None or len(classes) == 0:
         # Take all classes with >0 instances
-        classes = [cl for cl in range(data.nclasses) if data.ninstances_per_class[cl] > 0]
-    assert len(classes) > 0, 'No valid classes specified and no classes found with >0 instances'
+        classes = [cl for cl in range(data.nclasses)
+                   if data.ninstances_per_class[cl] > 0]
+    assert (len(classes) > 0,
+            'No valid classes specified and no classes found with >0 instances')
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
     assert num_trials > 0, 'For one or more classes there are no instances!'
@@ -132,8 +90,9 @@ def erp(data, classes=None, enforce_equal_n=True):
         trials = data.get_class(cl).data
 
         if enforce_equal_n:
-            # Enforce an equal number of trials for all classes. Picking them at random.
-            # Otherwise the ERPs will be skewed, simply because a different number of trials are averaged.
+            # Enforce an equal number of trials for all classes. Picking them
+            # at random.  Otherwise the ERPs will be skewed, simply because a
+            # different number of trials are averaged.
             idx = range(trials.shape[-1])[:num_trials]
             np.random.shuffle(idx)
             erp[...,i] = np.mean(trials[...,idx], axis=trials.ndim-1)
@@ -141,11 +100,12 @@ def erp(data, classes=None, enforce_equal_n=True):
             erp[...,i] = np.mean(trials, axis=trials.ndim-1)
 
     data = erp.reshape(-1, len(classes))
-    labels = golem.helpers.to_one_of_n(classes).astype(np.bool)
+    labels = helpers.to_one_of_n(classes).astype(np.bool)
     ids = np.atleast_2d(classes)
     cl_lab = [lab for i,lab in enumerate(data.cl_lab) if i in classes]
 
-    return DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab, default=data)
+    return DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab,
+                   default=data)
 
 def ttest(data, classes=[0, 1], shuffle=True):
     '''
@@ -205,8 +165,8 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
     Returns
     -------
     d : :class:`DataSet`
-        The grouped data. ``d.data`` is [channels x samples x trials x groups] or
-        if mean==True, ``d.data`` is [channels x samples x groups]
+        The grouped data. ``d.data`` is [channels x samples x trials x groups]
+        or if mean==True, ``d.data`` is [channels x samples x groups]
     '''
 
     d_trials = []
@@ -255,7 +215,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
     if len(d_trials) == 0:
         return ([], [])
     else:
-        return (golem.concatenate(d_trials, ignore_index=True), np.hstack(idxs))
+        return (concatenate(d_trials, ignore_index=True), np.hstack(idxs))
 
 def reject_trials(d, cutoff=100, time_range=None):
     '''
@@ -289,11 +249,11 @@ def reject_trials(d, cutoff=100, time_range=None):
         assert len(cutoff) == nchannels
 
         reject = np.any(
-            [np.any(np.abs(d.data[i,time_range[0]:time_range[1],:]) > cutoff[i], axis=0)
+                [np.any(np.abs(d.data[i,time_range[0]:time_range[1],...]) > cutoff[i], axis=0)
                 for i in range(nchannels)],
             axis=0)
     else:
-        reject = np.any(np.any(np.abs(d.data[:,time_range[0]:time_range[1],:]) > cutoff, axis=0), axis=0)
+        reject = np.any(np.any(np.abs(d.data[:,time_range[0]:time_range[1],...]) > cutoff, axis=0), axis=0)
 
     reject = np.logical_not(reject)
 
@@ -340,8 +300,8 @@ def slice(d, markers_to_class, offsets):
         - ``d.data``: [channels x samples x trials]
         - ``d.labels``: [classes x trials]
         - ``d.ids``: Timestamps indicating the marker onsets
-        - ``d.cl_lab``: The class labels as specified in the ``markers_to_class``
-          dictionary
+        - ``d.cl_lab``: The class labels as specified in the
+          ``markers_to_class`` dictionary
         - ``d.feat_lab``: Feature labels for the axes [channels (strings),
           time in seconds (floats)]
     '''
@@ -351,26 +311,26 @@ def slice(d, markers_to_class, offsets):
     data, labels, ids = [], [], []
     
     cl_lab = sorted(set(markers_to_class.values()))
-    events, events_i, events_d = psychic.markers_to_events(d.labels.flat)
+    events, events_i, events_d = markers.markers_to_events(d.labels.flat)
     for (mark, cl) in markers_to_class.items():
         cl_i = cl_lab.index(cl)
         for i in events_i[events==mark]: # fails if there is *ONE* event
             (start, end) = i + start_off, i + end_off
             if start < 0 or end > d.ninstances:
                 logging.getLogger('psychic.utils.slice').warning(
-                    'Cannot extract slice [%d, %d] for class %s' % (start, end, cl))
+                    'Cannot extract slice [%d, %d] for class %s'
+                    % (start, end, cl))
                 continue
             dslice = d[start:end]
             data.append(dslice.data)
             labels.append(cl_i)
             ids.append(d.ids[:,i])
     
-    ninstances = len(data)
     data = np.concatenate([x[...,np.newaxis] for x in data], axis=2)
-    labels = golem.helpers.to_one_of_n(labels, class_rows=range(len(cl_lab)))
+    labels = helpers.to_one_of_n(labels, class_rows=range(len(cl_lab)))
     ids = np.atleast_2d(np.hstack(ids))
     
-    event_time = np.arange(start_off, end_off) / float(psychic.get_samplerate(d))
+    event_time = np.arange(start_off, end_off) / float(utils.get_samplerate(d))
     feat_lab = [d.feat_lab[0], event_time.tolist()]
     feat_dim_lab = ['channels', 'time']
 
@@ -401,10 +361,10 @@ def concatenate_trials(d):
         A version of the data where the slices are concatenated:
 
         - ``d.data``: [channels x samples]
-        - ``d.labels``: A reconstructed marker stream. All zeros except for the onsets
-          of the trials, where it contains the marker code indicating the class
-          of the trial. This simulated the data as it would be a continuous
-          recording.
+        - ``d.labels``: A reconstructed marker stream. All zeros except for the
+          onsets of the trials, where it contains the marker code indicating
+          the class of the trial. This simulated the data as it would be a
+          continuous recording.
         - ``d.ids``: Timestamps for each sample
         - ``d.feat_lab``: This is set to ``d.feat_lab[0]``, which usually
           contains the channel names.
@@ -459,28 +419,23 @@ def trial_specgram(d, samplerate=None, NFFT=256):
         channel_TFs = []
         for channel in range(d.data.shape[0]):
             TF, freqs, times = specgram(d.data[channel,:,trial], NFFT, samplerate, noverlap=NFFT/2)
-            channel_TFs.append(TF[np.newaxis,:,:])
+            channel_TFs.append(TF.T[np.newaxis,:,:])
 
         all_TFs.append(np.concatenate(channel_TFs, axis=0)[..., np.newaxis])
     all_TFs = np.concatenate(all_TFs, axis=3)
 
     nchannels, nfreqs, nsamples, ninstances = all_TFs.shape
-    feat_shape = (nchannels, nfreqs, nsamples)
-    feat_lab = [d.feat_lab[0],
-                   ['%f' % f for f in freqs],
-                   ['%f' % t for t in times],
-                  ]
-    feat_dim_lab=['channels', 'frequencies', 'time']
+    feat_lab = [d.feat_lab[0], times.tolist(), freqs.tolist()]
+    feat_dim_lab=['channels', 'time', 'frequencies']
 
     return DataSet(
-        data=all_TFs.reshape(-1, ninstances),
-        feat_shape=feat_shape,
+        data=all_TFs,
         feat_lab=feat_lab,
         feat_dim_lab=feat_dim_lab,
         default=d)
 
 def align(trials, window, offsets):
-    sample_rate = psychic.get_samplerate(trials)
+    sample_rate = utils.get_samplerate(trials)
     w = np.arange(int(window[0]*sample_rate), int(sample_rate))
     feat_lab = [ trials.feat_lab[0],
                     (w / float(sample_rate)).tolist()]
@@ -494,4 +449,3 @@ def align(trials, window, offsets):
     trials_aligned = DataSet(data=data, feat_lab=feat_lab, default=trials)
 
     return trials_aligned
-

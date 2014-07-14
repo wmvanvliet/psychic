@@ -735,3 +735,53 @@ def concatenate(datasets, ignore_index=False):
         ids = np.atleast_2d(np.arange(data.shape[1]))
 
     return DataSet(data, labels, ids, default=base)
+
+def as_instances(datasets, labels=None, cl_lab=None, ids=None):
+    '''
+    Concatenate a list of datasets into a single dataset, where the original
+    dataset are instances of the new one.
+
+    Parameters
+    ----------
+    datasets : list of :class:`psychic.DataSet`s
+        A list of DataSets, each containing a single trial (channels x samples).
+        The feat_lab properties of the DataSets must be equal.
+    labels : list or 2D-array (Default: None)
+        Class labels for the trials. When not specified, each trial will be
+        assigned to a separate class.
+    cl_lab : list (str) (Default: None)
+        Names for the classes. When not specified, nondescriptive names are
+        used.
+    ids : list or 2D-array (Default: None)
+        For each trial, a unique label. When not specified, trials are 
+        numbered.
+    '''
+    assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
+    feat_shape = datasets[0].feat_shape
+    for d in datasets:
+        assert (feat_shape == d.feat_shape,
+                'feat_shape of all DataSets must be equal')
+
+    data = np.concatenate([d.data[:,:,np.newaxis] for d in datasets], axis=2)
+
+    if labels != None:
+        labels = np.atleast_2d(labels)
+        assert (labels.shape[1] == len(datasets),
+                'labels must contain a class label for each trial')
+    else:
+        labels = np.eye(len(datasets), dtype=np.bool)
+
+    if cl_lab == None:
+        cl_lab = ['class %02d' % (i+1) for i in range(len(datasets))]
+
+    if ids != None:
+        ids = np.atleast_2d(ids)
+        assert (ids.shape[1] == len(datasets),
+                'ids must contain an identifier for each trial')
+    else:
+        ids = np.atleast_2d(np.arange(len(datasets)))
+
+    feat_lab = [list(datasets[0].feat_lab[0]), datasets[0].ids[0,:].tolist()]
+
+    return DataSet(data=data, labels=labels, cl_lab=cl_lab, ids=ids,
+                   feat_lab=feat_lab, default=datasets[0])
