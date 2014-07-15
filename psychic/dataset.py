@@ -183,7 +183,7 @@ class DataSet(object):
  
         if labels == None:
             # Maybe labels can be copied from default parameter
-            if default != None and default.labels.shape[1] == data.shape[1]: 
+            if default != None and default.labels.shape[1] == data.shape[-1]: 
                 labels = default.labels
 
             # Assign all instances to the same class
@@ -193,7 +193,7 @@ class DataSet(object):
         self._labels = labels = np.atleast_2d(labels)
 
         if ids == None:
-            if default != None and default.ids.shape[1] == data.shape[1]:
+            if default != None and default.ids.shape[1] == data.shape[-1]:
                 ids = default.ids
             else:
                 ids = np.arange(data.shape[-1], dtype=np.int)
@@ -218,7 +218,7 @@ class DataSet(object):
             
         # Add required structural info:
         if cl_lab == None:
-            if default != None and len(default.cl_lab) == labels.shape[0]:
+            if default != None and len(default.cl_lab) == self.nclasses:
                 self.cl_lab = default.cl_lab
             else:
                 self.cl_lab = ['class%d' % i for i in range(self.nclasses)]
@@ -255,7 +255,7 @@ class DataSet(object):
 
         if extra == None:
             if default != None and default.extra != None:
-                self.extra = extra if extra != None else default.extra
+                self.extra = default.extra
             else:
                 self.extra = {}
         else:
@@ -407,9 +407,7 @@ class DataSet(object):
         '''
         Return number of classes defined in the DataSet.
         '''
-        if self.labels.ndim == 0:
-            return 0
-        elif self.labels.shape[0] == 1 and self.labels.dtype == np.int:
+        if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             return len(np.unique(self.labels))
         else:
             return self.labels.shape[0]
@@ -732,7 +730,7 @@ def concatenate(datasets, ignore_index=False):
     if not ignore_index:
         ids = np.hstack([d.ids for d in datasets])
     else:
-        ids = np.atleast_2d(np.arange(data.shape[1]))
+        ids = np.atleast_2d(np.arange(data.shape[-1]))
 
     return DataSet(data, labels, ids, default=base)
 
@@ -759,15 +757,15 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
     assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
     feat_shape = datasets[0].feat_shape
     for d in datasets:
-        assert (feat_shape == d.feat_shape,
-                'feat_shape of all DataSets must be equal')
+        assert feat_shape == d.feat_shape, \
+                'feat_shape of all DataSets must be equal'
 
     data = np.concatenate([d.data[:,:,np.newaxis] for d in datasets], axis=2)
 
     if labels != None:
         labels = np.atleast_2d(labels)
-        assert (labels.shape[1] == len(datasets),
-                'labels must contain a class label for each trial')
+        assert labels.shape[1] == len(datasets), \
+                'labels must contain a class label for each trial'
     else:
         labels = np.eye(len(datasets), dtype=np.bool)
 
@@ -776,8 +774,8 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
 
     if ids != None:
         ids = np.atleast_2d(ids)
-        assert (ids.shape[1] == len(datasets),
-                'ids must contain an identifier for each trial')
+        assert ids.shape[1] == len(datasets), \
+               'ids must contain an identifier for each trial'
     else:
         ids = np.atleast_2d(np.arange(len(datasets)))
 

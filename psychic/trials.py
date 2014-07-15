@@ -24,8 +24,8 @@ def baseline(data, baseline_period=None):
         The baselined trials.
     '''
     if baseline_period:
-        assert (len(baseline_period) == 2,
-          'Specify a begin and end point for the baseline period (in samples)')
+        assert  len(baseline_period) == 2, \
+          'Specify a begin and end point for the baseline period (in samples)'
     else:
         baseline_period = (0, data.ninstances)
 
@@ -78,8 +78,8 @@ def erp(data, classes=None, enforce_equal_n=True):
         # Take all classes with >0 instances
         classes = [cl for cl in range(data.nclasses)
                    if data.ninstances_per_class[cl] > 0]
-    assert (len(classes) > 0,
-            'No valid classes specified and no classes found with >0 instances')
+    assert  len(classes) > 0, \
+            'No valid classes specified and no classes found with >0 instances'
 
     num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
     assert num_trials > 0, 'For one or more classes there are no instances!'

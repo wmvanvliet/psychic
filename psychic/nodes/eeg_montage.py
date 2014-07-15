@@ -230,8 +230,7 @@ class EEGMontage(golem.nodes.BaseNode):
 
         # Calculate the rEOG if possible (and desired)
         if self.calc_reog:
-            assert(len(self.eog_idx) > 0, 'Must specify EOG channels in order to calculate rEOG')
-            #reog = np.mean(ndX[list(self.eog_idx),:], axis=0) - ref
+            assert len(self.eog_idx) > 0, 'Must specify EOG channels in order to calculate rEOG'
             reog = np.mean(ndX[list(self.eog_idx),:], axis=0)
         else:
             reog = None
