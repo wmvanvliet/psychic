@@ -1,7 +1,8 @@
 ﻿import numpy as np
-from golem.nodes import BaseNode
-from golem import DataSet
-import psychic
+from basenode import BaseNode
+from ..dataset import DataSet
+from ..utils import get_samplerate
+from ..trials import erp, baseline, concatenate_trials
 from scipy import linalg
 
 class EOGCorr(BaseNode):
@@ -30,18 +31,18 @@ class EOGCorr(BaseNode):
             self.eeg = set([d.feat_lab.index(ch) if type(ch) == str else ch
                             for ch in self.eeg])
 
-        s = psychic.get_samplerate(d)
+        s = get_samplerate(d)
 
         # Extract EOG trials
-        d_sliced = psychic.slice(d, self.mdict, (int(-0.5*s), int(1.0*s)))
+        d_sliced = slice(d, self.mdict, (int(-0.5*s), int(1.0*s)))
 
         # Average the trials and baseline them
-        d_erp = psychic.erp(d_sliced, enforce_equal_n=False)
-        d_erp = psychic.baseline(d_erp, (0, int(1.5*s)))
+        d_erp = erp(d_sliced, enforce_equal_n=False)
+        d_erp = baseline(d_erp, (0, int(1.5*s)))
 
         # Concatenate blink trials and eye movement trials
-        d_blink = psychic.concatenate_trials(d_erp[0])
-        d_movement = psychic.concatenate_trials(d_erp[1:])
+        d_blink = concatenate_trials(d_erp[0])
+        d_movement = concatenate_trials(d_erp[1:])
 
         # Calculate Bh and Bv
         v1 = np.vstack((

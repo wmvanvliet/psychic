@@ -1,6 +1,6 @@
-import golem
 import numpy as np
 from ..trials import erp
+from ..dataset import DataSet
 from spatialfilter import SpatialBlur
 
 def channel_temporal_offsets(data, k=range(-20, 20)):
@@ -87,4 +87,4 @@ class AlignedSpatialBlur(SpatialBlur):
         feat_lab = list(d.feat_lab)
         feat_lab[1] = [float(t) + t_min for t in feat_lab[1][:nsamples]]
             
-        return golem.DataSet(data=data, feat_lab=feat_lab, default=d)
+        return DataSet(data=data, feat_lab=feat_lab, default=d)

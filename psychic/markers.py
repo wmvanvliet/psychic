@@ -7,11 +7,15 @@ def markers_to_events(marker_array):
   Returns (events, indices).
   '''
   markers = np.asarray(marker_array, int)
+  assert markers.ndim == 1, 'Expected flat array of markers'
+
+  #change_ids = np.flatnonzero(np.diff(np.c_[0, markers, 0]))
   change_ids = np.flatnonzero(np.concatenate([[1], np.diff(markers)]))
   events = markers[change_ids]
   durations = np.diff( np.concatenate([change_ids, [len(markers)]]) )
 
-  return (events[np.nonzero(events)], change_ids[np.nonzero(events)], durations[np.nonzero(events)])
+  return (events[np.nonzero(events)], change_ids[np.nonzero(events)],
+          durations[np.nonzero(events)])
 
 def biosemi_find_ghost_markers(ys):
   '''

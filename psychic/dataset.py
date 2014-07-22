@@ -1,4 +1,3 @@
-import itertools
 import cPickle
 import operator
 import numpy as np
@@ -319,13 +318,24 @@ class DataSet(object):
                     # using slice to index in a empty dataset.
                     # see http://projects.scipy.org/numpy/ticket/1171
                     i = slice(0) 
+
+            # When dealing with integer labels, nclasses can change during
+            # slicing. Make sure the proper class labels are retained.
+            if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
+                mlab = dict(zip(np.unique(self.labels), self.cl_lab))
+                cl_lab = [mlab[x] for x in np.unique(self.labels[:,i])]
+            else:
+                cl_lab = self.cl_lab
+
             return DataSet(
                 data=self.data[...,i],
                 labels=self.labels[:,i],
                 ids=self.ids[:,i],
+                cl_lab=cl_lab,
                 default=self
             )
         elif isinstance(i, int):
+            i = [i]
             return DataSet(
                 data=np.atleast_2d(self.data[...,i]),
                 labels=np.atleast_2d(self.labels[:,i]),
@@ -360,9 +370,9 @@ class DataSet(object):
         assert(isinstance(b, DataSet))
 
         # Handle empty datasets
-        if a.data.ndim == 0:
+        if a.data.size == 0:
             return b
-        if b.data.ndim == 0:
+        if b.data.size == 0:
             return a
 
         # Check for compatibility
@@ -544,7 +554,9 @@ class DataSet(object):
         return _DataSetLabeledIndexer(self)
 
     def append(self, other, ignore_index=False):
-        assert(isinstance(other, DataSet))
+        ''' Append a DataSet to this one. Optionally ignore the ids (just number
+        the instances). '''
+        assert isinstance(other, DataSet), 'Can only append other DataSets'
 
         if not ignore_index:
             return self + other
@@ -567,6 +579,7 @@ class _DataSetIndexer():
             data = self.d.data
             feat_lab = list(self.d.feat_lab)
             labels = self.d.labels
+            cl_lab = self.d.cl_lab
             ids = self.d.ids
 
             # Make selection along each axis, be careful not to drop in dimensionality
@@ -587,6 +600,14 @@ class _DataSetIndexer():
 
                 if axis == ndim-1:
                     # Indexing instances
+
+                    # When dealing with integer labels, the number of classes
+                    # can change. Make sure the proper class labels are
+                    # transferred.
+                    if labels.shape[0] == 1 and labels.dtype == np.int:
+                        mlab = dict(zip(np.unique(labels), cl_lab))
+                        cl_lab = [mlab[x] for x in np.unique(labels[:,ind])]
+
                     labels = np.atleast_2d(labels[:,ind])
                     ids = np.atleast_2d(ids[:,ind])
                     to_drop[axis] = False
@@ -609,6 +630,7 @@ class _DataSetIndexer():
                 labels=labels,
                 ids=ids,
                 feat_lab=feat_lab,
+                cl_lab=cl_lab,
                 default=self.d
             )
 
@@ -695,6 +717,9 @@ def concatenate(datasets, ignore_index=False):
         A dataset that is the result of concatenating the given datasets.
     """
     assert len(datasets) > 0
+    for d in datasets:
+        if not isinstance(d, DataSet):
+            raise ValueError, 'Can only concatenate DataSet objects.'
 
     if len(datasets) == 1:
         return datasets[0]
@@ -707,24 +732,23 @@ def concatenate(datasets, ignore_index=False):
 
     # Check for compatibility
     for i,d in enumerate(datasets):
-        if not isinstance(d, DataSet):
-            raise ValueError, 'Can only concatenate DataSet objects.'
-
         # Don't compare base dataset with itself
         if i == 0:
             continue;
 
         # Compare features
         if (d.nfeatures != base.nfeatures):
-            raise ValueError, 'The #features do not match (%d != %d)' % (d.nfeatures, base.nfeatures)
+            raise ValueError('The #features do not match (%d != %d)'
+                             % (d.nfeatures, base.nfeatures))
 
         # Compare all other members, except data, labels and ids
         for member in d.__dict__.keys():
             if member not in ['_data', '_labels', '_ids']:
                 if d.__dict__[member] != base.__dict__[member]:
-                    raise ValueError('Cannot add DataSets: %s is different' % member)
+                    raise ValueError('Cannot add DataSets: %s is different' %
+                            member)
 
-    data = np.hstack([d.data for d in datasets])
+    data = np.concatenate([d.data for d in datasets], axis=-1)
     labels = np.hstack([d.labels for d in datasets])
 
     if not ignore_index:
@@ -737,12 +761,12 @@ def concatenate(datasets, ignore_index=False):
 def as_instances(datasets, labels=None, cl_lab=None, ids=None):
     '''
     Concatenate a list of datasets into a single dataset, where the original
-    dataset are instances of the new one.
+    datasets are instances of the new one.
 
     Parameters
     ----------
     datasets : list of :class:`psychic.DataSet`s
-        A list of DataSets, each containing a single trial (channels x samples).
+        A list of DataSets, each containing a single trial
         The feat_lab properties of the DataSets must be equal.
     labels : list or 2D-array (Default: None)
         Class labels for the trials. When not specified, each trial will be
@@ -755,12 +779,12 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
         numbered.
     '''
     assert len(datasets) > 0, 'Must specify a non-empty list of DataSets'
-    feat_shape = datasets[0].feat_shape
+    data_shape = datasets[0].data.shape
     for d in datasets:
-        assert feat_shape == d.feat_shape, \
-                'feat_shape of all DataSets must be equal'
+        assert d.data.shape == data_shape, \
+                'data.shape of all DataSets must be equal'
 
-    data = np.concatenate([d.data[:,:,np.newaxis] for d in datasets], axis=2)
+    data = np.concatenate([d.data[...,np.newaxis] for d in datasets], axis=-1)
 
     if labels != None:
         labels = np.atleast_2d(labels)
@@ -770,16 +794,21 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
         labels = np.eye(len(datasets), dtype=np.bool)
 
     if cl_lab == None:
-        cl_lab = ['class %02d' % (i+1) for i in range(len(datasets))]
+        if labels.shape[0] == 1 and labels.dtype == np.int:
+            nclasses = len(np.unique(labels))
+        else:
+            nclasses = labels.shape[0] 
+
+        cl_lab = ['class %02d' % (i+1) for i in range(nclasses)]
 
     if ids != None:
         ids = np.atleast_2d(ids)
-        assert ids.shape[1] == len(datasets), \
+        assert len(np.unique(ids[0,:])) == len(datasets), \
                'ids must contain an identifier for each trial'
     else:
         ids = np.atleast_2d(np.arange(len(datasets)))
 
-    feat_lab = [list(datasets[0].feat_lab[0]), datasets[0].ids[0,:].tolist()]
+    feat_lab = list(datasets[0].feat_lab) + [datasets[0].ids[0,:].tolist()]
 
     return DataSet(data=data, labels=labels, cl_lab=cl_lab, ids=ids,
                    feat_lab=feat_lab, default=datasets[0])

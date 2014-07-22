@@ -16,7 +16,7 @@ from dataformats.edf import load_edf
 from dataformats.bdf import load_bdf, save_bdf
 from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram, align
 import fake
-from dataset import DataSet, as_instances
+from dataset import DataSet, concatenate, as_instances
 import tests
 
 import os.path as op

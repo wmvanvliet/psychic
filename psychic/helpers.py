@@ -37,7 +37,6 @@ def hard_max(data):
     result[:, np.any(np.isnan(data), axis=0)] *= np.nan
     return result
 
-
 def write_csv_table(rows, fname):
     f = open(fname, 'w')
     csv.writer(f).writerows(rows)

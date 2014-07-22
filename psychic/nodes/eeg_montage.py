@@ -269,4 +269,4 @@ class EEGMontage(golem.nodes.BaseNode):
 
         ndX = np.vstack(ndX_list)
 
-        return golem.DataSet(ndX=ndX, feat_lab=ch_names, default=d)
+        return golem.DataSet(ndX=ndX, feat_lab=[ch_names], default=d)
