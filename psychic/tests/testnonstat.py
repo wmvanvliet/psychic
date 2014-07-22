@@ -16,7 +16,7 @@ class TestSlowSphere(unittest.TestCase):
     exist.
     '''
     # init
-    S = np.random.randn(4, 1e4)
+    S = np.random.randn(4, 10000)
     A = np.where(np.eye(4), 1, np.random.rand(4, 4))
     data = np.dot(A, S)
 

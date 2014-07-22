@@ -13,4 +13,5 @@ from beamformer import BeamformerSNR, BeamformerFC, BeamformerCFMS
 from eeg_montage import EEGMontage
 from template import TemplateFilter, GaussTemplateFilter
 from basenode import BaseNode
+from chain import Chain
 from simple import ApplyOverFeats, ApplyOverInstances

@@ -96,7 +96,7 @@ class TestSpectrogram(unittest.TestCase):
     spec = utils.spectrogram(sig, NFFT, step)
 
     nspec, nsig = spec.shape[0], sig.size
-    cuts = np.linspace(0, 1, 8)
+    cuts = np.linspace(0, 1, 8).astype(np.int)
     for (start, end) in zip(cuts[:-1], (cuts[1:])):
       energy_spec = np.sum(spec[nspec * start:nspec * end])
       energy_sig = np.sum(sig[nsig * start:nsig * end] ** 2)

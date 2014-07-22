@@ -1,9 +1,19 @@
-import psychic
+from ..dataset import DataSet
+from basenode import BaseNode
 import numpy as np
-import operator
-import golem
 
-class EEGMontage(golem.nodes.BaseNode):
+def _ch_idx(channels, names):
+    '''Construct a set of channel indices, given a list of mixed integer indices
+    and string names.'''
+    if channels == None:
+        return set([])
+    elif channels == []:
+        return set([])
+    else:
+        return set([names.index(ch) if type(ch) == str else ch
+                    for ch in channels])
+
+class EEGMontage(BaseNode):
     '''
     This node can be used to specify an EEG montage, e.g. which electrodes
     record EEG and EOG, which reference(s) to use and which channels are
@@ -73,7 +83,7 @@ class EEGMontage(golem.nodes.BaseNode):
     '''
     def __init__(self, eeg=[], eog=None, bads=None, ref=[], bipolar=None,
             heog=None, veog=None, calc_reog=False, drop=None, drop_ref=False):
-        golem.nodes.BaseNode.__init__(self)
+        BaseNode.__init__(self)
 
         assert (eeg == None or hasattr(eeg, '__iter__')), \
             'Parameter eeg should either be None or a list'
@@ -106,80 +116,56 @@ class EEGMontage(golem.nodes.BaseNode):
         self.drop = None if drop == [] else drop
         self.drop_ref = drop_ref
 
-    def train_(self, d):
-        self.all_channels = set(range(d.ndX.shape[0]))
+    def apply_(self, d):
+        self.all_channels = set(range(d.data.shape[0]))
 
         # EEG channels
-        if self.eeg == None:
-            self.eeg_idx = set([])
-        elif len(self.eeg) == 0:
+        if self.eeg == []:
             self.eeg_idx = set(self.all_channels)
+        elif self.eeg != None:
+            self.eeg_idx = _ch_idx(self.eeg, d.feat_lab[0])
         else:
-            self.eeg_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                           for ch in self.eeg])
+            self.eeg_idx = []
 
         # Channels to drop
-        if self.drop == None:
-            self.drop_idx = set([])
-        else:
-            self.drop_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                                 for ch in self.drop])
-            # Remove dropped channels from EEG index
-            self.eeg_idx -= self.drop_idx
+        self.drop_idx = _ch_idx(self.drop, d.feat_lab[0])
+        # Remove dropped channels from EEG index
+        self.eeg_idx -= self.drop_idx
 
         # Other EOG channels
-        if self.eog == None:
-            self.eog_idx = set([])
-        else:
-            self.eog_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                                for ch in self.eog])
-            # EOG channels are not EEG channels
-            self.eeg_idx -= self.eog_idx
+        self.eog_idx = _ch_idx(self.eog, d.feat_lab[0])
+        # EOG channels are not EEG channels
+        self.eeg_idx -= self.eog_idx
 
         # hEOG and vEOG channels
-        if self.heog == None:
-            self.heog_idx = set([])
-        else:
-            self.heog_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                                 for ch in self.heog])
-            # hEOG channels are EOG channels
-            self.eog_idx = self.eog_idx.union(self.heog_idx)
-            self.eeg_idx -= self.heog_idx
-
-        if self.veog == None:
-            self.veog_idx = set([])
-        else:
-            self.veog_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                                 for ch in self.veog])
-            # vEOG channels are EOG channels
-            self.eog_idx = self.eog_idx.union(self.veog_idx)
-            self.eeg_idx -= self.veog_idx
+        
+        self.heog_idx = _ch_idx(self.heog, d.feat_lab[0])
+        # hEOG channels are EOG channels
+        self.eog_idx = self.eog_idx.union(self.heog_idx)
+        self.eeg_idx -= self.heog_idx
+    
+        self.veog_idx = _ch_idx(self.veog, d.feat_lab[0])
+        # vEOG channels are EOG channels
+        self.eog_idx = self.eog_idx.union(self.veog_idx)
+        self.eeg_idx -= self.veog_idx
 
         # Bad channels
-        if self.bads == None:
-            self.bad_idx = set([])
-        else:
-            self.bad_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                                for ch in self.bads])
+        self.bads_idx = _ch_idx(self.bads, d.feat_lab[0])
 
         # Reference channels
-        if self.ref == None or len(self.ref) == 0:
-            self.ref_idx = set([])
-        else:
-            self.ref_idx = set([d.feat_lab.index(ch) if type(ch) == str else ch
-                                for ch in self.ref])
-            # Ref channels are not EEG channels
-            self.eeg_idx -= self.ref_idx
-            # Ref channels are not EOG channels
-            self.eog_idx -= self.ref_idx
+        self.ref_idx = _ch_idx(self.ref, d.feat_lab[0])
+        # Ref channels are not EEG channels
+        self.eeg_idx -= self.ref_idx
+        # Ref channels are not EOG channels
+        self.eog_idx -= self.ref_idx
 
         # Bipolar references
         if self.bipolar != None:
             self.bipolar_idx = {}
             for name, channels in self.bipolar.items():
-                self.bipolar_idx[name] = [d.feat_lab.index(ch) if type(ch) == str else ch
-                                          for ch in channels]
-            self.bipolar_idx_set = set(np.concatenate(self.bipolar_idx.values()).tolist())
+                self.bipolar_idx[name] = _ch_idx(channels, d.feat_lab[0])
+            self.bipolar_idx_set = \
+                reduce(lambda a,b: a.union(b), self.bipolar_idx.values())
         else:
             self.bipolar_idx = {}
             self.bipolar_idx_set = set([])
@@ -188,25 +174,25 @@ class EEGMontage(golem.nodes.BaseNode):
         self.drop_ref_idx = set.union(self.ref_idx, self.veog_idx,
                                       self.heog_idx, self.bipolar_idx_set)
 
-    def apply_(self, d):
-        ndX = d.ndX.copy()
+        # Start applying references
+        data = d.data.copy()
 
         # Set bad channels to zero
         if self.bads != None:
-            ndX[list(self.bad_idx), :] = 0
+            data[list(self.bads_idx), :] = 0
 
         # Calculate reference signal
         if self.ref == None:
             ref = None
         elif self.ref == []:
             # CAR
-            ref = np.mean(d.ndX[list(self.eeg_idx - self.bad_idx), :], axis=0)
+            ref = np.mean(d.data[list(self.eeg_idx - self.bads_idx), :], axis=0)
         else:
-            ref = np.mean(d.ndX[list(self.ref_idx), :], axis=0)
+            ref = np.mean(d.data[list(self.ref_idx), :], axis=0)
 
         # Reference signal (do not reference the reference and bad channels)
         if ref != None:
-            ndX[list(self.all_channels - self.ref_idx - self.bad_idx),:] -= ref
+            data[list(self.all_channels-self.ref_idx-self.bads_idx), :] -= ref
 
         # Bipolar channels
         if self.bipolar == None:
@@ -215,25 +201,29 @@ class EEGMontage(golem.nodes.BaseNode):
             bipolar = {}
             for name, channels in self.bipolar_idx.items():
                 channels = list(channels)
-                bipolar[name] = ndX[channels[0],:] - ndX[channels[1],:]
+                bipolar[name] = data[channels[0],:] - data[channels[1],:]
 
         # Calculate hEOG and vEOG
         if self.heog == None:
             heog = None
         else:
-            heog = ndX[list(self.heog_idx)[0], :] - ndX[list(self.heog_idx)[1], :]
+            heog = (data[list(self.heog_idx)[0], :] -
+                    data[list(self.heog_idx)[1], :])
 
         if self.veog == None:
             veog = None
         else:
-            veog = ndX[list(self.veog_idx)[0], :] - ndX[list(self.veog_idx)[1], :]
+            veog = (data[list(self.veog_idx)[0], :] -
+                    data[list(self.veog_idx)[1], :])
 
         # Calculate the rEOG if possible (and desired)
         if self.calc_reog:
-            assert len(self.eog_idx) > 0, 'Must specify EOG channels in order to calculate rEOG'
-            reog = np.mean(ndX[list(self.eog_idx),:], axis=0)
+            assert len(self.eog_idx) > 0, \
+                'Must specify EOG channels in order to calculate rEOG'
+            reog = np.mean(data[list(self.eog_idx),:], axis=0)
         else:
             reog = None
+
 
         # Drop ref channels from EEG and EOG list if requested
         if self.drop_ref:
@@ -242,31 +232,32 @@ class EEGMontage(golem.nodes.BaseNode):
             drop_idx = self.drop_idx
 
         # Drop the channels that should be dropped
-        ndX = ndX[list(self.all_channels - drop_idx), :]
-        ch_names = [d.feat_lab[ch] for ch in self.all_channels
+        data = data[list(self.all_channels - drop_idx), :]
+        ch_names = [d.feat_lab[0][ch] for ch in self.all_channels
                     if ch not in drop_idx]
 
         # Put everything in a DataSet
-        ndX_list = [ndX]
+        data = [data]
         
         if bipolar != None:
             for name, channel in bipolar.items():
-                ndX_list.append(channel[np.newaxis, :])
+                data.append(channel[np.newaxis, :])
                 ch_names.append(name)
 
         if heog != None:
-            ndX_list.append(heog[np.newaxis, :])
+            data.append(heog[np.newaxis, :])
             ch_names.append('hEOG')
         if veog != None:
-            ndX_list.append(veog[np.newaxis, :])
+            data.append(veog[np.newaxis, :])
             ch_names.append('vEOG')
         if reog != None:
-            ndX_list.append(reog[np.newaxis, :])
+            data.append(reog[np.newaxis, :])
             ch_names.append('rEOG')
         if ref != None and not self.drop_ref:
-            ndX_list.append(ref[np.newaxis, :])
+            data.append(ref[np.newaxis, :])
             ch_names.append('REF')
 
-        ndX = np.vstack(ndX_list)
+        data = np.vstack(data)
 
-        return golem.DataSet(ndX=ndX, feat_lab=[ch_names], default=d)
+        return DataSet(data=data, feat_lab=[ch_names], default=d)
+

@@ -149,7 +149,7 @@ def int24_to_le(ints):
   '''Convert an interable with 24-bit ints to little endian, two's complement
   numpy array.'''
   uints = np.array(ints, np.int32)
-  uints[ints < 0] -= (1 << 24)
+  uints[np.asarray(ints) < 0] -= (1 << 24)
   bytes = np.zeros((uints.size, 3), np.uint8)
   bytes[:, 0] = (uints & 0xff).flatten()
   bytes[:, 1] = ((uints >> 8) & 0xff).flatten()
