@@ -30,7 +30,6 @@ class TestApplyOverInstances(unittest.TestCase):
         self.assertEqual(str(ApplyOverInstances(lambda x: x)),
                          'ApplyOverInstances (with mapping "<lambda>")')
 
-
 class TestApplyOverFeats(unittest.TestCase):
     def setUp(self):
         self.d = DataSet(data=np.arange(100).reshape(5, 2, 10),

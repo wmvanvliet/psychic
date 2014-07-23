@@ -4,7 +4,7 @@ import numpy as np
 from dataset import DataSet
 import helpers
 
-log = logging.getLogger('golem.cv')
+log = logging.getLogger('psychic.cv')
 
 def cross_validate(subsets, node):
   """
@@ -34,11 +34,11 @@ def cross_validate(subsets, node):
     inode.train(tr)
 
     # create a test set stripped of labels
-    te_stripped = DataSet(Y=np.nan * te.Y, default=te)
+    te_stripped = DataSet(labels=np.nan * te.labels, default=te)
     pred = inode.apply(te_stripped)
 
     # reattach labels
-    pred = DataSet(Y=te.Y, default=pred)
+    pred = DataSet(labels=te.labels, default=pred)
 
     del inode, tr, te
     yield pred
