@@ -1,4 +1,5 @@
 from dataset import DataSet
+from helpers import to_one_of_n
 from scipy.stats import norm
 import positions
 import numpy as np
@@ -94,3 +95,38 @@ def generate_erp(time, channels, time_loc, time_scale, space_loc, space_scale, a
     data = (space_x_pdf(locs[:,0]) * space_y_pdf(locs[:,1]))[:, np.newaxis].dot(time_pdf(time)[np.newaxis,:])
     data /= np.max(data) * amp_scale
     return data
+
+def gaussian_dataset(ninstances=[50, 50]):
+    '''
+    Simple Gaussian dataset with a variable number of instances for up to 3
+    classes.
+    '''
+    mus = [\
+        [0, 0], 
+        [2, 1],
+        [5, 6]]
+    sigmas = [\
+        [[1, 2], [2, 5]],
+        [[1, 2], [2, 5]],
+        [[1, -1], [-1, 2]]]
+
+    assert len(ninstances) <= 3
+
+    data, labels = [], []
+    for (ci, n) in enumerate(ninstances):
+        data.append(np.random.multivariate_normal(mus[ci], sigmas[ci], n).T)
+        labels.extend(np.ones(n) * ci)
+
+    return DataSet(np.hstack(data), labels)
+
+def wieland_spirals():
+    '''
+    Famous non-linear binary 2D problem with intertwined spirals.
+    '''
+    i = np.arange(97)
+    theta = np.pi * i / 16.
+    r = 6.5 * (104 - i) / 104.
+    data = np.array([r * np.cos(theta), r * np.sin(theta)])
+    data = np.hstack([data, -data])
+    labels = to_one_of_n(np.hstack([np.zeros(i.size), np.ones(i.size)]))
+    return DataSet(data, labels)

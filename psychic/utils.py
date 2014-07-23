@@ -55,9 +55,11 @@ def spectrogram(signal, nfft, stepsize):
   spec *= (1 + (nwins - 1) * overlap) / nwins
   return spec
 
-def get_samplerate(d):
+def get_samplerate(d, axis=1):
   '''
-  Derive the sample rate from the timestamps given in ``d.ids``
+  Derive the sample rate from the timestamps given in either ``feat_lab`` or
+  ``d.ids``. The median of the difference between consecutive time stamps is
+  takes to be the sample rate.
 
   Parameters
   ----------
@@ -66,17 +68,22 @@ def get_samplerate(d):
     The data to estimate the sample rate of. Must contain time stamps
     in ``d.ids``
 
+  axis : int (default 1)
+    The axis along which time samples are stored. If the last axis is specified
+    here, time stamps are taken from the ``ids`` property, otherwise they are
+    taken from the corresponding index of ``feat_lab``.
+
   Returns
   -------
   sample_rate : float
     The estimated samplerate.
   '''
-  if d.data.ndim == 2:
-    return np.round(1./np.median(np.diff(d.ids[0])))
-  elif d.data.ndim == 3:
-      return np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[1]])))
+  assert axis < d.data.ndim, 'Invalid axis specified'
+
+  if axis == d.data.ndim - 1:
+      return np.round(1./np.median(np.diff(d.ids[0])))
   else:
-      raise ValueError('Data should be either continuous EEG (2D) or sliced (3D)')
+      return np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[axis]])))
 
 def find_segments(events, event_indices, start_mark, end_mark):
   '''Helper to find matching start/end markers in an event array'''

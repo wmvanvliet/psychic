@@ -326,12 +326,18 @@ def slice(d, markers_to_class, offsets):
             labels.append(cl_i)
             ids.append(d.ids[:,i])
     
-    data = np.concatenate([x[...,np.newaxis] for x in data], axis=2)
-    labels = helpers.to_one_of_n(labels, class_rows=range(len(cl_lab)))
-    ids = np.atleast_2d(np.hstack(ids))
-    
     event_time = np.arange(start_off, end_off) / float(utils.get_samplerate(d))
     feat_lab = [d.feat_lab[0], event_time.tolist()]
+
+    if len(data) == 0:
+        data = np.zeros(d.feat_shape + (len(event_time),0))
+        labels = np.zeros((len(cl_lab),0))
+        ids = np.zeros((1,0))
+    else:
+        data = np.concatenate([x[...,np.newaxis] for x in data], axis=2)
+        labels = helpers.to_one_of_n(labels, class_rows=range(len(cl_lab)))
+        ids = np.atleast_2d(np.vstack(ids).T)
+
     feat_dim_lab = ['channels', 'time']
 
     d = DataSet(

@@ -1,5 +1,6 @@
 import testbasenode
 import testbdf
+import testcv
 import testdataset
 import testedf
 import testeegmontage
@@ -8,9 +9,13 @@ import testfiltering
 import testmarkers
 import testnonstat
 import testparafac
+import testperf
 import testplots
 import testpositions
+import testsimple
 import testslidingwindow
 import testspatialfilter
+import teststat
 import testtimefreq
+import testtrials
 import testutils
