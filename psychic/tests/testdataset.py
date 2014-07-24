@@ -264,7 +264,7 @@ class TestDataSet(unittest.TestCase):
         labels = np.ones((2, 10))
         for v in [np.inf, -np.inf, np.nan]:
             data = np.zeros((2, 10))
-            d = DataSet(data.copy(), labels) # no error
+            DataSet(data.copy(), labels) # no error
             data[1, 5] = v
             self.assertRaises(ValueError, DataSet, data, labels)
 
@@ -284,8 +284,13 @@ class TestDataSet(unittest.TestCase):
         for i,lab in enumerate(self.cl_lab):
             instances = [i*2,i*2+1]
             self.assertEqual(d_int.get_class(i), d_int[instances])
+            self.assertEqual(d_int.get_class(lab), d_int[instances])
             self.assertEqual(d_bool.get_class(i), d_bool[instances])
+            self.assertEqual(d_bool.get_class(lab), d_bool[instances])
             self.assertEqual(d_float.get_class(i), d_float[instances])
+            self.assertEqual(d_float.get_class(lab), d_float[instances])
+
+        self.assertRaises(ValueError, d_int.get_class, {'a':'b'})
 
     def test_prior(self):
         np.testing.assert_equal(self.d.prior, [.2, .2, .2, .2, .2])

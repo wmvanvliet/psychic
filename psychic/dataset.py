@@ -162,7 +162,7 @@ class DataSet(object):
         if self._labels.shape[0] > 1:
             return np.argmax(self._labels, axis=0)
         else:
-            return self._labels.ravel()
+            return self._labels.flatten()
 
     def __init__(self, data=None, labels=None, ids=None, cl_lab=None,
         feat_lab=None, feat_dim_lab=None, extra=None, default=None):
@@ -190,6 +190,11 @@ class DataSet(object):
                 labels = np.ones(data.shape[-1], dtype=np.bool)
 
         self._labels = labels = np.atleast_2d(labels)
+
+        # When labels are specified as a single list of integers, keep track
+        # of the unique labels.
+        if labels.shape[0] == 1 and labels.dtype == np.int:
+            self._unique_labels = np.unique(labels)
 
         if ids == None:
             if default != None and default.ids.shape[1] == data.shape[-1]:
@@ -278,27 +283,104 @@ class DataSet(object):
         if len(self.feat_shape) != len(self.feat_dim_lab):
             raise ValueError('feat_dim_lab %s does not match data dimensions %s' %
                 (repr(self.feat_dim_lab), repr(self.feat_shape)))
-
-    def get_class(self, i):
-        """
-        Construct a new DataSet containing only the instances belonging to the
-        given class. The desired class is given as an integer index where ``i <
-        d.nclasses``.
-        """
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            return self[self.labels[0,:] == i]
-        elif self.labels.dtype == np.bool:
-            return self[self.labels[i]]
-        else:
-            return self[np.argmax(self.labels, axis=0) == i]
+            assert hasattr(self, '_unique_labels')
+            assert isinstance(self._unique_labels, np.ndarray)
 
-    def get_class_by_lab(self, lab):
+    def check_compatibility(self, other):
+        # Compare features
+        if (self.nfeatures != other.nfeatures):
+            raise ValueError('The #features do not match (%d != %d)'
+                             % (self.nfeatures, other.nfeatures))
+
+        # Compare all other members, except data, labels and ids
+        for key in self.__dict__.keys():
+            if key not in ['_data', '_labels', '_ids']:
+                v1 = self.__dict__[key]
+                v2 = other.__dict__[key]
+                if type(v1) != type(v2):
+                    raise ValueError('Cannot add DataSets: %s is different' %
+                            key)
+                elif isinstance(v1, np.ndarray) :
+                    if not (v1 == v2).all():
+                        raise ValueError('Cannot add DataSets: %s is different' %
+                                key)
+                else:
+                    print type(v1), type(v2)
+                    if v1 != v2:
+                        raise ValueError('Cannot add DataSets: %s is different' %
+                                key)
+
+    def get_class(self, cl):
         """
         Construct a new DataSet containing only the instances belonging to the
-        given class. The desired class is given as a string label, as specified
-        in :py:attr:`cl_lab`.
+        given class(es). 
+
+        Parameters
+        ----------
+        cl : string, int, list of mixed strings/ints
+            The class(es) to get.
+            - When ``cl`` is a string, all instances of the
+              class with the corresponding class label is returned.
+            - When ``cl`` is an int and the DataSet labels are ints, all
+              instances of the class with the corresponding value are returned.
+            - When ``cl`` is an int and the DataSet labels are bools or floats,
+              all instances of the class with the corresponding index will be
+              returned. In this case ``cl`` must be a value between 0 and
+              ``d.ninstances``.
+            - When ``cl`` is a list, instances belonging to any of the
+              specified classes are returned.
+
+        Returns
+        -------
+        d : :class:psychic.DataSet:
+            A new :class:psychic.DataSet: containing only the instances
+            belonging to the specified class(es).
+
+        See also :func:psychic.DataSet.get_nth_class:.
         """
-        return self.get_class(self.cl_lab.index(lab))
+        try:
+            if isinstance(cl, list) or isinstance(cl, np.ndarray):
+                idx = [self.cl_lab.index(i) if isinstance(i, str) else int(i)
+                       for i in cl]
+                assert np.all(idx < self.ninstances)
+            elif isinstance(cl, str):
+                idx = [self.cl_lab.index(cl)]
+            else:
+                idx = [int(cl)]
+                assert idx[0] < self.ninstances
+        except:
+            raise ValueError('Invalid class: ' + str(cl))
+
+        if self.labels.dtype == np.bool:
+            return self[np.sum(self.labels[idx,:], axis=0).astype(np.bool)]
+        else:
+            idx = np.sum([self.y == i for i in idx], axis=0).astype(np.bool)
+            return self[idx]
+
+    def get_nth_class(self, n):
+        ''' 
+        Construct a new DataSet containing only the instances belonging to the
+        given class. The desired class is given as an integer index where ``n <
+        d.nclasses``. Class numbering starts at 0.
+
+        Parameters
+        ----------
+        n : int
+            The nth class to return. Class numbering starts at 0.
+
+        Returns
+        -------
+        d : :class:psychic.DataSet:
+            A new :class:psychic.DataSet: containing only the instances
+            belonging to the nth class.
+        '''
+        if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
+            return self[self.y == self._unique_labels[n]]
+        elif self.labels.dtype == np.bool:
+            return self[self.labels[n]]
+        else:
+            return self[self.y == n]
 
     def sorted(self):
         '''Return a DataSet sorted on the first row of :py:attr:`ids`'''
@@ -327,7 +409,7 @@ class DataSet(object):
             else:
                 cl_lab = self.cl_lab
 
-            return DataSet(
+            d = DataSet(
                 data=self.data[...,i],
                 labels=self.labels[:,i],
                 ids=self.ids[:,i],
@@ -336,7 +418,7 @@ class DataSet(object):
             )
         elif isinstance(i, int):
             i = [i]
-            return DataSet(
+            d = DataSet(
                 data=np.atleast_2d(self.data[...,i]),
                 labels=np.atleast_2d(self.labels[:,i]),
                 ids=np.atleast_2d(self.ids[:,i]),
@@ -344,6 +426,12 @@ class DataSet(object):
             )
         else:
             raise ValueError, 'Unknown indexing type.'
+
+        # Transfer _unique_labels if present
+        if hasattr(self, '_unique_labels'):
+            d._unique_labels = self._unique_labels.copy()
+
+        return d
 
     def __len__(self):
         '''
@@ -376,12 +464,7 @@ class DataSet(object):
             return a
 
         # Check for compatibility
-        if (a.feat_shape != b.feat_shape):
-            raise ValueError, 'The features do not match (%s != %s)' % (repr(a.feat_shape), repr(b.feat_shape))
-        for member in a.__dict__.keys():
-            if member not in ['_data', '_labels', '_ids']:
-                if a.__dict__[member] != b.__dict__[member]:
-                    raise ValueError('Cannot add DataSets: %s is different' % member)
+        a.check_compatibility(b)
 
         return DataSet(
             data=np.concatenate([a.data, b.data], axis=a.data.ndim-1),
@@ -418,7 +501,7 @@ class DataSet(object):
         Return number of classes defined in the DataSet.
         '''
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            return len(np.unique(self.labels))
+            return len(self._unique_labels)
         else:
             return self.labels.shape[0]
                 
@@ -440,8 +523,7 @@ class DataSet(object):
         if self.labels.ndim == 0:
             return []
         elif self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            counts = np.bincount(self.labels[0,:])
-            return counts[np.flatnonzero(counts)].tolist()
+            return [len(np.flatnonzero(self.labels[0,:] == l)) for l in self._unique_labels]
         elif self.labels.dtype == np.bool:
             return np.sum(self.labels, axis=1).astype(int).tolist()
         else:
@@ -735,18 +817,7 @@ def concatenate(datasets, ignore_index=False):
         # Don't compare base dataset with itself
         if i == 0:
             continue;
-
-        # Compare features
-        if (d.nfeatures != base.nfeatures):
-            raise ValueError('The #features do not match (%d != %d)'
-                             % (d.nfeatures, base.nfeatures))
-
-        # Compare all other members, except data, labels and ids
-        for member in d.__dict__.keys():
-            if member not in ['_data', '_labels', '_ids']:
-                if d.__dict__[member] != base.__dict__[member]:
-                    raise ValueError('Cannot add DataSets: %s is different' %
-                            member)
+        base.check_compatibility(d)
 
     data = np.concatenate([d.data for d in datasets], axis=-1)
     labels = np.hstack([d.labels for d in datasets])

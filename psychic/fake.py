@@ -28,7 +28,7 @@ def sine(freq, nchannels, duration, sample_rate):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`psychic.DataSet`
         The generated data.
 
     '''
@@ -67,7 +67,7 @@ def gaussian(nchannels, duration, sample_rate):
 
     Returns
     -------
-    d : :class:`golem.DataSet`
+    d : :class:`psychic.DataSet`
         The generated data.
 
     '''
@@ -115,7 +115,7 @@ def gaussian_dataset(ninstances=[50, 50]):
     data, labels = [], []
     for (ci, n) in enumerate(ninstances):
         data.append(np.random.multivariate_normal(mus[ci], sigmas[ci], n).T)
-        labels.extend(np.ones(n) * ci)
+        labels.extend(np.ones(n, np.int) * ci)
 
     return DataSet(np.hstack(data), labels)
 
