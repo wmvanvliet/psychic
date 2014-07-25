@@ -1,4 +1,4 @@
-from .. import DataSet, concatenate, as_instances
+from ..dataset import DataSet, concatenate, as_instances
 from ..helpers import to_one_of_n
 import numpy as np
 import unittest
@@ -47,6 +47,7 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(d.feat_lab, self.feat_lab)
         self.assertEqual(d.feat_dim_lab, self.feat_dim_lab)
         np.testing.assert_equal(d.labels, self.labels)
+        np.testing.assert_equal(d.possible_labels, range(7, 12))
         self.assertEqual(d.nclasses, 5)
         self.assertEqual(d.cl_lab, self.cl_lab)
         np.testing.assert_equal(d.ids, self.ids)
@@ -63,6 +64,7 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(d.feat_lab, self.feat_lab)
         self.assertEqual(d.feat_dim_lab, self.feat_dim_lab)
         np.testing.assert_equal(d.labels, self.labels)
+        np.testing.assert_equal(d.possible_labels, self.d.possible_labels)
         self.assertEqual(d.nclasses, 5)
         self.assertEqual(d.cl_lab, self.cl_lab)
         np.testing.assert_equal(d.ids, self.ids)
@@ -80,7 +82,7 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(d.feat_lab, [range(4), range(3)])
         self.assertEqual(d.feat_dim_lab, self.feat_dim_lab)
         np.testing.assert_equal(d.labels, self.labels)
-        self.assertEqual(d.nclasses, 5)
+        np.testing.assert_equal(d.possible_labels, self.d.possible_labels)
         self.assertEqual(d.cl_lab, self.cl_lab)
         np.testing.assert_equal(d.ids, self.ids)
         self.assertEqual(d.extra, self.extra)
@@ -96,6 +98,7 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(d.feat_lab, [range(5)])
         self.assertEqual(d.feat_dim_lab, ['feat_dim0'])
         np.testing.assert_equal(d.labels, np.ones((1, 7), dtype=np.bool))
+        self.assertFalse(hasattr(d, 'possible_labels'))
         self.assertEqual(d.nclasses, 1)
         self.assertEqual(d.cl_lab, ['class0'])
         np.testing.assert_equal(d.ids, np.atleast_2d(range(7)))
@@ -181,11 +184,9 @@ class TestDataSet(unittest.TestCase):
         d = DataSet(labels=np.ones((1, 10), dtype=np.bool), default=d)
         self.assertEqual(d.nclasses, 1)
 
-        # When dealing with integer labels, the number of defined classes can
-        # change when slicing a part of the dataset
-        self.assertEquals(d_int[:2].nclasses, 2)
-
-        # This should not happen with boolean or float labels
+        # When dealing with integer labels, the number of defined classes should
+        # not change when slicing a part of the dataset
+        self.assertEquals(d_int[:2].nclasses, 10)
         self.assertEquals(d_bool[:2].nclasses, 5)
         self.assertEquals(d_float[:2].nclasses, 10)
 
@@ -259,6 +260,10 @@ class TestDataSet(unittest.TestCase):
 
         # Test duplicate ids
         self.assertRaises(ValueError, DataSet, data, ids=np.ones(12))
+
+        # Test wrong unique_labels
+        self.assertRaises(ValueError, DataSet, data, labels=labels,
+            possible_labels=[1,2])
 
     def test_finite_feats(self):
         labels = np.ones((2, 10))
@@ -448,10 +453,10 @@ class TestDataSet(unittest.TestCase):
         # invalid indexing type
         self.assertRaises(ValueError, d.__getitem__, 'foo')
 
-        # when dealing with integer labels, the number of classes can change
-        # due to slicing. Make sure the class labels are properly handled
-        self.assertEqual(self.d[[2,3]].nclasses, 1)
-        self.assertEqual(self.d[[2,3]].cl_lab, ['cl_b'])
+        # when dealing with integer labels, the number of classes should not
+        # change due to slicing. 
+        self.assertEqual(self.d[[2,3]].nclasses, 5)
+        self.assertEqual(self.d[[2,3]].cl_lab, self.cl_lab)
 
     def test_ix_indexing(self):
         ''' Test indexing of DataSet using the .ix property.'''
@@ -461,7 +466,6 @@ class TestDataSet(unittest.TestCase):
             labels=d.labels[:, :2],
             ids=d.ids[:,:2],
             feat_lab=[f[:2] for f in d.feat_lab[:2]],
-            cl_lab=['cl_a'],
             default=d
         )
         self.assertEqual(d.ix[:,:,:], d)
@@ -470,6 +474,11 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(d.ix[:2,:2,:2], d_sliced)
         self.assertEqual(d.ix[[0,1],[0,1],[0,1]], d_sliced)
         self.assertEqual(d.ix[:-3,:-1,:-8], d_sliced)
+        self.assertEqual(d.ix[:2], d[:2])
+
+        # when dealing with integer labels, the number of classes should not
+        # change due to slicing. 
+        self.assertEqual(d.ix[:,:,[2,3]].nclasses, 5)
 
         # Test dropping in dimensionality
         self.assertEqual(d.ix[2,:,:].data.shape, (3, 10))
@@ -487,7 +496,6 @@ class TestDataSet(unittest.TestCase):
             labels=d.labels[:, :2],
             ids=d.ids[:,:2],
             feat_lab=[f[:2] for f in d.feat_lab[:2]],
-            cl_lab=['cl_a'],
             default=d
         )
         self.assertEqual(d.ix[:,:,:], d)

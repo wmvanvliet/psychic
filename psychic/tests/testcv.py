@@ -7,7 +7,6 @@ from .. import DataSet
 class TestCrossValidation(unittest.TestCase):
     def setUp(self):
         self.d = fake.gaussian_dataset([30, 20, 10])
-        print self.d
 
     def check_disjoint(self, subsets):
         '''Test that subsets are disjoint datasets'''

@@ -165,7 +165,8 @@ class DataSet(object):
             return self._labels.flatten()
 
     def __init__(self, data=None, labels=None, ids=None, cl_lab=None,
-        feat_lab=None, feat_dim_lab=None, extra=None, default=None):
+        feat_lab=None, feat_dim_lab=None, possible_labels=None, extra=None,
+        default=None):
         '''
         Create a new dataset.
         '''
@@ -192,9 +193,17 @@ class DataSet(object):
         self._labels = labels = np.atleast_2d(labels)
 
         # When labels are specified as a single list of integers, keep track
-        # of the unique labels.
+        # of all possible labels.
         if labels.shape[0] == 1 and labels.dtype == np.int:
-            self._unique_labels = np.unique(labels)
+            if possible_labels == None:
+                # Maybe possible labels can be copied from default parameter
+                if (default != None and hasattr(default, 'possible_labels') and
+                  len(np.setdiff1d(np.unique(labels), default.possible_labels)) == 0):
+                    self.possible_labels = default.possible_labels
+                else:
+                    self.possible_labels = np.unique(labels)
+            else:
+                self.possible_labels = np.asarray(possible_labels)
 
         if ids == None:
             if default != None and default.ids.shape[1] == data.shape[-1]:
@@ -284,8 +293,9 @@ class DataSet(object):
             raise ValueError('feat_dim_lab %s does not match data dimensions %s' %
                 (repr(self.feat_dim_lab), repr(self.feat_shape)))
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            assert hasattr(self, '_unique_labels')
-            assert isinstance(self._unique_labels, np.ndarray)
+            assert hasattr(self, 'possible_labels')
+            assert isinstance(self.possible_labels, np.ndarray)
+            assert len(np.setdiff1d(np.unique(self.labels), self.possible_labels)) == 0
 
     def check_compatibility(self, other):
         # Compare features
@@ -295,6 +305,9 @@ class DataSet(object):
 
         # Compare all other members, except data, labels and ids
         for key in self.__dict__.keys():
+            if key not in other.__dict__:
+                raise ValueError('Cannot add DataSets: %s not present' % key)
+
             if key not in ['_data', '_labels', '_ids']:
                 v1 = self.__dict__[key]
                 v2 = other.__dict__[key]
@@ -302,11 +315,10 @@ class DataSet(object):
                     raise ValueError('Cannot add DataSets: %s is different' %
                             key)
                 elif isinstance(v1, np.ndarray) :
-                    if not (v1 == v2).all():
+                    if not np.alltrue(v1 == v2):
                         raise ValueError('Cannot add DataSets: %s is different' %
                                 key)
                 else:
-                    print type(v1), type(v2)
                     if v1 != v2:
                         raise ValueError('Cannot add DataSets: %s is different' %
                                 key)
@@ -376,7 +388,7 @@ class DataSet(object):
             belonging to the nth class.
         '''
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            return self[self.y == self._unique_labels[n]]
+            return self[self.y == self.possible_labels[n]]
         elif self.labels.dtype == np.bool:
             return self[self.labels[n]]
         else:
@@ -401,24 +413,15 @@ class DataSet(object):
                     # see http://projects.scipy.org/numpy/ticket/1171
                     i = slice(0) 
 
-            # When dealing with integer labels, nclasses can change during
-            # slicing. Make sure the proper class labels are retained.
-            if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-                mlab = dict(zip(np.unique(self.labels), self.cl_lab))
-                cl_lab = [mlab[x] for x in np.unique(self.labels[:,i])]
-            else:
-                cl_lab = self.cl_lab
-
-            d = DataSet(
+            return DataSet(
                 data=self.data[...,i],
                 labels=self.labels[:,i],
                 ids=self.ids[:,i],
-                cl_lab=cl_lab,
                 default=self
             )
         elif isinstance(i, int):
             i = [i]
-            d = DataSet(
+            return DataSet(
                 data=np.atleast_2d(self.data[...,i]),
                 labels=np.atleast_2d(self.labels[:,i]),
                 ids=np.atleast_2d(self.ids[:,i]),
@@ -426,12 +429,6 @@ class DataSet(object):
             )
         else:
             raise ValueError, 'Unknown indexing type.'
-
-        # Transfer _unique_labels if present
-        if hasattr(self, '_unique_labels'):
-            d._unique_labels = self._unique_labels.copy()
-
-        return d
 
     def __len__(self):
         '''
@@ -501,7 +498,7 @@ class DataSet(object):
         Return number of classes defined in the DataSet.
         '''
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            return len(self._unique_labels)
+            return len(self.possible_labels)
         else:
             return self.labels.shape[0]
                 
@@ -523,7 +520,7 @@ class DataSet(object):
         if self.labels.ndim == 0:
             return []
         elif self.labels.shape[0] == 1 and self.labels.dtype == np.int:
-            return [len(np.flatnonzero(self.labels[0,:] == l)) for l in self._unique_labels]
+            return [len(np.flatnonzero(self.labels[0,:] == l)) for l in self.possible_labels]
         elif self.labels.dtype == np.bool:
             return np.sum(self.labels, axis=1).astype(int).tolist()
         else:
@@ -661,7 +658,6 @@ class _DataSetIndexer():
             data = self.d.data
             feat_lab = list(self.d.feat_lab)
             labels = self.d.labels
-            cl_lab = self.d.cl_lab
             ids = self.d.ids
 
             # Make selection along each axis, be careful not to drop in dimensionality
@@ -682,14 +678,6 @@ class _DataSetIndexer():
 
                 if axis == ndim-1:
                     # Indexing instances
-
-                    # When dealing with integer labels, the number of classes
-                    # can change. Make sure the proper class labels are
-                    # transferred.
-                    if labels.shape[0] == 1 and labels.dtype == np.int:
-                        mlab = dict(zip(np.unique(labels), cl_lab))
-                        cl_lab = [mlab[x] for x in np.unique(labels[:,ind])]
-
                     labels = np.atleast_2d(labels[:,ind])
                     ids = np.atleast_2d(ids[:,ind])
                     to_drop[axis] = False
@@ -712,7 +700,6 @@ class _DataSetIndexer():
                 labels=labels,
                 ids=ids,
                 feat_lab=feat_lab,
-                cl_lab=cl_lab,
                 default=self.d
             )
 
