@@ -125,7 +125,7 @@ class EEGMontage(BaseNode):
         elif self.eeg != None:
             self.eeg_idx = _ch_idx(self.eeg, d.feat_lab[0])
         else:
-            self.eeg_idx = []
+            self.eeg_idx = set([])
 
         # Channels to drop
         self.drop_idx = _ch_idx(self.drop, d.feat_lab[0])

@@ -47,12 +47,15 @@ class TestEEGMontage(unittest.TestCase):
 
     def test_simple_ref(self):
         ref = EEGMontage(ref=['REFL', 'REFR']).apply(self.d)
-
         self.assertEqual(ref.feat_lab[0][-1], 'REF')
-
         np.testing.assert_almost_equal(
             ref.data, np.r_[self.eeg, self.eog, self.ref, self.ref, self.ref]
         )
+
+        ref = EEGMontage(ref=['REFL', 'REFR'], drop_ref=True).apply(self.d)
+        self.assertFalse('REF' in ref.feat_lab[0])
+        self.assertFalse('REFL' in ref.feat_lab[0])
+        self.assertFalse('REFR' in ref.feat_lab[0])
 
     def test_heog_veog(self):
         ref = EEGMontage(ref=['REFL', 'REFR'],
@@ -98,3 +101,11 @@ class TestEEGMontage(unittest.TestCase):
                         ).train_apply(self.d)
 
         self.assertEqual(d1, d2)
+
+    def test_nochannels(self):
+        d = EEGMontage(eeg=None, ref=['REFL', 'REFR']).train_apply(self.d)
+        np.testing.assert_almost_equal(d.data[:10,:], self.eeg)
+
+        d = EEGMontage(ref=None).train_apply(self.d)
+        np.testing.assert_equal(d.data, self.d.data)
+
