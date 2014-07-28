@@ -507,8 +507,6 @@ class DataSet(object):
         '''
         Return number of instances defined in the DataSet.
         '''
-        if self.data.ndim == 0:
-            return 0
         return self.data.shape[-1]
         
     @property
@@ -517,9 +515,7 @@ class DataSet(object):
         Return a list containing for each class, the number of instances
         belonging to said class.
         '''
-        if self.labels.ndim == 0:
-            return []
-        elif self.labels.shape[0] == 1 and self.labels.dtype == np.int:
+        if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             return [len(np.flatnonzero(self.labels[0,:] == l)) for l in self.possible_labels]
         elif self.labels.dtype == np.bool:
             return np.sum(self.labels, axis=1).astype(int).tolist()
@@ -546,8 +542,6 @@ class DataSet(object):
         '''
         Return the number of features defined in this DataSet.
         '''
-        if self.data.ndim == 0:
-            return 0
         return reduce(operator.mul, self.feat_shape)
 
     def save(self, file):
