@@ -9,7 +9,7 @@ from erp import Mean, Blowup, RejectTrials, Baseline, ERP
 from ssvep import SLIC, SSVEPNoiseReduce, MNEC, CanonCorr, MSI
 from sr_decomp import SRDecomp
 from eogcorr import EOGCorr
-from beamformer import BeamformerSNR, BeamformerFC, BeamformerCFMS
+from statspat import SpatialSNR, SpatialFC, SpatialCFMS
 from eeg_montage import EEGMontage
 from template import TemplateFilter, GaussTemplateFilter
 from basenode import BaseNode
