@@ -1,5 +1,5 @@
 '''
-Implements beamformer spatial filters to separate ERPs as described in [1].
+Implements statistical spatial filters to separate ERPs as described in [1].
 
 [1] Gabriel Pires, Urbano Nunes, and Miguel Castelo-Brance. Statistical spatial
 filtering for a P300-based BCI: Test in able-bodied, and patient with cerebral
@@ -67,12 +67,12 @@ def _calc_beamformer_fc(Xs, nc=1, theta=1.0):
         return (V,W)
 
 
-class BeamformerSNR(BaseSpatialFilter):
+class SpatialSNR(BaseSpatialFilter):
     '''
     A spatial ERP filter that aims to separate two classes. It optimizes the
     signal to noise ratio where class 0 is taken as signal and class 1 as noise.
     '''
-    def __init__(self, nc=1, theta=1.0):
+    def __init__(self, signal=0, noise=1, nc=1, theta=1.0):
         '''
         Creates an max-SNR beamformer that will generate nc components. A
         regularization parameter theta can be supplied (0..1) to prevent
@@ -80,24 +80,26 @@ class BeamformerSNR(BaseSpatialFilter):
         '''
         assert 0 < theta <= 1, 'Regularization parameter should be in range (0; 1]'
         BaseSpatialFilter.__init__(self, 1)
+        self.signal = signal
+        self.noise = noise
         self.nc = nc
         self.theta = theta
 
     def train_(self, d):
         assert len(d.feat_shape) == 2, 'Expecting sliced data'
-        assert d.nclasses == 2, 'Expecting exactly two classes'
+        assert d.nclasses >= 2, 'Expecting two or more classes'
 
-        X1 = d.get_class(0).data
-        X2 = d.get_class(1).data
+        X1 = d.get_class(self.signal).data
+        X2 = d.get_class(self.noise).data
         self.V, self.W = _calc_beamformer_snr(X1, X2, self.nc, self.theta)
 
-class BeamformerFC(BaseSpatialFilter):
+class SpatialFC(BaseSpatialFilter):
     '''
     A spatial ERP filter that aims to separate two classes. It optimizes the
     Fisher's criterion, so it increases the separation between classes while
     minimizing the variance within a class.
     '''
-    def __init__(self, nc=1, theta=1.0):
+    def __init__(self, classes=None, nc=1, theta=1.0):
         '''
         Creates an FC beamformer that will generate nc components. A
         regularization parameter theta can be supplied (0..1) to prevent
@@ -105,6 +107,7 @@ class BeamformerFC(BaseSpatialFilter):
         '''
         assert 0 < theta <= 1, 'Regularization parameter should be in range (0; 1]'
         BaseSpatialFilter.__init__(self, 1)
+        self.classes = classes
         self.nc = nc
         self.theta = theta
 
@@ -112,17 +115,20 @@ class BeamformerFC(BaseSpatialFilter):
         assert len(d.feat_shape) == 2, 'Expecting sliced data'
         assert d.nclasses > 1, 'Expecting more than one class'
 
-        Xs = [d.get_class(i).data for i in range(d.nclasses)]
+        if self.classes == None:
+            self.classes = range(d.nclasses)
+
+        Xs = [d.get_class(i).data for i in range(self.classes)]
         self.V, self.W = _calc_beamformer_fc(Xs, self.nc, self.theta)
 
-class BeamformerCFMS(BaseSpatialFilter):
+class SpatialCFMS(BaseSpatialFilter):
     '''
-    A combination of the BeamformerFC and BeamformerSNR classes that combines
-    both methods in a suboptimum way. First BeamformerFC is run to generate the
-    first nc/2 components. Then, BeamformerSNR is run on the FC result to
+    A combination of the SpatialFC and SpatialSNR classes that combines
+    both methods in a suboptimum way. First SpatialFC is run to generate the
+    first nc/2 components. Then, SpatialSNR is run on the FC result to
     generate the last nc/2 components.
     '''
-    def __init__(self, nc=2, theta=1.0):
+    def __init__(self, signal=0, noise=1, nc=2, theta=1.0):
         '''
         Creates an CFMS beamformer that will generate nc components, where half
         of the components are supplied by an FC beamformer and half are supplied
@@ -133,25 +139,27 @@ class BeamformerCFMS(BaseSpatialFilter):
         assert nc % 2 == 0, 'Number of components should be even'
         assert 0 < theta <= 1, 'Regularization parameter should be in range (0; 1]'
         BaseSpatialFilter.__init__(self, 1)
+        self.signal=signal
+        self.noise=noise
         self.nc = nc
         self.theta = theta
 
     def train_(self, d):
         assert len(d.feat_shape) == 2, 'Expecting sliced data'
-        assert d.nclasses == 2, 'Expecting exactly two classes'
+        assert d.nclasses >= 2, 'Expecting two or more classes'
         nchannels = d.feat_shape[0]
 
         # Calculate FC beamformer
-        X1 = d.get_class(0).data
-        X2 = d.get_class(1).data
+        X1 = d.get_class(self.signal).data
+        X2 = d.get_class(self.noise).data
         _, W_fc = _calc_beamformer_fc([X1, X2], nchannels, self.theta)
 
         # Apply FC beamformer
         d2 = sfilter_trial(d, W_fc)
 
         # Calculate SNR beamformer on the result (skip first nc/2 components)
-        X1 = d2.get_class(0).data[self.nc/2:,:,:]
-        X2 = d2.get_class(1).data[self.nc/2:,:,:]
+        X1 = d2.get_class(self.signal).data[self.nc/2:,:,:]
+        X2 = d2.get_class(self.noise).data[self.nc/2:,:,:]
         _, W_snr = _calc_beamformer_snr(X1, X2, self.nc/2, self.theta)
 
         # Prepend nc/2 zero-rows in order to make W_snr a proper spatial filter
@@ -160,5 +168,5 @@ class BeamformerCFMS(BaseSpatialFilter):
         # Construct filter that will take the first nc/2 FC components applied
         # to the EEG data, and then the first nc/2 SNR components applied to the
         # FC filtered data.
-        ids = np.identity(nchannels)
-        self.W = np.dot(W_fc, np.c_[ids[:,:self.nc/2], W_snr])
+        I = np.identity(nchannels)
+        self.W = np.dot(W_fc, np.c_[I[:,:self.nc/2], W_snr])
