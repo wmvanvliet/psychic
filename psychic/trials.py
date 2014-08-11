@@ -7,7 +7,7 @@ import utils
 from dataset import DataSet, concatenate
 from matplotlib.mlab import specgram
 
-def baseline(data, baseline_period=None):
+def baseline(d, baseline_period=None):
     '''
     For each channel, calculate and remove the baseline. The baseline is the
     mean signal calculated over a certain time period.
@@ -27,25 +27,25 @@ def baseline(data, baseline_period=None):
         assert  len(baseline_period) == 2, \
           'Specify a begin and end point for the baseline period (in samples)'
     else:
-        baseline_period = (0, data.ninstances)
+        baseline_period = (0, d.ninstances)
 
-    assert data.data.ndim <= 3
+    assert d.data.ndim <= 3
 
-    if data.data.ndim == 2:
-        num_samples = data.ninstances
-        data = data.data - np.tile( np.mean(data.data[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
+    if d.data.ndim == 2:
+        num_samples = d.data.ninstances
+        d = d.data - np.tile( np.mean(d.data[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
 
     else:
-        num_samples = data.data.shape[1]
-        data = np.zeros(data.data.shape, dtype=data.data.dtype)
+        num_samples = d.data.shape[1]
+        data = np.zeros(d.data.shape, dtype=d.data.dtype)
 
-        for i in range(data.ninstances):
-            data[:,:,i] = data.data[:,:,i] - np.tile( np.mean(data.data[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
-        data = data.reshape(data.data.shape)
+        for i in range(d.ninstances):
+            data[:,:,i] = d.data[:,:,i] - np.tile( np.mean(d.data[:,baseline_period[0]:baseline_period[1],i], axis=1).T, (num_samples, 1) ).T
+        data = data.reshape(d.data.shape)
 
-    return DataSet(data=data, default=data)
+    return DataSet(data, default=d)
 
-def erp(data, classes=None, enforce_equal_n=True):
+def erp(d, classes=None, enforce_equal_n=True):
     '''
     For each class, calculate the Event Related Potential by averaging the 
     corresponding trials. Note: no baselining is performed, see
@@ -72,22 +72,22 @@ def erp(data, classes=None, enforce_equal_n=True):
         - ``d.data``: [channels x samples x classes]
         - ``d.labels``: The class labels. Each class has one instance (one ERP).
     '''
-    assert data.data.ndim > 2
+    assert d.data.ndim > 2
 
     if classes == None or len(classes) == 0:
         # Take all classes with >0 instances
-        classes = [cl for cl in range(data.nclasses)
-                   if data.ninstances_per_class[cl] > 0]
+        classes = [cl for cl in range(d.nclasses)
+                   if d.ninstances_per_class[cl] > 0]
     assert  len(classes) > 0, \
             'No valid classes specified and no classes found with >0 instances'
 
-    num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
+    num_trials = np.min( np.array(d.ninstances_per_class)[classes] )
     assert num_trials > 0, 'For one or more classes there are no instances!'
 
     # Calculate ERP
-    erp = np.zeros(data.data.shape[:-1] + (len(classes),))
+    erp = np.zeros(d.data.shape[:-1] + (len(classes),))
     for i,cl in enumerate(classes):
-        trials = data.get_class(cl).data
+        trials = d.get_class(cl).data
 
         if enforce_equal_n:
             # Enforce an equal number of trials for all classes. Picking them
@@ -99,15 +99,14 @@ def erp(data, classes=None, enforce_equal_n=True):
         else:
             erp[...,i] = np.mean(trials, axis=trials.ndim-1)
 
-    data = erp.reshape(-1, len(classes))
     labels = helpers.to_one_of_n(classes).astype(np.bool)
     ids = np.atleast_2d(classes)
-    cl_lab = [lab for i,lab in enumerate(data.cl_lab) if i in classes]
+    cl_lab = [lab for i,lab in enumerate(d.cl_lab) if i in classes]
 
-    return DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab,
-                   default=data)
+    return DataSet(data=erp, labels=labels, ids=ids, cl_lab=cl_lab,
+                   default=d)
 
-def ttest(data, classes=[0,1], shuffle=True):
+def ttest(d, classes=[0, 1], shuffle=True):
     '''
     Calculate ttests between two classes for each channel and each sample. If
     one class has more trials than the other, random trials will be taken to
@@ -115,7 +114,8 @@ def ttest(data, classes=[0,1], shuffle=True):
 
     Parameters
     ----------
-
+    d : :class:psychic.DataSet:
+        The trials.
     classes : list (default=[0, 1])
         The indices of the classes to compare.
     shuffle : bool (default=False)
@@ -129,18 +129,18 @@ def ttest(data, classes=[0,1], shuffle=True):
     p-values: [channels x samples] array
         The p-values 
     '''
-    assert data.nd_xs.ndim == 3
-    assert data.nclasses >= 2, ('Data must contain at least two classes ',
-                                'otherwise there is nothing to compare.')
+    assert d.nd_xs.ndim == 3
+    assert d.nclasses >= 2, ('Data must contain at least two classes ',
+                             'otherwise there is nothing to compare.')
 
-    num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
+    num_trials = np.min( np.array(d.ninstances_per_class)[classes] )
 
-    c1 = data.data[..., data.labels[classes[0],:].astype(np.bool)]
+    c1 = d.data[..., d.labels[classes[0],:].astype(np.bool)]
     if shuffle:
         np.random.shuffle(c1)
     c1 = c1[..., :num_trials]
 
-    c2 = data.data[..., data.labels[classes[1],:].astype(np.bool)]
+    c2 = d.data[..., d.labels[classes[1],:].astype(np.bool)]
     if shuffle:
         np.random.shuffle(c2)
     c2 = c2[..., :num_trials]
@@ -306,7 +306,7 @@ def slice(d, markers_to_class, offsets):
           time in seconds (floats)]
     '''
     assert len(d.feat_shape) == 1
-    assert d.nclasses == 1
+    assert d.labels.shape[0] == 1 and d.labels.dtype == np.int 
     start_off, end_off = offsets
     data, labels, ids = [], [], []
     
