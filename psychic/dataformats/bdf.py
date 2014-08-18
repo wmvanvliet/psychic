@@ -8,159 +8,273 @@ bdf_log = logging.getLogger('BDFReader')
 class BDFEndOfData: pass
 
 class BDFReader:
-  '''Simple wrapper to hide the records and read specific number of frames'''
-  def __init__(self, file):
-    self.bdf = BaseBDFReader(file)
-    self.bdf.read_header()
-    self.labels = self.bdf.header['label']
-    self.sample_rate = (np.asarray(self.bdf.header['n_samples_per_record']) /
-      np.asarray(self.bdf.header['record_length']))
-    self.buff = self.bdf.read_record()
+    '''
+    Class to read a large BDF file in chunks.
+    '''
+    def __init__(self, file):
+        '''
+        Opens the BDF file. And sets some properties:
 
-  def read_nframes_raw(self, nframes):
-    while self.buff == None or nframes > self.buff.shape[0]:
-      # read more data
-      rec = self.bdf.read_record()
-      self.buff = np.vstack([self.buff, rec])
+         - `self.header`: the header
+         - `self.labels`: channel labels
+         - `self.sample_rate`: the sample rate
+
+        Parameters
+        ----------
+        file : string or file
+            The filename or filehandle of the BDF file to open.
+        '''
+        if type(file) == str:
+            self.file = open(file, 'rb')
+        else:
+            self.file = file
+
+        self.header = self.read_header()
+        self.labels = self.header['label']
+        self.sample_rate = (np.asarray(self.header['n_samples_per_record']) /
+            np.asarray(self.header['record_length']))
+        self.T = 0.0
+
+    def read_header(self):
+        '''
+        Read the header of the BDF-file. The header is stored in self.header.
+        '''
+        f = self.file
+        h = self.header = {}
+        assert(f.tell() == 0) # check file position
+        assert(f.read(8) == '\xffBIOSEMI')
+
+        # recording info
+        h['local_subject_id'] = f.read(80).strip()
+        h['local_recording_id'] = f.read(80).strip()
+
+        # parse timestamp
+        (day, month, year) = [int(x) for x in re.findall('(\d+)', f.read(8))]
+        (hour, minute, sec)= [int(x) for x in re.findall('(\d+)', f.read(8))]
+        h['date_time'] = datetime.datetime(year + 2000, month, day, 
+            hour, minute, sec)
+
+        # misc
+        self.header_nbytes = int(f.read(8))
+        format = f.read(44).strip()
+        # BioSig toolbox does not set format
+        # assert format == '24BIT'
+        h['n_records'] = int(f.read(8))
+        h['record_length'] = float(f.read(8)) # in seconds
+        self.nchannels = h['n_channels'] = int(f.read(4))
+
+        # read channel info
+        channels = range(h['n_channels'])
+        h['label'] = [f.read(16).strip() for n in channels]
+        h['transducer_type'] = [f.read(80).strip() for n in channels]
+        h['units'] = [f.read(8).strip() for n in channels]
+        h['physical_min'] = [int(f.read(8)) for n in channels]
+        h['physical_max'] = [int(f.read(8)) for n in channels]
+        h['digital_min'] = [int(f.read(8)) for n in channels]
+        h['digital_max'] = [int(f.read(8)) for n in channels]
+        h['prefiltering'] = [f.read(80).strip() for n in channels]
+        h['n_samples_per_record'] = [int(f.read(8)) for n in channels]
+        f.read(32 * h['n_channels']) # reserved
+        
+        assert f.tell() == self.header_nbytes
+
+        self.gain = np.array([(h['physical_max'][n] - h['physical_min'][n]) / 
+            float(h['digital_max'][n] - h['digital_min'][n]) for n in channels], 
+            np.float)
+        self.offset = np.array([h['physical_min'][n] - self.gain[n]*h['digital_min'][n] for n in channels])
+        return self.header
     
-    # buffer contains enough data
-    result = self.buff[:nframes, :]
-    self.buff = self.buff[nframes:, :]
-    return result
+    def read_record(self, n=1):
+        '''
+        Read records with data for all channels. 
 
-  def read_nframes(self, nframes):
-    rframes = self.read_nframes_raw(nframes)
-    return rframes * self.bdf.gain + self.bdf.offset
+        Parameters
+        ----------
+        n : int (default=1)
+            The number of records to read at a time.
 
-  def read_all(self):
-    records = [self.buff] + list(self.bdf.records())
-    rframes = np.hstack(records)
-    return (rframes.T * self.bdf.gain + self.bdf.offset).T
+        Returns
+        -------
+        records: 2D array (channels x samples)
+            The raw 24 bit int values, no gain and offset is applied. If not all
+            n records could be read (due to end of file), it returns less. If no
+            records could be read, it raises an BDFEndOfData exception.
 
-  def close(self):
-      self.bdf.close()
+        .. see_also::
+            :func:`psychic.BDFReader.read`:
+        '''
+        h = self.header
+        n_channels = h['n_channels']
+        n_samp = h['n_samples_per_record']
+        assert len(np.unique(n_samp)) == 1, \
+            'Samplerates differ for different channels'
+        n_samp = n_samp[0]
+        result = np.zeros((n_channels, n_samp * n), np.float)
 
-class BaseBDFReader:
-  def __init__(self, file):
-    self.file = file
+        try:
+            for i in range(n):
+                for j in range(n_channels):
+                    bytes = self.file.read(n_samp * 3)
+                    if len(bytes) <> n_samp * 3:
+                        raise BDFEndOfData
+                    result[j, i*n_samp:(i+1)*n_samp] = le_to_int24(bytes)
+        except BDFEndOfData:
+            if i == 0:
+                raise BDFEndOfData
+            else:
+                return result[j, :i*n_samp]
 
-  def read_header(self):
-    '''Read the header of the BDF-file. The header is stored in self.header.'''
-    f = self.file
-    h = self.header = {}
-    assert(f.tell() == 0) # check file position
-    assert(f.read(8) == '\xffBIOSEMI')
-
-    # recording info
-    h['local_subject_id'] = f.read(80).strip()
-    h['local_recording_id'] = f.read(80).strip()
-
-    # parse timestamp
-    (day, month, year) = [int(x) for x in re.findall('(\d+)', f.read(8))]
-    (hour, minute, sec)= [int(x) for x in re.findall('(\d+)', f.read(8))]
-    h['date_time'] = datetime.datetime(year + 2000, month, day, 
-      hour, minute, sec)
-
-    # misc
-    self.header_nbytes = int(f.read(8))
-    format = f.read(44).strip()
-    # BioSig toolbox does not set format
-    # assert format == '24BIT'
-    h['n_records'] = int(f.read(8))
-    h['record_length'] = float(f.read(8)) # in seconds
-    self.nchannels = h['n_channels'] = int(f.read(4))
-
-    # read channel info
-    channels = range(h['n_channels'])
-    h['label'] = [f.read(16).strip() for n in channels]
-    h['transducer_type'] = [f.read(80).strip() for n in channels]
-    h['units'] = [f.read(8).strip() for n in channels]
-    h['physical_min'] = [int(f.read(8)) for n in channels]
-    h['physical_max'] = [int(f.read(8)) for n in channels]
-    h['digital_min'] = [int(f.read(8)) for n in channels]
-    h['digital_max'] = [int(f.read(8)) for n in channels]
-    h['prefiltering'] = [f.read(80).strip() for n in channels]
-    h['n_samples_per_record'] = [int(f.read(8)) for n in channels]
-    f.read(32 * h['n_channels']) # reserved
+        return result
     
-    assert f.tell() == self.header_nbytes
+    def close(self):
+        '''
+        Closes the BDF file.
+        '''
+        self.file.close()
 
-    self.gain = np.array([(h['physical_max'][n] - h['physical_min'][n]) / 
-      float(h['digital_max'][n] - h['digital_min'][n]) for n in channels], 
-      np.float)
-    self.offset = np.array([h['physical_min'][n] - self.gain[n]*h['digital_min'][n] for n in channels])
-    return self.header
-  
-  def read_record(self):
-    '''
-    Read a record with data for all channels, and return an 2D array,
-    sampels * channels
-    '''
-    h = self.header
-    n_channels = h['n_channels']
-    n_samp = h['n_samples_per_record']
-    assert len(np.unique(n_samp)) == 1, \
-      'Samplerates differ for different channels'
-    n_samp = n_samp[0]
-    result = np.zeros((n_channels, n_samp), np.float)
+    def records(self, n=1):
+        '''
+        Record generator. 
 
-    for i in range(n_channels):
-      bytes = self.file.read(n_samp * 3)
-      if len(bytes) <> n_samp * 3:
-        raise BDFEndOfData
-      result[i, :] = le_to_int24(bytes)
+        Parameters
+        ----------
+        n : int (default=1)
+            The number of records to read at a time.
 
-    return result
-  
-  def close(self):
-      self.file.close()
+        Returns
+        -------
+        records: 2D array (channels x samples)
+            The raw 24 bit int values, no gain and offset is applied.
 
-  def records(self):
-    '''
-    Record generator.
-    '''
-    try:
-      while True:
-        yield self.read_record()
-    except BDFEndOfData:
-      pass
-  
-  def __str__(self):
-    h = self.header
-    return '%s - %s\nChannels [%s] recorded at max %dHz on %s' % \
-    (\
-    h['local_subject_id'], h['local_recording_id'],
-    ', '.join(h['label']), max(h['n_samples_per_record']), h['date_time'],\
-    )
+        .. see_also::
+            :func:`psychic.BDFReader.all_records`:
+            :func:`psychic.BDFReader.read`:
+        '''
+        try:
+            while True:
+                yield self.read_record(n)
+        except BDFEndOfData:
+            pass
+
+    def all_records(self):
+        '''
+        Reads all records. Returns a 2D array: channels x samples. Note that
+        this returns the raw 24 bit int values, no gain and offset is applied.
+
+        .. see_also::
+            :func:`psychic.BDFReader.records`:
+            :func:`psychic.BDFReader.read_all`:
+        '''
+        records = list(self.bdf.records())
+        rframes = np.hstack(records)
+        return rframes
+
+
+    def read(self, n=1):
+        '''
+        `:class:psychic.DataSet:` generator
+
+        Parameters
+        ----------
+        n : int (default=1)
+            The number of records to read at a time.
+
+        Returns
+        -------
+        d : :class:`psychic.DataSet`:
+            The records, concatenated into a :class:`psychic.DataSet`:
+             - ``d.data`` will be the [channels x samples] EEG data
+             - ``d.labels`` will contain the status channel
+             - ``d.feat_lab`` will contain the channel names
+             - ``d.ids`` will contain timestamps for each sample
+             - ``d.data`` will be the [channels x samples] EEG data
+             - ``d.labels`` will contain the status channel
+             - ``d.feat_lab`` will contain the channel names
+
+            If not all n records could be read (due to end of file), it returns
+            less. If no records could be read, it raises an BDFEndOfData
+            exception.    
+
+        .. see_also::
+            :func:`psychic.BDFReader.all_records`:
+        '''
+        STATUS = 'Status'
+
+        try:
+            while True:
+                data = self.read_record(n)
+                time = np.arange(data.shape[1]) / self.sample_rate[0] + self.T
+                self.T = time[-1] + 1/self.sample_rate[0]
+
+                data_mask = [i for i, lab in enumerate(self.labels) if lab != STATUS]
+                status_mask = self.labels.index(STATUS)
+
+                yield psychic.DataSet(
+                    data = (data[data_mask,:].T * self.gain[data_mask] + self.offset[data_mask]).T,
+                    labels = data[status_mask,:].astype(int) & 0xffff, 
+                    ids = time,
+                    feat_lab = [self.labels[i] for i in data_mask],
+                )
+        except BDFEndOfData:
+            pass
+
+    def read_all(self):
+        '''
+        Read all remaining records. Returns a `:class:psychic.DataSet:`
+
+        Returns
+        -------
+        d : :class:`psychic.DataSet`:
+            The records, concatenated into a :class:`psychic.DataSet`:
+             - ``d.data`` will be the [channels x samples] EEG data
+             - ``d.labels`` will contain the status channel
+             - ``d.feat_lab`` will contain the channel names
+             - ``d.ids`` will contain timestamps for each sample
+             - ``d.data`` will be the [channels x samples] EEG data
+             - ``d.labels`` will contain the status channel
+             - ``d.feat_lab`` will contain the channel names
+             - ``d.ids`` will contain timestamps for each sample
+        '''
+        records = list(self.read())
+        return psychic.concatenate(records, merge_possible_labels=True)
+
+    def __str__(self):
+        h = self.header
+        return '%s - %s\nChannels [%s] recorded at max %dHz on %s' % \
+        (\
+        h['local_subject_id'], h['local_recording_id'],
+        ', '.join(h['label']), max(h['n_samples_per_record']), h['date_time'],\
+        )
 
 def le_to_int24(bytes):
-  '''Convert groups of 3 bytes (little endian, two's complement) to an
-  iterable to a numpy array of 24-bit integers.'''
-  if type(bytes) == str:
-    bytes = np.fromstring(bytes, np.uint8)
-  else:
-    bytes = np.asarray(bytes, np.uint8)
-  int_rows = bytes.reshape(-1, 3).astype(np.int32)
-  ints = int_rows[:, 0] + (int_rows[:, 1] << 8) + (int_rows[:, 2] << 16)
-  ints[ints >= (1 << 23)] -= (1 << 24)
-  return ints
-  
+    '''Convert groups of 3 bytes (little endian, two's complement) to an
+    iterable to a numpy array of 24-bit integers.'''
+    if type(bytes) == str:
+        bytes = np.fromstring(bytes, np.uint8)
+    else:
+        bytes = np.asarray(bytes, np.uint8)
+    int_rows = bytes.reshape(-1, 3).astype(np.int32)
+    ints = int_rows[:, 0] + (int_rows[:, 1] << 8) + (int_rows[:, 2] << 16)
+    ints[ints >= (1 << 23)] -= (1 << 24)
+    return ints
+    
 def int24_to_le(ints):
-  '''Convert an interable with 24-bit ints to little endian, two's complement
-  numpy array.'''
-  uints = np.array(ints, np.int32)
-  uints[np.asarray(ints) < 0] -= (1 << 24)
-  bytes = np.zeros((uints.size, 3), np.uint8)
-  bytes[:, 0] = (uints & 0xff).flatten()
-  bytes[:, 1] = ((uints >> 8) & 0xff).flatten()
-  bytes[:, 2] = ((uints >> 16) & 0xff).flatten()
-  return bytes.flatten()
+    '''Convert an interable with 24-bit ints to little endian, two's complement
+    numpy array.'''
+    uints = np.array(ints, np.int32)
+    uints[np.asarray(ints) < 0] -= (1 << 24)
+    bytes = np.zeros((uints.size, 3), np.uint8)
+    bytes[:, 0] = (uints & 0xff).flatten()
+    bytes[:, 1] = ((uints >> 8) & 0xff).flatten()
+    bytes[:, 2] = ((uints >> 16) & 0xff).flatten()
+    return bytes.flatten()
 
 def num_to_str(num, strlen):
     return string.ljust('%d' % num, strlen) 
 
 class BDFWriter:
-    """ Class that writes a stream of Psychic datasets to a BDF file.
+    '''
+    Class that writes a stream of Psychic datasets to a BDF file.
 
     Example usage:
     >>> d = psychic.DataSet.load('some_data.dat')
@@ -170,9 +284,7 @@ class BDFWriter:
     >>> bdf.write(d)
     >>> bdf.write(d2)
     >>> bdf.close()
-    
-    """
-    
+    '''
     def __init__(self, file, samplerate=0, num_channels=0, header={}, dataset=None):
         """ Opens a BDF file for writing.
 
@@ -343,7 +455,7 @@ class BDFWriter:
 
         # Prepend any data left in the buffer from the previous write
         if self.samples_left_in_record != None:
-            dataset = self.samples_left_in_record + dataset
+            dataset = psychic.concatenate([self.samples_left_in_record, dataset], merge_possible_labels=True)
             self.samples_left_in_record = None
 
         num_channels, num_samples = dataset.data.shape
@@ -391,23 +503,9 @@ def load_bdf(fname):
       - ``d.feat_lab`` will contain the channel names
       - ``d.ids`` will contain timestamps for each sample
   '''
-  STATUS = 'Status'
-
   with open(fname, 'rb') as f:
       b = BDFReader(f)
-      frames = b.read_all()
-
-      data_mask = [i for i, lab in enumerate(b.labels) if lab != STATUS]
-      status_mask = b.labels.index(STATUS)
-      feat_lab = [b.labels[i] for i in data_mask]
-      sample_rate = b.sample_rate[0]
-      ids = (np.arange(frames.shape[1]) / float(sample_rate))
-      d = psychic.DataSet(
-        data=frames[data_mask,:], 
-        labels=frames[status_mask,:].astype(int) & 0xffff, 
-        ids=ids, feat_lab=feat_lab)
-
-  return d
+      return b.read_all()
 
 def save_bdf(d, fname):
   '''

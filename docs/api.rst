@@ -4,10 +4,27 @@ API Reference
 This is the full API documentation. Use this to look up specific classes and
 functions.
 
-Nodes
------
+Data sets
+---------
+
+Classes and functions concerning data sets
 
 .. currentmodule:: psychic
+
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    DataSet
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    concatenate
+
+Nodes
+-----
 
 All the nodes provided by Psychic:
 
