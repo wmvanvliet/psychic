@@ -265,7 +265,7 @@ def plot_specgrams(
     return fig
 
 def plot_erp(
-        data,
+        d,
         samplerate=None,
         classes=None,
         vspace=None,
@@ -306,7 +306,7 @@ def plot_erp(
 
     Parameters
     ----------
-    data : :class:`psychic.DataSet`
+    d : :class:`psychic.DataSet`
         A sliced Golem dataset that will be displayed.
     classes : list (default=all)
         When specified, ERPs will be drawn only for the classes with the given
@@ -315,13 +315,13 @@ def plot_erp(
         Amount of vertical space between the ERP traces, by default the minumum
         value so traces don't overlap.
     samplerate : float (optional)
-        By default determined through ``data.feat_lab[1]``, but can be
+        By default determined through ``d.feat_lab[1]``, but can be
         specified when missing.
     cl_lab : list (optional)
         List with a label for each class, by default taken from
-        ``data.cl_lab``, but can be specified if missing.
+        ``d.cl_lab``, but can be specified if missing.
     ch_lab : list (optional)
-        List of channel labels, by default taken from ``data.feat_lab[0]``,
+        List of channel labels, by default taken from ``d.feat_lab[0]``,
         but can be specified if missing.
     draw_scale : bool (default=True)
         Whether to draw a scale next to the plot.
@@ -329,7 +329,7 @@ def plot_erp(
         Number of columns to use for layout.
     start : float (default=0)
         Time used as T0, by default timing is taken from
-        ``data.feat_lab[1]``, but can be specified if missing.
+        ``d.feat_lab[1]``, but can be specified if missing.
     fig : :class:`matplotlib.Figure`
         If speficied, a reference to the figure in which to draw the ERP plot.
         By default a new figure is created.
@@ -376,31 +376,31 @@ def plot_erp(
         A handle to the matplotlib figure.
     '''
 
-    assert data.data.ndim == 3, 'Expecting sliced data'
+    assert d.data.ndim == 3, 'Expecting sliced data'
 
-    num_channels, num_samples = data.data.shape[:2]
+    num_channels, num_samples = d.data.shape[:2]
 
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
     if cl_lab == None:
-        cl_lab = data.cl_lab if data.cl_lab else['class %d' % cl for cl in classes]
+        cl_lab = d.cl_lab if d.cl_lab else['class %d' % cl for cl in classes]
 
     if ch_lab == None:
-        if data.feat_lab != None:
-            ch_lab = data.feat_lab[0]
+        if d.feat_lab != None:
+            ch_lab = d.feat_lab[0]
         else:
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
     if classes == None:
-        classes = range(data.nclasses)
+        classes = range(d.nclasses)
 
     num_classes = len(classes)
 
     # Determine number of trials
-    num_trials = np.min( np.array(data.ninstances_per_class)[classes] )
+    num_trials = np.min( np.array(d.ninstances_per_class)[classes] )
 
     # Calculate significance (if appropriate)
-    if num_classes == 2 and np.min(np.array(data.ninstances_per_class)[classes]) >= 5:
+    if num_classes == 2 and np.min(np.array(d.ninstances_per_class)[classes]) >= 5:
 
         # Construct significant clusters for each channel. These will be
         # highlighted in the plot.
@@ -409,12 +409,12 @@ def plot_erp(
         if np_test:
             # Perform a non-parametric test
             from stats import temporal_permutation_cluster_test as test
-            significant_clusters = test(data, np_iter, pval, classes)[:,:3]
+            significant_clusters = test(d, np_iter, pval, classes)[:,:3]
             significance_test_performed = True
 
         elif pval != None:
             # Perform a t-test
-            ts, ps = scipy.stats.ttest_ind(data.get_class(classes[0]).data, data.get_class(classes[1]).data, axis=2)
+            ts, ps = scipy.stats.ttest_ind(d.get_class(classes[0]).data, d.get_class(classes[1]).data, axis=2)
 
             if fwer != None:
                 ps = fwer(ps.ravel()).reshape(ps.shape)
@@ -430,7 +430,7 @@ def plot_erp(
         significance_test_performed = False
 
     # Calculate ERP
-    erp = trials.erp(data, classes=classes, enforce_equal_n=enforce_equal_n)
+    erp = trials.erp(d, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Calculate a sane vspace
     if vspace == None:
@@ -494,7 +494,7 @@ def plot_erp(
         # Plot confidence intervals
         if conf_inter != None:
             stds = np.concatenate([
-                np.std(data.get_class(classes[i]).data[channels,:,:], axis=2)[:,:,np.newaxis]
+                np.std(d.get_class(classes[i]).data[channels,:,:], axis=2)[:,:,np.newaxis]
                 for i in range(num_classes)
             ], axis=2)
 
@@ -518,7 +518,7 @@ def plot_erp(
     return fig
 
 def plot_erp_specdiffs(
-        data,
+        d,
         samplerate=None,
         NFFT=256,
         freq_range=[0.1, 50],
@@ -526,14 +526,14 @@ def plot_erp_specdiffs(
         significant_only=False,
         pval=0.05,
         fig=None):
-    assert data.data.ndim == 3
+    assert d.data.ndim == 3
     assert len(classes) == 2
-    assert data.feat_lab != None
+    assert d.feat_lab != None
 
     if fig == None:
         fig = plot.figure()
 
-    tf = trials.trial_specgram(data, samplerate, NFFT)
+    tf = trials.trial_specgram(d, samplerate, NFFT)
     tf_erp = trials.erp(tf)
     diff = np.log(tf_erp.data[...,classes[0]]) - np.log(tf_erp.data[...,classes[1]])
 
@@ -551,7 +551,7 @@ def plot_erp_specdiffs(
     diff = diff[:,selection]
     clim = (-np.max(np.abs(diff)), np.max(np.abs(diff)))
 
-    num_channels = data.data.shape[0]
+    num_channels = d.data.shape[0]
     num_cols = max(1, num_channels/8)
     num_rows = min(num_channels, 8)
 
@@ -599,20 +599,20 @@ def plot_erp_specdiffs(
     return fig
 
 def plot_erp_specgrams(
-        data,
+        d,
         samplerate=None,
         NFFT=256,
         freq_range=[0.1, 50],
         fig=None):
-    assert data.data.ndim == 3
-    assert data.feat_lab != None
+    assert d.data.ndim == 3
+    assert d.feat_lab != None
 
     if fig == None:
         fig = plot.figure()
 
-    tf = trials.trial_specgram(data, samplerate, NFFT)
-    print tf.data.shape
-    tf_erp = np.mean(tf.data, axis=3)
+    tf = trials.trial_specgram(d, samplerate, NFFT)
+    print tf.d.shape
+    tf_erp = np.mean(tf.d, axis=3)
     print tf_erp.shape
     
     ch_labs = tf.feat_lab[0]
