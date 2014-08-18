@@ -117,7 +117,7 @@ def gaussian_dataset(ninstances=[50, 50]):
         data.append(np.random.multivariate_normal(mus[ci], sigmas[ci], n).T)
         labels.extend(np.ones(n, np.int) * ci)
 
-    return DataSet(np.hstack(data), labels)
+    return DataSet(np.hstack(data), to_one_of_n(labels))
 
 def wieland_spirals():
     '''

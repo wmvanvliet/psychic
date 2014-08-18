@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import signal
 from ..dataset import DataSet
-from golem.nodes import BaseNode
+from . import BaseNode
 from psychic.utils import get_samplerate
 from psychic.markers import resample_markers
 from scipy.interpolate import interp1d
@@ -68,65 +68,65 @@ class OnlineFilter(Filter):
     return DataSet(data=data, default=d)
 
 class Butterworth(Filter):
-  '''
-  Node that implements a Butterworth IIR filter. It can be used
-  for band-pass, band-stop, low-pass and high-pass filtering.
+    '''
+    Node that implements a Butterworth IIR filter. It can be used
+    for band-pass, band-stop, low-pass and high-pass filtering.
 
-  Parameters
-  ----------
-  order : int
-    The order of the filter. A higher order means a higher roll-off at the
-    cost of increase computation time and more temporal smearing.
+    Parameters
+    ----------
+    order : int
+        The order of the filter. A higher order means a higher roll-off at the
+        cost of increase computation time and more temporal smearing.
 
-  cutoff : float or tuple (low high)
-    The cutoff frequency (for a low-pass or high-pass filter) or frequencies
-    (for a band-pass or band-stop filter).
+    cutoff : float or tuple (low high)
+        The cutoff frequency (for a low-pass or high-pass filter) or frequencies
+        (for a band-pass or band-stop filter).
 
-  btype : string (default='bandpass')
-    The requested type of filter. Can be one of:
-    
-    - bandpass
-    - bandstop
-    - lowpass
-    - highpass
+    btype : string (default='bandpass')
+        The requested type of filter. Can be one of:
+        
+        - bandpass
+        - bandstop
+        - lowpass
+        - highpass
 
-  axis : int (default 1)
-    The axis along which to apply the filter. This should correspond to the
-    axis that contains the EEG samples. Defaults to 1.
+    axis : int (default 1)
+        The axis along which to apply the filter. This should correspond to the
+        axis that contains the EEG samples. Defaults to 1.
 
-  This node uses :func:`scipy.signal.iirfilter` to design the filter.
-  '''
-  def __init__(self, order, cutoff, btype='bandpass', axis=1):
-      if btype == 'bandpass' or btype == 'bandstop':
-          assert len(cutoff) == 2, 'Please supply a low and high cutoff.'
+    This node uses :func:`scipy.signal.iirfilter` to design the filter.
+    '''
+    def __init__(self, order, cutoff, btype='bandpass', axis=1):
+            if btype == 'bandpass' or btype == 'bandstop':
+                    assert len(cutoff) == 2, 'Please supply a low and high cutoff.'
 
-      if btype == 'bandpass' or btype == 'bandstop':
-          design_func = lambda s: signal.iirfilter(order, [cutoff[0]/(s/2.0),
-              cutoff[1]/(s/2.0)], btype=btype)
-      else:
-          design_func = lambda s: signal.iirfilter(order, cutoff/(s/2.0),
-              btype=btype)
+            if btype == 'bandpass' or btype == 'bandstop':
+                    design_func = lambda s: signal.iirfilter(order, [cutoff[0]/(s/2.0),
+                            cutoff[1]/(s/2.0)], btype=btype)
+            else:
+                    design_func = lambda s: signal.iirfilter(order, cutoff/(s/2.0),
+                            btype=btype)
 
-      self.order = order
-      self.cutoff = cutoff
-      self.btype = btype
+            self.order = order
+            self.cutoff = cutoff
+            self.btype = btype
 
-      Filter.__init__(self, design_func, axis)
+            Filter.__init__(self, design_func, axis)
 
 class Winsorize(BaseNode):
-  def __init__(self, cutoff=[.05, .95]):
-    self.cutoff = np.atleast_1d(cutoff)
-    assert self.cutoff.size == 2
-    BaseNode.__init__(self)
+    def __init__(self, cutoff=[.05, .95]):
+        self.cutoff = np.atleast_1d(cutoff)
+        assert self.cutoff.size == 2
+        BaseNode.__init__(self)
 
-  def train_(self, d):
-    assert len(d.feat_shape) == 1, 'Expecting continuous data'
-    self.lims = np.apply_along_axis(lambda x: np.interp(self.cutoff, 
-      np.linspace(0, 1, d.ninstances), np.sort(x)), 1, d.data)
-    
-  def apply_(self, d):
-    return DataSet(np.clip(d.data.T, self.lims[:,0], self.lims[:,1]).T,
-      default=d)
+    def train_(self, d):
+        assert len(d.feat_shape) == 1, 'Expecting continuous data'
+        self.lims = np.apply_along_axis(lambda x: np.interp(self.cutoff, 
+            np.linspace(0, 1, d.ninstances), np.sort(x)), 1, d.data)
+        
+    def apply_(self, d):
+        return DataSet(np.clip(d.data.T, self.lims[:,0], self.lims[:,1]).T,
+            default=d)
 
 class FFTFilter(BaseNode) :
     '''

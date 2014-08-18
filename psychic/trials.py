@@ -305,8 +305,9 @@ def slice(d, markers_to_class, offsets):
         - ``d.feat_lab``: Feature labels for the axes [channels (strings),
           time in seconds (floats)]
     '''
-    assert len(d.feat_shape) == 1
-    assert d.labels.shape[0] == 1 and d.labels.dtype == np.int 
+    assert len(d.feat_shape) == 1, 'Data must be continuous EEG.'
+    assert d.labels.shape[0] == 1 and d.labels.dtype == np.int, ('Labels are'
+        'the wrong format. It must be an integer marker stream.')
     start_off, end_off = offsets
     data, labels, ids = [], [], []
     

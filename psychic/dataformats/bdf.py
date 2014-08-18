@@ -100,8 +100,9 @@ class BDFReader:
             n records could be read (due to end of file), it returns less. If no
             records could be read, it raises an BDFEndOfData exception.
 
-        .. see_also::
-            :func:`psychic.BDFReader.read`:
+        See also
+        --------
+            :func:`psychic.BDFReader.read`
         '''
         h = self.header
         n_channels = h['n_channels']
@@ -146,7 +147,8 @@ class BDFReader:
         records: 2D array (channels x samples)
             The raw 24 bit int values, no gain and offset is applied.
 
-        .. see_also::
+        See also
+        --------
             :func:`psychic.BDFReader.all_records`:
             :func:`psychic.BDFReader.read`:
         '''
@@ -161,7 +163,8 @@ class BDFReader:
         Reads all records. Returns a 2D array: channels x samples. Note that
         this returns the raw 24 bit int values, no gain and offset is applied.
 
-        .. see_also::
+        See also
+        --------
             :func:`psychic.BDFReader.records`:
             :func:`psychic.BDFReader.read_all`:
         '''
@@ -195,7 +198,8 @@ class BDFReader:
             less. If no records could be read, it raises an BDFEndOfData
             exception.    
 
-        .. see_also::
+        See also
+        --------
             :func:`psychic.BDFReader.all_records`:
         '''
         STATUS = 'Status'
@@ -274,9 +278,33 @@ def num_to_str(num, strlen):
 
 class BDFWriter:
     '''
-    Class that writes a stream of Psychic datasets to a BDF file.
+    Class that writes a stream of :class:`psychic.DataSet` objects to a BDF file.
 
-    Example usage:
+    Parameters
+    ----------
+    file : string or file handle
+        The file name or file handle of the BDF file to open for writing.
+
+    samplerate : float
+        Samplerate of the data. If not specified, this is inferred form the
+        ``header`` and/or ``dataset`` parameter.
+
+    num_channels : int
+        Number of channels in the data (not counting the STATUS channel).
+        If not specified, this is inferred from the ``header`` and/or
+        ``dataset`` parameter.
+
+    header : dict
+        A dictionary containing header values as obtained by the
+        :class:`psychic.BDFReader` to use as defaults for the header.
+
+    dataset : :class:`psychic.DataSet`
+        As an alternative to the ``header`` parameter, vital header fields
+        can be determined automatically from a :class:`psychic.DataSet`
+
+    Examples
+    --------
+
     >>> d = psychic.DataSet.load('some_data.dat')
     >>> d2 = psychic.DataSet.load('some_more_data.dat')
     >>> bdf = BDFWriter('test.bdf', dataset=d)
@@ -284,20 +312,15 @@ class BDFWriter:
     >>> bdf.write(d)
     >>> bdf.write(d2)
     >>> bdf.close()
+
+    See also
+    --------
+    :class:`psychic.BDFReader`
+    :func:`psychic.load_bdf`
+    :func:`psychic.save_bdf`
+
     '''
     def __init__(self, file, samplerate=0, num_channels=0, header={}, dataset=None):
-        """ Opens a BDF file for writing.
-
-        Required params:
-            file - A file (or filename) to open
-
-        Optional params:
-            samplerate - Samplerate of the data
-            num_channels - Number of channels in the data (not counting the STATUS channel)
-            header  - A dictionary containing header values as obtained by the BDFReader to use as defaults
-            dataset - As an alternative to the 'values' parameter, vital header fields
-                      can be determined automatically from a psychic.DataSet"""
-
         try:
             self.f = open(file, 'wb') if isinstance(file, str) else file
         except:
@@ -436,7 +459,7 @@ class BDFWriter:
 
     def write(self, dataset):
         """ Append a Psychic DataSet to the BDF file. Physical values are converted to digital ones using the
-        physical/digital_min/max values supplied."""
+        physical/digital_min/max values supplied in the header."""
         self.write_raw(
             psychic.DataSet(
                 ((dataset.data.T-self.offset[:-1])*self.inv_gain[:-1]).astype(np.int32).T,

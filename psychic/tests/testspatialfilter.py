@@ -6,7 +6,7 @@ from ..trials import concatenate_trials
 
 from ..nodes.spatialfilter import *
 
-class TestBaseSpatialFilter(unittest.TestCase):
+class TestSpatialFilter(unittest.TestCase):
   def setUp(self):
     # build dataset with artificial trials
     dtrial = DataSet( np.random.randn(32, 128, 10) )
@@ -25,8 +25,7 @@ class TestBaseSpatialFilter(unittest.TestCase):
 
   def test_plain(self):
     d = self.dplain
-    f = BaseSpatialFilter(ftype=PLAIN)
-    f.W = np.random.randn(32, 4)
+    f = SpatialFilter(np.random.randn(32, 4), ftype=PLAIN)
 
     self.assertEqual(f.get_nchannels(d), 32)
     np.testing.assert_equal(f.get_cov(d), cov0(d.data))
@@ -34,8 +33,7 @@ class TestBaseSpatialFilter(unittest.TestCase):
 
   def test_trial(self):
     dtrial = self.dtrial
-    f = BaseSpatialFilter(ftype=TRIAL)
-    f.W = np.random.randn(32, 4)
+    f = SpatialFilter(np.random.randn(32,4), ftype=TRIAL)
 
     # test extraction of number of channels
     self.assertEqual(f.get_nchannels(dtrial), 32)
@@ -55,8 +53,7 @@ class TestBaseSpatialFilter(unittest.TestCase):
     dtrial = self.dtrial
     dcov = self.dcov
 
-    f = BaseSpatialFilter(ftype=COV)
-    f.W = np.random.randn(32, 4)
+    f = SpatialFilter(np.random.randn(32, 4), ftype=COV)
 
     # test extraction of number of channels
     self.assertEqual(f.get_nchannels(dcov), 32)

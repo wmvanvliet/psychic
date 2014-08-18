@@ -1,4 +1,5 @@
-from spatialfilter import CAR, Whitening, SymWhitening, CSP, Deflate, SpatialBlur
+from basenode import BaseNode
+from spatialfilter import SpatialFilter, CAR, Whiten, SymWhitening, CSP, Deflate, SpatialBlur
 from align import AlignedSpatialBlur
 from timefreq import TFC
 from filter import Butterworth, Filter, OnlineFilter, Winsorize, FFTFilter, Resample
@@ -12,7 +13,6 @@ from eogcorr import EOGCorr
 from statspat import SpatialSNR, SpatialFC, SpatialCFMS
 from eeg_montage import EEGMontage
 from template import TemplateFilter, GaussTemplateFilter
-from basenode import BaseNode
 from baseline import PriorClassifier, RandomClassifier, WeakClassifier
 from chain import Chain
 from simple import ZScore, ApplyOverFeats, ApplyOverInstances

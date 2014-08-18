@@ -122,7 +122,8 @@ class TestChain(unittest.TestCase):
         ch = Chain([AddSumNode(), NOPNode()])
         self.assertEqual(str(ch), 'Chain (AddSumNode ->\nNOPNode)')
 
-        ch = Chain([linear_model.LinearRegression()])
-        self.assertEqual(str(ch),
-            'Chain (LinearRegression(copy_X=True, fit_intercept=True, '+
-            'normalize=False))')
+        if sklearn_present:
+            ch = Chain([linear_model.LinearRegression()])
+            self.assertEqual(str(ch),
+                'Chain (LinearRegression(copy_X=True, fit_intercept=True, '+
+                'normalize=False))')

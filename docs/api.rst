@@ -13,7 +13,7 @@ Classes and functions concerning data sets
 
 .. autosummary::
     :toctree: generated/
-    :template: node.rst
+    :template: class.rst
 
     DataSet
 
@@ -22,11 +22,26 @@ Classes and functions concerning data sets
     :template: function.rst
 
     concatenate
+    as_instances
+
+.. _api-nodes:
 
 Nodes
 -----
 
 All the nodes provided by Psychic:
+
+Base Nodes
+++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.basenode.BaseNode
+    nodes.Chain
+    nodes.ZScore
+    nodes.ApplyOverFeats
+    nodes.ApplyOverInstances
 
 Referencing
 +++++++++++
@@ -36,22 +51,57 @@ Referencing
 
     nodes.EEGMontage
 
-Filtering
-+++++++++
+Temporal filtering
+++++++++++++++++++
 
 .. autosummary::
     :toctree: generated/
     :template: node.rst
 
+    nodes.Filter
+    nodes.OnlineFilter
     nodes.Butterworth
     nodes.FFTFilter
-    nodes.Filter
     nodes.Resample
     nodes.Decimate
+    nodes.Winsorize
+
+Time-frequency decomposition
+++++++++++++++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.TFC
+
+Non-learning spatial filters
+++++++++++++++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.SpatialFilter
+    nodes.CAR
+    nodes.Whitening
+    nodes.SymWhitening
+    nodes.SlowSphering
+    nodes.SpatialBlur
+    nodes.AlignedSpatialBlur
+
+Learning spatial filters
+++++++++++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.CSP
+    nodes.SpatialSNR
+    nodes.SpatialFC
+    nodes.SpatialCFMS
+    nodes.Deflate
 
 Working with trials
 +++++++++++++++++++
-
 .. autosummary::
     :toctree: generated/
     :template: node.rst
@@ -61,18 +111,80 @@ Working with trials
     nodes.Baseline
     nodes.ERP
 
-Functions
----------
+Steady-State Visual Evoked Potentals
+++++++++++++++++++++++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.SLIC
+    nodes.SSVEPNoiseReduce
+    nodes.MNEC
+    nodes.CanonCorr
+    nodes.MSI
+
+EOG artifact correction
++++++++++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.EOGCorr
+
+Baseline classifiers
+++++++++++++++++++++
+
+Use :ref:`scikit-learn <scikit-learn>` for a good collection of machine learning
+algorithms. Psychic only provides some baseline classifiers to use for sanity
+checking and debug purposes.
+    
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.PriorClassifier
+    nodes.RandomClassifier
+    nodes.WeakClassifier
+
+Beamformers
++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: node.rst
+
+    nodes.TemplateFilter
+    nodes.GaussTemplateFilter
 
 File formats
-++++++++++++
+------------
+
+BDF
++++
+.. autosummary::
+    :toctree: generated/
+    :template: class.rst
+
+    BDFReader
+    BDFWriter
 
 .. autosummary::
     :toctree: generated/
     :template: function.rst
 
-    load_edf
     load_bdf
+    save_bdf
+
+EDF/EDF+
+++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    load_edf
+
+Functions
+---------
+
 
 Working with trials
 +++++++++++++++++++
@@ -81,7 +193,6 @@ Working with trials
     :template: function.rst
 
     slice
-    concatenate_trials
     baseline
     erp
     ttest
@@ -93,9 +204,9 @@ Utility functions
     :toctree: generated/
     :template: function.rst
 
-    get_samplerate
-    rereference_rec
     find_data_path
+    get_samplerate
+    to_one_of_n
 
 Simulating data
 +++++++++++++++
@@ -104,8 +215,8 @@ Simulating data
     :toctree: generated/
     :template: function.rst
 
-    fake.sine
     fake.gaussian
+    fake.sine
 
 Plotting
 ++++++++
@@ -116,3 +227,47 @@ Plotting
 
     plot_eeg
     plot_erp
+    plot_erp_image
+    plot_erp_psd
+    plot_erp_specgrams
+    plot_psd
+    plot_scalpgrid
+    plot_specgrams
+
+Cross-validation
+++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    cv.cross_validate
+    cv.cross_validation_sets
+    cv.rep_cv
+    cv.seq_splits
+    cv.strat_splits
+    
+Statistics
+++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    stat.auc_confidence
+    stat.benjamini_hochberg
+    stat.bonferroni
+    stat.bonferroni_holm
+    stat.mut_inf
+
+Classifier performance metrics
+++++++++++++++++++++++++++++++
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    perf.accuracy
+    perf.auc
+    perf.class_loss
+    perf.conf_mat
+    perf.format_confmat
+    perf.mean_std
+    perf.mutinf

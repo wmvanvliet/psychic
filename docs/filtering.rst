@@ -102,11 +102,21 @@ For example, a spatial filter :math:`\mat{W}` that creates two components:
 1. the average of the channels 1-4
 2. the average of channels 5-8
 
-would look like this::
+would look like this:
 
-    array([[0.25, 0.25, 0.25, 0.25 0,    0,    0,    0   ],
-           [0,    0,    0,    0,   0.25, 0.25, 0.25, 0.25]])
+>>> import numpy as np
+>>> W = np.array([[ 0.25,  0.  ],
+...               [ 0.25,  0.  ],
+...               [ 0.25,  0.  ],
+...               [ 0.25,  0.  ],
+...               [ 0.  ,  0.25],
+...               [ 0.  ,  0.25],
+...               [ 0.  ,  0.25],
+...               [ 0.  ,  0.25]])
 
+To create a new spatial filter, the :class:`psychic.nodes.SpatialFilter` can be used.
 
-
-
+>>> filter = psychic.nodes.SpatialFilter(W)
+>>> d = psychic.DataSet(np.random.randn(8, 100))
+>>> print filter.apply(d)
+DataSet with 100 instances, 2 features [2], 1 classes: [100], extras: []

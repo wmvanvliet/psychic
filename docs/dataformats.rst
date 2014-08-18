@@ -13,10 +13,10 @@ BDF files
 
 Both functions will return a :class:`golem.DataSet` with the following fields:
 
- - ``d.X`` the [channels x samples] EEG data
- - ``d.Y`` the status channel
- - ``d.feat_lab`` the channel names
- - ``d.I`` timestamps for each sample
+ - ``data`` - the [channels x samples] EEG data
+ - ``labels`` - the status channel
+ - ``feat_lab`` - the channel names
+ - ``ids`` - timestamps for each sample
 
 Referencing
 +++++++++++
@@ -44,17 +44,17 @@ reference.
 >>> montage = psychic.nodes.EEGMontage(ref=['EXG1', 'EXG2'])
 >>> d_referenced = montage.train_apply(d)
 >>> print d_referenced
-DataSet with 149504 instances, 41 features [41], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 41 features [41], 3 classes: [148792, 355, 357], extras: []
 
 Another useful reference scheme is the Common Average Reference (CAR). Here,
 the reference signal is the average of all EEG electrodes:
 
 >>> # Speficy all EEG channels (the recording also contains EOG, which
->>> # we don't want to used as reference)
+>>> # we don't want to use as reference)
 >>> montage = psychic.nodes.EEGMontage(eeg=range(32))
 >>> d_referenced = montage.train_apply(d)
 >>> print d_referenced
-DataSet with 149504 instances, 41 features [41], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 41 features [41], 3 classes: [148792, 355, 357], extras: []
 
 Linked mastoid reference, horizontal and vertical EOG (bipolar reference), radial
 EOG to be calculated and 2 channels that are not connected to anything. After
@@ -63,4 +63,4 @@ referencing, drop reference and individual EOG channels.
 >>> montage = psychic.nodes.EEGMontage(heog=['EXG3', 'EXG4'], veog=['EXG5', 'EXG6'], calc_reog=True, ref=['EXG1', 'EXG2'], drop=['EXG7', 'EXG8'], drop_ref=True) 
 >>> d_referenced = montage.train_apply(d)
 >>> print d_referenced.feat_lab
-['Fp1', 'AF3', 'F7', 'F3', 'FC1', 'FC5', 'T7', 'C3', 'CP1', 'CP5', 'P7', 'P3', 'Pz', 'PO3', 'O1', 'Oz', 'O2', 'PO4', 'P4', 'P8', 'CP6', 'CP2', 'C4', 'T8', 'FC6', 'FC2', 'F4', 'F8', 'AF4', 'Fp2', 'Fz', 'Cz', 'hEOG', 'vEOG', 'rEOG']
+[['Fp1', 'AF3', 'F7', 'F3', 'FC1', 'FC5', 'T7', 'C3', 'CP1', 'CP5', 'P7', 'P3', 'Pz', 'PO3', 'O1', 'Oz', 'O2', 'PO4', 'P4', 'P8', 'CP6', 'CP2', 'C4', 'T8', 'FC6', 'FC2', 'F4', 'F8', 'AF4', 'Fp2', 'Fz', 'Cz', 'hEOG', 'vEOG', 'rEOG']]

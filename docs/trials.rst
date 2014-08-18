@@ -113,10 +113,9 @@ belonging to each class. The result is a dataset with the ERPs:
  - ``d.Y``: [classes x classes] Identity matrix mapping one ERP to each class
  - ``d.cl_lab``: The class labels
 
->>> import golem
->>> trials = golem.DataSet.load(psychic.find_data_path('priming-trials.dat'))
+>>> trials = psychic.DataSet.load(psychic.find_data_path('priming-trials.dat'))
 >>> trials = psychic.nodes.Butterworth(4, (0.01, 30)).train_apply(trials)
 >>> trials = psychic.nodes.Baseline((-0.7, -0.5)).train_apply(trials)
 >>> erp = psychic.nodes.ERP().train_apply(trials)
 >>> print erp
-DataSet with 2 instances, 17400 features [40x435], 2 classes: [1, 1], extras: []
+DataSet with 2 instances, 24185 features [35x691], 2 classes: [1, 1], extras: []

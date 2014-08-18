@@ -150,13 +150,13 @@ class TestDataSet(unittest.TestCase):
         labels = to_one_of_n(self.labels.flat)
         d = DataSet(labels=labels, default=self.d)
         self.assertEqual(d.y.ndim, 1)
-        self.assertEqual(d.y.dtype, np.int)
+        self.assertEqual(d.y.dtype, np.int64)
         np.testing.assert_equal(d.y, self.labels.flat - np.min(self.labels))
 
         labels = np.random.rand(5, 10)
         d = DataSet(labels=labels, default=self.d)
         self.assertEqual(d.y.ndim, 1)
-        self.assertEqual(d.y.dtype, np.int)
+        self.assertEqual(d.y.dtype, np.int64)
         np.testing.assert_equal(d.y, np.argmax(labels, axis=0))
 
     def test_ninstances(self):
@@ -412,28 +412,6 @@ class TestDataSet(unittest.TestCase):
             2*d.ninstances)
         self.assertRaises(ValueError, d.append, d)
 
-    def test_concatenate(self):
-        '''Test concatenating multiple DataSets.'''
-
-        d = self.d
-        d2 = DataSet(ids=1 + np.arange(d.ninstances)/10., default=d)
-        d3 = DataSet(ids=2 + np.arange(d.ninstances)/10., default=d)
-
-        self.assertEqual(concatenate([d]), d)
-        self.assertEqual(concatenate([d, d2, d3]), d+d2+d3)
-        self.assertEqual(concatenate([d,d,d], ignore_index=True).ninstances,
-            3*d.ninstances)
-        self.assertRaises(ValueError, concatenate, [d,d,d])
-
-        d = DataSet(labels=np.eye(5).repeat(2, axis=1), default=d)
-        self.assertEqual(concatenate([d, d[:0]]), d)
-
-        self.assertRaises(ValueError, concatenate, [d,'foo'])
-        self.assertRaises(ValueError, concatenate, [d,DataSet([0])])
-
-        # Datasets with integer labels
-        
-
     def test_indexing(self):
         '''Test the indexing of DataSet.'''
         d = DataSet(labels=np.eye(5).repeat(2, axis=1), default=self.d)
@@ -554,6 +532,27 @@ class TestDataSet(unittest.TestCase):
         for att in [d.data, d.labels, d.ids]:
             self.assertRaises(ValueError, att.__setitem__, (0, 0), -1)
 
+    def test_concatenate(self):
+        '''Test concatenating multiple DataSets.'''
+
+        d = self.d
+        d2 = DataSet(ids=1 + np.arange(d.ninstances)/10., default=d)
+        d3 = DataSet(ids=2 + np.arange(d.ninstances)/10., default=d)
+
+        self.assertEqual(concatenate([d]), d)
+        self.assertEqual(concatenate([d, d2, d3]), d+d2+d3)
+        self.assertEqual(concatenate([d,d,d], ignore_index=True).ninstances,
+            3*d.ninstances)
+        self.assertRaises(ValueError, concatenate, [d,d,d])
+
+        d = DataSet(labels=np.eye(5).repeat(2, axis=1), default=d)
+        self.assertEqual(concatenate([d, d[:0]]), d)
+
+        self.assertRaises(ValueError, concatenate, [d,'foo'])
+        self.assertRaises(ValueError, concatenate, [d,DataSet([0])])
+
+        # Datasets with integer labels
+
     def test_as_instances(self):
         ds = [DataSet(np.random.rand(5,4,1)) for _ in range(10)]
         self.assertEqual(as_instances(ds).data.shape, (5,4,1,10))
@@ -601,3 +600,6 @@ class TestEmpty(unittest.TestCase):
         self.assertEqual(d0[:], d0)
         self.assertEqual(d0[[]], d0)
         self.assertEqual(d0[np.asarray([])], d0)
+
+    
+

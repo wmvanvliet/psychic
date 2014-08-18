@@ -8,7 +8,7 @@ palsy and amyotrophic lateral sclerosis. Journal of Neuroscience Methods,
 '''
 
 import numpy as np
-from psychic.nodes.spatialfilter import BaseSpatialFilter, sfilter_trial
+from psychic.nodes.spatialfilter import SpatialFilter, sfilter_trial
 import scipy
 
 def _calc_beamformer_snr(X1, X2, nc=1, a=1.0):
@@ -67,7 +67,7 @@ def _calc_beamformer_fc(Xs, nc=1, theta=1.0):
         return (V,W)
 
 
-class SpatialSNR(BaseSpatialFilter):
+class SpatialSNR(SpatialFilter):
     '''
     A spatial ERP filter that aims to separate two classes. It optimizes the
     signal to noise ratio where class 0 is taken as signal and class 1 as noise.
@@ -79,7 +79,7 @@ class SpatialSNR(BaseSpatialFilter):
         overfitting.
         '''
         assert 0 < theta <= 1, 'Regularization parameter should be in range (0; 1]'
-        BaseSpatialFilter.__init__(self, 1)
+        SpatialFilter.__init__(self, None)
         self.signal = signal
         self.noise = noise
         self.nc = nc
@@ -93,7 +93,7 @@ class SpatialSNR(BaseSpatialFilter):
         X2 = d.get_class(self.noise).data
         self.V, self.W = _calc_beamformer_snr(X1, X2, self.nc, self.theta)
 
-class SpatialFC(BaseSpatialFilter):
+class SpatialFC(SpatialFilter):
     '''
     A spatial ERP filter that aims to separate two classes. It optimizes the
     Fisher's criterion, so it increases the separation between classes while
@@ -106,7 +106,7 @@ class SpatialFC(BaseSpatialFilter):
         overfitting.
         '''
         assert 0 < theta <= 1, 'Regularization parameter should be in range (0; 1]'
-        BaseSpatialFilter.__init__(self, 1)
+        SpatialFilter.__init__(self, None)
         self.classes = classes
         self.nc = nc
         self.theta = theta
@@ -121,7 +121,7 @@ class SpatialFC(BaseSpatialFilter):
         Xs = [d.get_class(i).data for i in range(self.classes)]
         self.V, self.W = _calc_beamformer_fc(Xs, self.nc, self.theta)
 
-class SpatialCFMS(BaseSpatialFilter):
+class SpatialCFMS(SpatialFilter):
     '''
     A combination of the SpatialFC and SpatialSNR classes that combines
     both methods in a suboptimum way. First SpatialFC is run to generate the
@@ -138,7 +138,7 @@ class SpatialCFMS(BaseSpatialFilter):
         '''
         assert nc % 2 == 0, 'Number of components should be even'
         assert 0 < theta <= 1, 'Regularization parameter should be in range (0; 1]'
-        BaseSpatialFilter.__init__(self, 1)
+        SpatialFilter.__init__(self, None)
         self.signal=signal
         self.noise=noise
         self.nc = nc

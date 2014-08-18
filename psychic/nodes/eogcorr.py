@@ -2,7 +2,7 @@
 from basenode import BaseNode
 from ..dataset import DataSet
 from ..utils import get_samplerate
-from ..trials import erp, baseline, concatenate_trials
+from ..trials import erp, baseline, concatenate_trials, slice
 from scipy import linalg
 
 class EOGCorr(BaseNode):
@@ -18,17 +18,17 @@ class EOGCorr(BaseNode):
 
     def train_(self, d):
         if type(self.heog) == str:
-            self.heog = d.feat_lab.index(self.heog)
+            self.heog = d.feat_lab[0].index(self.heog)
         if type(self.veog) == str:
-            self.veog = d.feat_lab.index(self.veog)
+            self.veog = d.feat_lab[0].index(self.veog)
         if type(self.reog) == str:
-            self.reog = d.feat_lab.index(self.reog)
+            self.reog = d.feat_lab[0].index(self.reog)
 
         self.eog = set([self.heog, self.veog, self.reog])
         if self.eeg == None:
             self.eeg = set(range(d.nfeatures)) - self.eog
         else:
-            self.eeg = set([d.feat_lab.index(ch) if type(ch) == str else ch
+            self.eeg = set([d.feat_lab[0].index(ch) if type(ch) == str else ch
                             for ch in self.eeg])
 
         s = get_samplerate(d)

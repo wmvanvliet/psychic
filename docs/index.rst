@@ -3,14 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Psychic's documentation!
-===================================
+Main Psychic Documentaion
+=========================
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
+   intro
    dataset
    nodes
    dataformats
@@ -18,7 +19,9 @@ Contents:
    trials 
    artifacts
    plots
+   interfacing
    api
+
 
 Indices and tables
 ==================

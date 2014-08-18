@@ -13,8 +13,7 @@ from matplotlib import mlab
 import matplotlib.transforms as transforms
 import math
 import trials
-import golem
-import fwer
+import stat
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -723,3 +722,112 @@ def plot_erp_image(d, labels=None, fig=None):
 
     if fig == None:
         plt.tight_layout()
+
+def plot_psd(d, freq_range=(2, 60), fig=None, **kwargs):
+    '''
+    Plot the power spectral density (PSD), calculated using Welch' method, of
+    all channels.
+
+    In addition to the keyword arguments accepted by this function, any
+    keyword arguments to the matplotlib.mlab.psd function can also be specified
+    and will be passed along. 
+
+    Parameters
+    ----------
+    d : :class:`psychic.DataSet`
+        The dataset to plot the PSD of
+    freq_range : pair of floats (default: (2, 60))
+        The minimum and maximum frequency to plot in Hz
+    fig : handle to matplotlib figure (default: None)
+        If specified, the plot will be drawn in this figure.
+
+    Returns
+    -------
+    fig : handle to matplotlib figure
+        The resulting figure
+
+    See also
+    --------
+    :func:`psychic.plot_erp_psd`
+    :func:`matplotlib.mlab.psd`
+    
+    '''
+    assert d.data.ndim == 2, 'Expecting continuous EEG data'
+
+    if fig == None:
+        fig = plt.figure(figsize=(8,5))
+
+    Fs = psychic.get_samplerate(d)
+    NFFT = d.ninstances
+
+    # Ensure even NFFT
+    if NFFT % 2 != 0:
+        NFFT += 1
+
+    for channel in range(d.nfeatures):
+        psd, freqs = mlab.psd(d.data[channel,:], NFFT=NFFT, Fs=Fs, *kwargs)
+        plt.plot(freqs, psd)
+
+    plt.xlim(freq_range[0], freq_range[1])
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Power (Db)')
+    plt.legend(d.feat_lab[0])
+    plt.title('Power spectral density')
+
+    return fig
+
+def plot_erp_psd(d, freq_range=(2, 60), fig=None, **kwargs):
+    '''
+    Plot the power spectral density (PSD), calculated using Welch' method, of
+    all channels, averaged over all trials. This means for each trial, the PSD
+    is computed and the resulting PSDs are averaged.
+
+    In addition to the keyword arguments accepted by this function, any
+    keyword arguments to the matplotlib.mlab.psd function can also be specified
+    and will be passed along. 
+
+    Parameters
+    ----------
+    d : :class:`psychic.DataSet`
+        The dataset to plot the PSD of
+    freq_range : pair of floats (default: (2, 60))
+        The minimum and maximum frequency to plot in Hz
+    fig : handle to matplotlib figure (default: None)
+        If specified, the plot will be drawn in this figure.
+
+    Returns
+    -------
+    fig : handle to matplotlib figure
+        The resulting figure
+
+    See also
+    --------
+    :func:`psychic.plot_psd`
+    :func:`matplotlib.mlab.psd`
+    '''
+    assert d.data.ndim == 3, 'Expecting EEG data cut in trials'
+
+    if fig == None:
+        fig = plt.figure(figsize=(8,5))
+
+    Fs = psychic.get_samplerate(d)
+    NFFT = d.data.shape[1]
+
+    # Ensure even NFFT
+    if NFFT % 2 != 0:
+        NFFT += 1
+
+    for channel in range(d.data.shape[0]):
+        all_psd = []
+        for trial in d:
+            psd, freqs = mlab.psd(trial.data[channel,:,0], NFFT=NFFT, Fs=Fs, *kwargs)
+            all_psd.append(psd)
+        plt.plot(freqs, np.mean(np.array(all_psd), axis=0))
+
+    plt.xlim(freq_range[0], freq_range[1])
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Power (Db)')
+    plt.legend(d.feat_lab[0])
+    plt.title('Power spectral density, averaged over trials')
+
+    return fig

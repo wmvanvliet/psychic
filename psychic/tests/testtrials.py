@@ -6,7 +6,7 @@ from .. import trials
 class TestSlice(unittest.TestCase):
     def setUp(self):
         data = np.arange(40).reshape(2, -1)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
         labels[0, [0, 2, 16]] = 1
         labels[0, [4, 12, 19]] = 2
         ids = np.r_[np.atleast_2d(np.arange(20)), np.ones((1,20), int)]
@@ -15,7 +15,7 @@ class TestSlice(unittest.TestCase):
 
     def test_windows(self):
         data = np.random.rand(5, 20)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
         labels[0, [2, 16]] = 1
         labels[0, [4, 12]] = 2
 
@@ -29,7 +29,7 @@ class TestSlice(unittest.TestCase):
 
     def test_labels(self):
         data = np.random.rand(5, 20)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
         labels[0, [2, 16]] = 1
         labels[0, [4, 12]] = 2
         labels[0, [8]] = 3
@@ -43,7 +43,7 @@ class TestSlice(unittest.TestCase):
 
     def test_few_trials(self):
         data = np.random.rand(5, 20)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
 
         mdict = {1:'b', 2:'a'}
     
@@ -64,7 +64,7 @@ class TestSlice(unittest.TestCase):
 
     def test_bounds(self):
         data = np.random.rand(5, 20)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
         labels[0, [3, 20-3]] = 1
         labels[0, [4, 20-4]] = 2
         logging.getLogger('psychic.trials.slice').setLevel(logging.ERROR)
@@ -75,7 +75,7 @@ class TestSlice(unittest.TestCase):
 
     def test_feat_labs(self):
         data = np.random.rand(2, 20)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
         labels[0, 10] = 1
         ids = np.arange(20) / 10.
         d = DataSet(data, labels, ids, feat_lab=[['a', 'b']])
@@ -86,7 +86,7 @@ class TestSlice(unittest.TestCase):
 
     def test_nd_ids(self):
         data = np.random.rand(2, 20)
-        labels = np.zeros((1, 20))
+        labels = np.zeros((1, 20), dtype=np.int)
         labels[0, [10, 12]] = 1
         ids = np.r_[np.atleast_2d(np.arange(20)), np.ones((1, 20))]
         ds = trials.slice(DataSet(data, labels, ids=ids), {1:'hit'}, [-2, 2])
