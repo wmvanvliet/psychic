@@ -413,11 +413,12 @@ class TestDataSet(unittest.TestCase):
         self.assertRaises(ValueError, d.append, d)
 
     def test_concatenate(self):
+        '''Test concatenating multiple DataSets.'''
+
         d = self.d
         d2 = DataSet(ids=1 + np.arange(d.ninstances)/10., default=d)
         d3 = DataSet(ids=2 + np.arange(d.ninstances)/10., default=d)
 
-        '''Test concatenating multiple DataSets.'''
         self.assertEqual(concatenate([d]), d)
         self.assertEqual(concatenate([d, d2, d3]), d+d2+d3)
         self.assertEqual(concatenate([d,d,d], ignore_index=True).ninstances,
@@ -429,6 +430,9 @@ class TestDataSet(unittest.TestCase):
 
         self.assertRaises(ValueError, concatenate, [d,'foo'])
         self.assertRaises(ValueError, concatenate, [d,DataSet([0])])
+
+        # Datasets with integer labels
+        
 
     def test_indexing(self):
         '''Test the indexing of DataSet.'''
