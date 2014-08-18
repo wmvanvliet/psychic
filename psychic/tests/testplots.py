@@ -30,6 +30,10 @@ class TestPlots(unittest.TestCase):
       
     plt.savefig(os.path.join('out', 'topo.eps'))
 
+    sensors = ('Fp1 Fp2 F7 Fz F8 T7 C3 Cz C4 T8 P7 Pz P8 O1 Oz O2').split()
+    activity = np.random.randn(len(sensors)) * 1e-3
+    plots.plot_scalp(activity, sensors, POS_10_5)
+
   def test_scalpgrid(self):
     plt.clf()
     sensors = ('Fp1 Fp2 AF3 AF4 F7 F3 Fz F4 F8 FC5 FC1 FC2 FC6 T7 C3 Cz C4 T8' +

@@ -136,7 +136,8 @@ class Blowup(BaseNode):
         ids=np.arange(data.shape[1])
 
         self.reverse_idx = np.hstack(reverse_idxs).reshape(num_repetitions, -1)
-        return golem.DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab, default=d)
+        return golem.DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab,
+                default=d)
 
 class RejectTrials(BaseNode):
     """
@@ -162,7 +163,8 @@ class RejectTrials(BaseNode):
             'When specifying the cutoff in terms of standard deviations, training of the node is mandatory.'
 
         d, self.reject_mask = reject_trials(d, self.cutoff, self.range)
-        self.log.info('Rejected %d trials' % len(np.flatnonzero(np.logical_not(self.reject_mask))))
+        self.log.info('Rejected %d trials' %
+                len(np.flatnonzero(np.logical_not(self.reject_mask))))
         return d
 
 class Baseline(BaseNode):
