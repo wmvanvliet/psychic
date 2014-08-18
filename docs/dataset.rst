@@ -6,7 +6,7 @@ is a flexible container for EEG data that supports easy mangling, chopping,
 twisting and pounding of the data, while always enforcing proper meta-data,
 such as channel names and time stamps. 
 
-The following code loads an example EEG recording will produce a
+The following code loads an example EEG recording will, produce a
 :class:`psychic.DataSet` object and prints it to display some summary information
 about it:
 
@@ -49,7 +49,7 @@ about trials and slicing data.
 
 >>> event_codes = {1:'related', 2:'unrelated'}
 >>> time_range = (-0.7, 1.0)
->>> trials = psychic.nodes.Slice(event_codes, time_range).train_apply(cont_eeg, cont_eeg)
+>>> trials = psychic.nodes.Slice(event_codes, time_range).train_apply(cont_eeg)
 >>> print trials
 DataSet with 208 instances, 17400 features [40x435], 2 classes: [104, 104], extras: []
 
@@ -94,7 +94,7 @@ True
 True
 
 `labels``
-+++++
++++++++++
 
 Instances are assigned to one or more classes. This mapping is stored in the
 `labels`` property of the dataset. Theoretically,  `labels`` is a matrix [classes x
@@ -123,7 +123,7 @@ class, or to none:
 >>>labels = [[True,  True,  True, False, False, False],
 ...      [False, True,  True, True,  False, False],
 ...      [False, False, True, True,  True,  False]]
->>> print psychic.DataSet(data=data,labelslabels)
+>>> print psychic.DataSet(labels, labels)
 DataSet with 6 instances, 4 features [4], 3 classes: [3, 3, 3], extras: []
 
 Each instance is belongs a little to each class (fuzzy assignment)
@@ -138,7 +138,7 @@ sum to one). For example, to assign 6 instances to 2 classes:
 
 >>>labels = [[0.5, 0.5, 0.8, 0.9, 0.1, 0.2],
 ...      [0.2, 0.3, 0.6, 0.7, 0.3, 0.5]]
->>> print psychic.DataSet(data=data,labelslabels)
+>>> print psychic.DataSet(data, labels)
 DataSet with 6 instances, 4 features [4], 2 classes: [4, 2], extras: []
 
 .. _informative:

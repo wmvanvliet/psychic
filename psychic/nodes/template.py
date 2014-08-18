@@ -193,6 +193,5 @@ def fit_erp(A, p0, channel_lab):
         return labels.ravel()
 
     coeff, var_matrix = curve_fit(generate_erp, data, A.ravel(), p0=p0)
-    print coeff
 
     return generate_erp(data, *coeff)
