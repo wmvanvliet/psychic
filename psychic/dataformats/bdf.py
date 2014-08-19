@@ -305,7 +305,7 @@ class BDFWriter:
     Examples
     --------
 
-    >>> d = psychic.DataSet.load('some_data.dat') #doctest: +IGNORE
+    >>> d = psychic.DataSet.load('some_data.dat')
     >>> d2 = psychic.DataSet.load('some_more_data.dat')
     >>> bdf = BDFWriter('test.bdf', dataset=d)
     >>> bdf.write_header()
