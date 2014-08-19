@@ -1,7 +1,7 @@
 import numpy as np
 from basenode import BaseNode
 from ..dataset import DataSet
-from .. import helpers 
+from ..helpers import to_one_of_n
 
 def _apply_sklearn(n, d, last_node=False):
     if n.__module__.startswith('sklearn'):
@@ -18,7 +18,7 @@ def _apply_sklearn(n, d, last_node=False):
             if p.dtype == np.float:
                 X = p
             else:
-                X = helpers.to_one_of_n(p.T, range(d.nclasses)).T
+                X = to_one_of_n(p.T, range(d.nclasses)).T
         elif last_node and hasattr(n, 'transform'):
             print 'transform'
             X = n.transform(d.X)
@@ -58,7 +58,7 @@ class Chain(BaseNode):
                     if p.dtype == np.float:
                         X = p
                     else:
-                        X = helpers.to_one_of_n(p.T, range(d.nclasses)).T
+                        X = to_one_of_n(p.T, range(d.nclasses)).T
                 d = DataSet(data=X.T, default=d)
             else:
                 d = n.train(d).apply(d)

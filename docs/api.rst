@@ -227,6 +227,12 @@ Plotting
 
     plot_eeg
     plot_erp
+    plot_erp_image
+    plot_erp_psd
+    plot_erp_specgrams
+    plot_psd
+    plot_scalpgrid
+    plot_specgrams
 
 Cross-validation
 ++++++++++++++++
