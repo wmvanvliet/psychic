@@ -19,7 +19,9 @@ Contents:
    trials 
    artifacts
    plots
+   interfacing
    api
+
 
 Indices and tables
 ==================

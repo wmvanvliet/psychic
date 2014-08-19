@@ -126,7 +126,7 @@ class TemplateFilter(BaseNode):
 
 class GaussTemplateFilter(TemplateFilter):
     '''
-    Variation on the :class:`psychic.nodes.TemplateFilter`: that fits a
+    Variation on the :class:`psychic.nodes.TemplateFilter` that fits a
     gaussion to the given template during the training phase.
     '''
     def train_(self, d):

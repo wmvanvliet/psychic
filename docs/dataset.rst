@@ -151,7 +151,7 @@ Also, classes can straightforwardly exists with no instances assigned to them:
 
 >>> d = psychic.DataSet([1,2,3,4,5], labels=[[True, True, False, False, False],
 ...                                          [False, False, True, True, True],
-...                                          [False, False, False, False, False])
+...                                          [False, False, False, False, False]])
 >>> print d
 DataSet with 5 instances, 1 features [1], 3 classes: [2, 3, 0], extras: []
 

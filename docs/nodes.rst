@@ -1,8 +1,10 @@
 Nodes
 =====
 
-Most of the functionality in Psychic is provided in the form of 'Nodes'. A node is a class
-which has two main methods:
+Most of the functionality in Psychic is provided in the form of 'Nodes'. 
+See :ref:`the API documentation on nodes <api-nodes>` for an overview of the multitude of nodes available in Psychic.
+
+A node is a class which has two main methods:
 
 .. function:: Node.train(d)
 
@@ -86,3 +88,4 @@ Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
 ... ])
 >>> print psychic.perf.accuracy(pipeline.train_apply(ssvep_data))
 1.0
+

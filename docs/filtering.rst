@@ -107,6 +107,12 @@ would look like this::
     array([[0.25, 0.25, 0.25, 0.25 0,    0,    0,    0   ],
            [0,    0,    0,    0,   0.25, 0.25, 0.25, 0.25]])
 
+To create a new spatial filter, the :class:`psychic.nodes.SpatialFilter` can be used.
+
+>>> filter = psychic.nodes.SpatialFilter(W)
+>>> d = psychic.DataSet(np.random.randn(8, 100))
+>>> filter.apply(d)
+DataSet with 2 instances, 100 features [2x100], 1 classes: [100], extras: []
 
 
 

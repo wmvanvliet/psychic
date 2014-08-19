@@ -13,7 +13,7 @@ from expinfo import Experiment, ExperimentInfo, add_expinfo
 import nodes
 import dataformats
 from dataformats.edf import load_edf
-from dataformats.bdf import load_bdf, save_bdf
+from dataformats.bdf import BDFReader, BDFWriter, load_bdf, save_bdf
 from trials import erp, baseline, ttest, random_groups, reject_trials, slice, concatenate_trials, trial_specgram, align
 import fake
 from dataset import DataSet, concatenate, as_instances

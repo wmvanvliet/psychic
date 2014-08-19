@@ -30,10 +30,10 @@ def trial_cov0(d):
 def cov_cov0(d):
   return np.mean(d.data, axis=2)
 
-class BaseSpatialFilter(BaseNode):
+class SpatialFilter(BaseNode):
   '''
-  Handles the application of a spatial filter matrix W to different types
-  of datasets.
+  Handles the application of a linear spatial filter matrix W to different
+  types of datasets.
   
   This is getting more complicated. So, this class does NOT:
   - Center the data. You are responsible to center the data, for example by
@@ -43,14 +43,47 @@ class BaseSpatialFilter(BaseNode):
   - Provide some convenience functions to get a covariance *approximation* (see
     cov0) for formats (plain recording, trials, covs).
   - Apply the spatial filter to different formats.
+
+  Parameters
+  ----------
+  W : 2D array (channels x filters)
+    The linear spatial filter. Each column contains a filter, each row assigns
+    a weight to each channel.
+
+  ftype : PLAIN/TRIAL/COV (default: None)
+    When specified, this node will either expect plain continuous EEG data,
+    data cut in trials, or covariance matrices. Is not specified, this is
+    inferred from the data.
+
+  preserve_feat_lab : bool (default: False)
+    When set, the feature labels of the original dataset will be copied to the
+    resulting dataset. Usually, spatial filtering transforms EEG channels in
+    components and new feature labels are required, but sometimes this is not
+    the case (for example CAR filtering.)
   '''
-  def __init__(self, ftype, preserve_feat_lab=False):
+  def __init__(self, W, ftype=None, preserve_feat_lab=False):
     BaseNode.__init__(self)
-    self.W = None
+    self.W = W
     self.ftype = ftype
     self.preserve_feat_lab = preserve_feat_lab
 
+  def inter_ftype(self, d):
+    '''
+    Infer the desired filter type (PLAIN/TRIAL/COV) from a given
+    :class:`psychic.DataSet`.
+    '''
+    if d.data.ndim == 2:
+      return PLAIN
+    elif d.data.ndim == 3:
+      if d.data.shape[0] == d.data.shape[1]:
+        return COV
+      else:
+        return TRIAL
+
   def get_nchannels(self, d):
+    '''
+    Get the number of channels in the :class:`psychic.DataSet`.
+    '''
     if self.ftype == PLAIN:
       return d.nfeatures
     if self.ftype == TRIAL:
@@ -59,6 +92,9 @@ class BaseSpatialFilter(BaseNode):
       return d.feat_shape[1]
 
   def get_cov(self, d):
+    '''
+    Get an estimation of the channel covariance matrix of the data.
+    '''
     if self.ftype == PLAIN:
       return plain_cov0(d)
     if self.ftype == TRIAL:
@@ -67,6 +103,9 @@ class BaseSpatialFilter(BaseNode):
       return cov_cov0(d)
 
   def sfilter(self, d):
+    '''
+    Apply the spatial filter to the data.
+    '''
     if self.ftype == PLAIN:
       return sfilter_plain(d, self.W, self.preserve_feat_lab)
     if self.ftype == TRIAL:
@@ -75,6 +114,8 @@ class BaseSpatialFilter(BaseNode):
       return sfilter_cov(d, self.W, self.preserve_feat_lab)
 
   def apply_(self, d):
+    if self.ftype == None:
+        self.ftype == self.infer_ftype(d)
     return self.sfilter(d)
 
 def sfilter_plain(d, W, preserve_feat_lab=False):
@@ -120,56 +161,87 @@ def sfilter_cov(d, W, preserve_feat_lab=False):
 
   return DataSet(data=data, feat_lab=feat_lab, default=d)
 
-class CAR(BaseSpatialFilter):
-  def __init__(self, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
+class CAR(SpatialFilter):
+  def __init__(self, ftype=None):
+    SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
 
   def train_(self, d):
     self.W = car(self.get_nchannels(d))
 
-class Whiten(BaseSpatialFilter):
-  def __init__(self, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
+class Whiten(SpatialFilter):
+  def __init__(self, ftype=None):
+    SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
 
   def train_(self, d):
     self.W = whitening(self.get_cov(d))
 
-class Whitening(Whiten):
-  def __init__(self, ftype=TRIAL):
-    raise DeprecationWarning('Please use Whiten instead')
-    Whiten.__init__(self, ftype=TRIAL, preserve_feat_lab=True)
-
-class SymWhitening(BaseSpatialFilter):
-  def __init__(self, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
+class SymWhitening(SpatialFilter):
+  def __init__(self, ftype=None):
+    SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
 
   def train_(self, d):
     self.W = sym_whitening(self.get_cov(d))
 
-class CSP(BaseSpatialFilter):
-  def __init__(self, m, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype)
+class CSP(SpatialFilter):
+  '''
+  Common Spatial Patterns[1] is a linear spatial filter to simultaneously
+  maximizes the variance of one class while minimizing the variance of a second
+  class. This produces an effective filter to distinguish between the two
+  classes.
+
+  Parameters
+  ----------
+  m : int
+    The number of components to retain.
+
+  classes : pair of ints (default: (0,1))
+    The classes to separate. Can either be integer indices or string labels.
+
+  References
+  ----------
+
+  [1] B. Blankertz, G. Dornhege, M. Krauledat, K.-R. Müller, and G. Curio, “The
+  non-invasive Berlin Brain-Computer Interface: fast acquisition of effective
+  performance in untrained subjects.,” Neuroimage, vol. 37, no. 2, pp. 539–550,
+  2007.
+  '''
+  def __init__(self, m, classes=(0,1)):
+    SpatialFilter.__init__(self, None, ftype=TRIAL)
     self.m = m
+    assert len(classes) == 2
+    self.classes = classes
 
   def train_(self, d):
-    assert d.nclasses == 2
-    sigma_a = self.get_cov(d.get_class(0))
-    sigma_b = self.get_cov(d.get_class(1))
+    assert d.data.ndim == 3, 'Expected epoched data'
+    sigma_a = self.get_cov(d.get_class(self.classes(0)))
+    sigma_b = self.get_cov(d.get_class(self.classes(1)))
     self.W = csp(sigma_a, sigma_b, self.m)
 
-class SPoC(BaseSpatialFilter):
+class SPoC(SpatialFilter):
   '''
-  Dähne, S., Meinecke, F. C., Haufe, S., Höhne, J., Tangermann, M., Müller,
+  SPoC[1] filter.
+
+  Parameters
+  ----------
+  m : int
+    The number of components to retain.
+
+  classes : pair of ints (default: (0,1))
+    The classes to separate. Can either be integer indices or string labels.
+
+  References
+  ----------
+
+  [1] Dähne, S., Meinecke, F. C., Haufe, S., Höhne, J., Tangermann, M., Müller,
   K.-R., & Nikulin, V. V. (2014). SPoC: a novel framework for relating the
   amplitude of neuronal oscillations to behaviorally relevant parameters.
   NeuroImage, 86, 111–22. doi:10.1016/j.neuroimage.2013.07.079
   '''
-  def __init__(self, m, ftype=TRIAL):
-    BaseSpatialFilter.__init__(self, ftype)
+  def __init__(self, m):
+    SpatialFilter.__init__(self, None, ftype=TRIAL)
     self.m = m
 
   def train_(self, d):
-    assert d.nclasses == 2, 'Expected two classes'
     assert d.data.ndim == 3, 'Expected epoched data'
     covs = [cov0(t) for t in np.rollaxis(d.data, -1)]
     mean_cov = np.mean(covs)
@@ -178,9 +250,9 @@ class SPoC(BaseSpatialFilter):
     [lambdas, W] = np.linalg.eig(weighted_cov, mean_cov);
     W = W[:, np.argsort(lambdas)[::-1][outer_n(self.m)]].T
 
-class Deflate(BaseSpatialFilter):
-  def __init__(self, noise_selector, ftype=PLAIN):
-    BaseSpatialFilter.__init__(self, ftype)
+class Deflate(SpatialFilter):
+  def __init__(self, noise_selector, ftype=None):
+    SpatialFilter.__init__(self, None, ftype)
     self.noise_selector = np.asarray(noise_selector, bool)
 
   def train_(self, d):
@@ -191,11 +263,11 @@ class Deflate(BaseSpatialFilter):
     if self.ftype == PLAIN and d.feat_lab != None:
       feat_lab = [d.feat_lab[i] for i in range(d.nfeatures) if not 
         self.noise_selector[i]]
-    return DataSet(feat_lab=feat_lab, default=BaseSpatialFilter.apply_(self, d))
+    return DataSet(feat_lab=feat_lab, default=SpatialFilter.apply_(self, d))
 
-class SpatialBlur(BaseSpatialFilter):
-  def __init__(self, sigma, ftype=PLAIN):
-    BaseSpatialFilter.__init__(self, ftype, preserve_feat_lab=True)
+class SpatialBlur(SpatialFilter):
+  def __init__(self, sigma, ftype=None):
+    SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
     self.sigma = sigma
 
   def train_(self, d):

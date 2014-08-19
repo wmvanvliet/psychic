@@ -20,7 +20,7 @@ class EEGMontage(BaseNode):
     considered 'bad' and should not be used. Multiple reference types
     can be specified.
 
-    EEG montages can be saved to and loaded from a file.
+    TODO: option to load montage from file
 
     Channels can be specified either as a string name, or an integer index.
 

@@ -2,8 +2,8 @@
 
 import numpy as np
 import scipy.linalg
-from golem import DataSet
-from golem.nodes import BaseNode
+from ..dataset import DataSet
+from . import BaseNode
 import itertools
 
 def create_sin_cos_matrix(freqs, nharmonics, sample_rate, nsamples):
