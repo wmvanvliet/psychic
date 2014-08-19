@@ -4,7 +4,7 @@ import numpy as np
 import scipy
 from numpy import linalg as la
 from ..dataset import DataSet
-from golem.nodes import BaseNode
+from basenode import BaseNode
 from ..positions import POS_10_5
 
 # TODO: change to trials of [channels x time] to conform to standard math

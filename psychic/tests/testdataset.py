@@ -150,13 +150,13 @@ class TestDataSet(unittest.TestCase):
         labels = to_one_of_n(self.labels.flat)
         d = DataSet(labels=labels, default=self.d)
         self.assertEqual(d.y.ndim, 1)
-        self.assertEqual(d.y.dtype, np.int)
+        self.assertEqual(d.y.dtype, np.int64)
         np.testing.assert_equal(d.y, self.labels.flat - np.min(self.labels))
 
         labels = np.random.rand(5, 10)
         d = DataSet(labels=labels, default=self.d)
         self.assertEqual(d.y.ndim, 1)
-        self.assertEqual(d.y.dtype, np.int)
+        self.assertEqual(d.y.dtype, np.int64)
         np.testing.assert_equal(d.y, np.argmax(labels, axis=0))
 
     def test_ninstances(self):

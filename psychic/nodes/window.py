@@ -1,6 +1,6 @@
 import numpy as np
 from ..dataset import DataSet
-from golem.nodes import BaseNode
+from basenode import BaseNode
 from psychic.utils import get_samplerate
 
 class SlidingWindow(BaseNode):
