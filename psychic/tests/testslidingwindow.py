@@ -1,16 +1,16 @@
 import unittest, operator
 import numpy as np
-import golem
 from ..utils import sliding_window
 from ..nodes import SlidingWindow, OnlineSlidingWindow
 from ..dataset import DataSet
+from ..helpers import to_one_of_n
 from scipy import signal
 
 class TestWindowNode(unittest.TestCase):
   def setUp(self):
     data = np.arange(300).reshape(-1, 3).T
     labels = np.linspace(0, 3, 100, endpoint=False).astype(int)
-    self.d = DataSet(data=data, labels=golem.helpers.to_one_of_n(labels))
+    self.d = DataSet(data=data, labels=to_one_of_n(labels))
 
   def test_sw(self):
     d = self.d

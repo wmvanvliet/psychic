@@ -1,6 +1,6 @@
-from golem.nodes import BaseNode
+from basenode import BaseNode
+from ..dataset import DataSet
 import psychic
-import golem
 import numpy as np
 from itertools import product
 from scipy.optimize import curve_fit
@@ -74,7 +74,7 @@ class TemplateFilter(BaseNode):
             template = erp.data[:,:,self.classes]
         else:
             template = erp.data[:,:,self.classes[0]] - erp.data[:,:,self.classes[1]]
-        self.template = golem.DataSet(
+        self.template = DataSet(
             data = template,
             ids = [erp.feat_lab[1]],
             feat_lab=[erp.feat_lab[0]],
@@ -95,7 +95,7 @@ class TemplateFilter(BaseNode):
         data[:,:self.time_idx[0]] = 0
         data[:,self.time_idx[1]:] = 0
         feat_lab=['temp']
-        self.temp_template = golem.DataSet(data=data, feat_lab=feat_lab, default=self.temp_template)
+        self.temp_template = DataSet(data=data, feat_lab=feat_lab, default=self.temp_template)
 
     def apply_(self, d):
         nsamples = min(d.data.shape[1], self.template.data.shape[1])
@@ -122,7 +122,7 @@ class TemplateFilter(BaseNode):
         y -= np.mean(y)
         data = np.c_[-y, y].T
         feat_lab = None
-        return golem.DataSet(data=data, feat_lab=feat_lab, default=d)
+        return DataSet(data=data, feat_lab=feat_lab, default=d)
 
 class GaussTemplateFilter(TemplateFilter):
     '''
@@ -132,7 +132,7 @@ class GaussTemplateFilter(TemplateFilter):
     def train_(self, d):
         erp = psychic.erp(d)
         diff = erp.data[:,:,0] - erp.data[:,:,1]
-        self.template = golem.DataSet(
+        self.template = DataSet(
             data = diff,
             ids = [erp.feat_lab[1]],
             feat_lab=erp.feat_lab[0]
@@ -143,7 +143,7 @@ class GaussTemplateFilter(TemplateFilter):
 
         fit = fit_erp(diff, p0, d.feat_lab[0])
         data = fit.reshape(d.data.shape[0], -1)
-        self.template = golem.DataSet(data=data, default=self.template)
+        self.template = DataSet(data=data, default=self.template)
 
         peak = np.argmax(np.abs(np.sum(self.template.data, axis=0)))
         self.spatial_template = self.template.data[:, [peak]]

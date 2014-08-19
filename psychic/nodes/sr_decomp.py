@@ -1,5 +1,6 @@
-import golem, numpy as np
-from golem.nodes import BaseNode
+import numpy as np
+from basenode import BaseNode
+from ..dataset import DataSet
 from numpy.fft import fft, ifft
 
 class SRDecomp(BaseNode):
@@ -57,7 +58,7 @@ class SRDecomp(BaseNode):
                     (E[:,i]*self.Y_bar[j,:] - self.E_bar*labels[j,:,i]) / D[:,i], # Formula 10 in paper
                     axis=0))
 
-        return golem.DataSet(data=sc, default=d)
+        return DataSet(data=sc, default=d)
 
 def sr_decomp(s, rt):
     '''

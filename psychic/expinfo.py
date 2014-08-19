@@ -1,6 +1,6 @@
 import operator
-from golem import DataSet
-from golem.nodes import BaseNode
+from dataset import DataSet
+from nodes import BaseNode
 import numpy as np
 
 class ExperimentInfo:
@@ -58,9 +58,9 @@ def add_expinfo(exp_info, d):
   Add experiment info to a DataSet d, and perform some sanity checks, i.e.
   checking of matching channel names.
   '''
-  if not set(exp_info.all_channels).issubset(d.feat_lab):
+  if not set(exp_info.all_channels).issubset(d.feat_lab[0]):
     raise ValueError('%s is not in record info.' %
-      list(set(exp_info.all_channels).difference(d.feat_lab)))
+      list(set(exp_info.all_channels).difference(d.feat_lab[0])))
 
   extra = {'exp_info' : exp_info}
   extra.update(d.extra)
