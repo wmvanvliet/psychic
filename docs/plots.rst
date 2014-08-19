@@ -49,7 +49,6 @@ the time axis start at zero, the ``start`` parameter can be supplied, which
 marks which time to take as t=0:
 
 >>> fig = psychic.plot_eeg(d.lix[:, 2:4], vspace=5, start=2)
-<matplotlib.figure.Figure object at ...>
 
 .. figure::  images/plot_eeg_zoom_start.png
    :align:   center
