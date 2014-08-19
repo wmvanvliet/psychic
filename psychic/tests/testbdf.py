@@ -29,15 +29,15 @@ class TestBDFReader(unittest.TestCase):
 
   def test_read_all(self):
     b = self.bdf
-    eeg = b.read_all()
+    eeg = b.read_all().data
 
     # check size
     self.assertEqual(eeg.shape[1], 
-      b.bdf.header['n_records'] * max(b.bdf.header['n_samples_per_record']))
-    self.assertEqual(eeg.shape[0], 17)
+      b.header['n_records'] * max(b.header['n_samples_per_record']))
+    self.assertEqual(eeg.shape[0], 16)
 
     # check frequency peak at 2.6Hz (not 3Hz as mentioned on biosemi.nl!)
-    eeg_fft = 2 * np.abs(np.fft.rfft(eeg[:-1, :], axis=1)) / eeg.shape[1]
+    eeg_fft = 2 * np.abs(np.fft.rfft(eeg, axis=1)) / eeg.shape[1]
     freqs = np.fft.fftfreq(eeg.shape[1], 1./256)
     peak_freq = freqs[eeg_fft[:,1:].argmax(axis=1)]
     np.testing.assert_almost_equal(peak_freq, np.ones(16) * 2.61, 2)
@@ -46,7 +46,7 @@ class TestBDFWriter(unittest.TestCase):
   def setUp(self):
     self.d = load_bdf(psychic.find_data_path('sine-256Hz.bdf'))
     r = BDFReader(open(psychic.find_data_path('sine-256Hz.bdf'), 'rb'))
-    self.header = r.bdf.header
+    self.header = r.header
     r.close()
 
     w = BDFWriter(psychic.find_data_path('sine-256Hz-test.bdf'),
@@ -75,7 +75,7 @@ class TestBDF(unittest.TestCase):
     # test labels
     targets = [['A%d' % (i + 1) for i in range(16)]]
     self.assertEqual(d.feat_lab, targets)
-    self.assertEqual(d.cl_lab, ['class0', 'class1'])
+    self.assertEqual(d.cl_lab, ['class254', 'class255'])
 
     # test ids ~ time
     self.assertAlmostEqual(d.ids[0, 256 + 1], 1, 2)

@@ -74,6 +74,6 @@ Psychic at a glance
 Dive in
 -------
 
-Follow along with the `main documentation <index.html>`_ that will take you through all the
+Follow along with the :doc:`index` that will take you through all the
 major features of Psychic. Hack away with the `BCI tutorials <https://sites.google.com/site/wmvanvliet/tutorials/eeg-signal-analysis>`_.
-For the fine details of every class and function, see the `API reference <reference.html>`_.
+For the fine details of every class and function, see the :doc:`api`.

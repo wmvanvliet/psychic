@@ -72,7 +72,7 @@ class TestCrossValidation(unittest.TestCase):
 
             def apply(self, d): 
                 data = np.asarray([self.mem.get(i, [0, 0, 0]) for i in d.ids.flat])
-                return DataSet(data, default=d)
+                return DataSet(data.T, default=d)
 
         a = perf.mean_std(perf.accuracy,
             cv.cross_validate(cv.strat_splits(self.d, 4), MemNode()))
@@ -84,7 +84,7 @@ class TestCrossValidation(unittest.TestCase):
         tds = list(cv.rep_cv(d, c))
         self.assertEqual(len(tds), 50)
         self.assertAlmostEqual(perf.mean_std(perf.accuracy, tds)[0], .5)
-        fold_ids = np.array([td.ids.flat for td in tds])
+        fold_ids = np.array([td.ids.flatten() for td in tds])
         self.failIf(
             (np.var(fold_ids.reshape(-1, d.ninstances), axis=0) == 0).any(),
             'The folds are all the same!')

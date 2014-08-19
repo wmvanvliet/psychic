@@ -7,10 +7,9 @@ def to_one_of_n(labels, class_rows=None):
     Note that the rows correspond to the classes in *sorted* order.
 
     >>> to_one_of_n([0, 0, 0, 2, 0, 1])
-    array([[ True,    True,    True,    False,    True,    False],
-                 [ False,    False,    False,    False,    False,    True],
-                 [ False,    False,    False,    True,    False,    False]])
-
+    array([[ True,  True,  True, False,  True, False],
+           [False, False, False, False, False,  True],
+           [False, False, False,  True, False, False]], dtype=bool)
     '''
     a = np.asarray(labels, int)
     if a.ndim != 1:
@@ -51,3 +50,4 @@ def write_latex_table(rows, fname):
         f.write(' & '.join(map(str, r)) + '\\\\\n')
     f.write('\\end{tabular}\n')
     f.close()
+

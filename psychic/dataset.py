@@ -26,7 +26,7 @@ class DataSet(object):
            each column corresponds to an instance. A value of True means the
            an instance belongs to a certain class. Instances can belong to
            multiple classes at the same time.
-        3. As a 3D boolean array, where each row corresponds to a class and
+        3. As a 2D boolean array, where each row corresponds to a class and
            each column corresponds to an instance. Each value is a score,
            describing how much a certain instance belongs to a certain class,
            for example a probability score. In summary views of the data, each
@@ -69,17 +69,54 @@ class DataSet(object):
 
     Attributes
     ----------
-    data
-    labels
-    ids
-    X
-    y
-    feat_shape
-    prior
-    ninstances
-    ninstances_per_class
-    nfeatures
-    nclasses
+    data : nd array (minimal 2D)
+        Instances with features. Features can be multi-dimensional. For
+        example, in the case of EEG, instances can be epochs, consisting of
+        time samples for each channel.
+    labels : 2D array
+        The true class labels (or values) for the instances. There are three
+        ways of specifying labels:
+
+        1. As a flat list assigning an integer value to each instance.
+        2. As a 2D boolean array, where each row corresponds to a class and
+           each column corresponds to an instance. A value of True means the
+           an instance belongs to a certain class. Instances can belong to
+           multiple classes at the same time.
+        3. As a 3D boolean array, where each row corresponds to a class and
+           each column corresponds to an instance. Each value is a score,
+           describing how much a certain instance belongs to a certain class,
+           for example a probability score. In summary views of the data, each
+           instance will be assigned to the class with the highest score.
+
+        For example, if for a certain sample the labels are [False, True,
+        False] this means this sample belongs to the second class. The names of
+        the classes are stored in ``cl_lab``.
+
+        When omitted, each instance will be assigned to the same class.
+    ids : 2D array
+        A unique identifier per instance. If not provided, it will generate a
+        unique integer id from 0 to the number of samples. In the case of EEG,
+        this can contain the time stamps of the samples.
+    X : 2D array
+        A flattened version of `data`. This is a 2D array (features x
+        instances) suitable for scikit-learn. 
+    y : 1D array
+        A flat version of `labels`. This is a list of integer class labels,
+        assigning each instance to a class.  This is suitable for scikit-learn.
+    nfeatures : int
+        The number of features defined in this DataSet.
+    feat_shape : tuple of ints
+        The shape of the features defined in this DataSet.
+    ninstances : int
+        The number of instances defined in the DataSet.
+    ninstances_per_class : list of ints
+        A list containing for each class, the number of instances belonging to
+        said class.
+    prior : list of floats
+        A list containing for each class, the fraction of instances
+        belonging to said class.
+    nclasses : int
+        The number of classes defined in the DataSet.
     cl_lab : list
         A list of string descriptors for each class.
     feat_lab : list of lists
@@ -121,61 +158,22 @@ class DataSet(object):
     """
     @property
     def data(self):
-        '''
-        Instances with features. Features can be multi-dimensional. For
-        example, in the case of EEG, instances can be epochs, consisting of
-        time samples for each channel.
-        '''
         return self._data
 
     @property
     def labels(self):
-        '''
-        The true class labels (or values) for the instances. There are three
-        ways of specifying labels:
-
-        1. As a flat list assigning an integer value to each instance.
-        2. As a 2D boolean array, where each row corresponds to a class and
-           each column corresponds to an instance. A value of True means the
-           an instance belongs to a certain class. Instances can belong to
-           multiple classes at the same time.
-        3. As a 3D boolean array, where each row corresponds to a class and
-           each column corresponds to an instance. Each value is a score,
-           describing how much a certain instance belongs to a certain class,
-           for example a probability score. In summary views of the data, each
-           instance will be assigned to the class with the highest score.
-
-        For example, if for a certain sample the labels are [False, True,
-        False] this means this sample belongs to the second class. The names of
-        the classes are stored in ``cl_lab``.
-
-        When omitted, each instance will be assigned to the same class.
-        '''
         return self._labels
 
     @property
     def ids(self):
-        '''
-        A unique identifier per instance. If not provided, it will generate a
-        unique integer id from 0 to the number of samples. In the case of EEG,
-        this can contain the time stamps of the samples.
-        '''
         return self._ids
 
     @property
     def X(self):
-        '''
-        A flattened version of `data`. This is a 2D array (features x
-        instances) suitable for scikit-learn. 
-        '''
         return self._data.reshape(-1, self.ninstances).T
 
     @property
     def y(self):
-        '''
-        A flat version of `labels`. This is a list of integer class labels,
-        assigning each instance to a class.  This is suitable for scikit-learn.
-        '''
         if self._labels.shape[0] > 1:
             return np.argmax(self._labels, axis=0)
         else:
@@ -252,9 +250,9 @@ class DataSet(object):
                 self.cl_lab = default.cl_lab
             else:
                 if self.labels.dtype == np.int and self.labels.shape[0] == 1:
-                    self.cl_lab = ['class %d' % i for i in self.possible_labels]
+                    self.cl_lab = ['class%d' % i for i in self.possible_labels]
                 else:
-                    self.cl_lab = ['class %d' % i for i in range(self.nclasses)]
+                    self.cl_lab = ['class%d' % i for i in range(self.nclasses)]
         else:
             self.cl_lab = cl_lab
 
@@ -351,7 +349,7 @@ class DataSet(object):
                 if v1.dtype != np.int or v1.shape[0] != 1 or not merge_possible_labels:
                     if self.nclasses != other.nclasses:
                         raise ValueError('Cannot add DataSets: number of classes is different.')
-                    if v1.cl_lab != v2.cl_lab:
+                    if self.cl_lab != other.cl_lab:
                         raise ValueError('Cannot add DataSets: cl_lab is different.')
 
 
@@ -492,15 +490,7 @@ class DataSet(object):
         if b.data.size == 0:
             return a
 
-        # Check for compatibility
-        a.check_compatibility(b)
-
-        return DataSet(
-            data=np.concatenate([a.data, b.data], axis=a.data.ndim-1),
-            labels=np.hstack([a.labels, b.labels]),
-            ids=np.hstack([a.ids, b.ids]),
-            default=a
-        )
+        return concatenate([a, b])
 
     def __eq__(a, b):
         '''
@@ -526,9 +516,6 @@ class DataSet(object):
         
     @property
     def nclasses(self):
-        '''
-        The number of classes defined in the DataSet.
-        '''
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             return len(self.possible_labels)
         else:
@@ -536,17 +523,10 @@ class DataSet(object):
                 
     @property
     def ninstances(self):
-        '''
-        The number of instances defined in the DataSet.
-        '''
         return self.data.shape[-1]
         
     @property
     def ninstances_per_class(self):
-        '''
-        A list containing for each class, the number of instances belonging to
-        said class.
-        '''
         if self.labels.shape[0] == 1 and self.labels.dtype == np.int:
             return [len(np.flatnonzero(self.labels[0,:] == l)) for l in self.possible_labels]
         elif self.labels.dtype == np.bool:
@@ -556,24 +536,14 @@ class DataSet(object):
 
     @property
     def prior(self):
-        '''
-        A list containing for each class, the fraction of instances
-        belonging to said class.
-        '''
         return np.asarray(self.ninstances_per_class) / float(self.ninstances)
 
     @property
     def feat_shape(self):
-        '''
-        The shape of the features defined in this DataSet.
-        '''
         return self.data.shape[:-1]
 
     @property
     def nfeatures(self):
-        '''
-        The number of features defined in this DataSet.
-        '''
         return reduce(operator.mul, self.feat_shape)
 
     def save(self, file):
@@ -612,19 +582,24 @@ class DataSet(object):
         For example:
         >>> # Create dataset containing 2 trials of (channels x time) data
         >>> data = [
-        >>>     [[1,2,3], [4,5,6]],
-        >>>     [[7,8,9], [10,11,12]],
-        >>> ]
+        ...     [[1,2,3], [4,5,6]],
+        ...     [[7,8,9], [10,11,12]],
+        ... ]
         >>> d = DataSet(data, [0,0,0], feat_dim_lab=['channels', 'time'])
+        >>> print d
+        DataSet with 3 instances, 4 features [2x2], 1 classes: [3], extras: []
         
         >>> # Select only the first channel
         >>> d.ix[0,:,:]
+        DataSet with 3 instances, 2 features [2], 1 classes: [3], extras: []
         
         >>> # Select only the first two samples
-        >>> d.ix[:,:1,:]
+        >>> d.ix[:,:2,:]
+        DataSet with 3 instances, 4 features [2x2], 1 classes: [3], extras: []
         
         >>> # Select only the last instance
         >>> d.ix[:,:,-1]
+        DataSet with 1 instances, 4 features [2x2], 1 classes: [1], extras: []
         '''
         return _DataSetIndexer(self)
 
@@ -639,22 +614,27 @@ class DataSet(object):
         For example:
         >>> # Create dataset containing 2 trials of (channels x time) data
         >>> data = [
-        >>>     [[1,2,3], [4,5,6]],
-        >>>     [[7,8,9], [10,11,12]],
-        >>> ]
+        ...     [[1,2,3], [4,5,6], [7,8,9]],
+        ...     [[10,11,12], [13,14,15], [16,17,18]],
+        ... ]
         >>> feat_lab = [['Fz', 'Cz'], [0.1, 0.2, 0.3]]
-        >>> ids = [[0.5, 1.5]]
+        >>> ids = [[0.5, 1.5, 2.5]]
         >>> d = DataSet(data, [0,0,0], ids, feat_lab=feat_lab)
-        
+        >>> print d
+        DataSet with 3 instances, 6 features [2x3], 1 classes: [3], extras: []
+
         >>> # Select only the 'Fz' channel
         >>> d.lix['Fz',:,:]
-        
+        DataSet with 3 instances, 3 features [3], 1 classes: [3], extras: []
+
         >>> # Select the time range 0.1 -- 0.25, note that this contains two
         >>> # samples: 0.1 and 0.2
         >>> d.lix[:,:0.25,:]
+        DataSet with 3 instances, 4 features [2x2], 1 classes: [3], extras: []
         
         >>> # Select instance corresponding to 1.5 seconds
         >>> d.lix[:,:,1.5]
+        DataSet with 1 instances, 6 features [2x3], 1 classes: [1], extras: []
         '''
         return _DataSetLabeledIndexer(self)
 

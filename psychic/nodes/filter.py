@@ -6,6 +6,66 @@ from psychic.utils import get_samplerate
 from psychic.markers import resample_markers
 from scipy.interpolate import interp1d
 
+class Filter(BaseNode):
+  '''
+  Forward-backward filtering node. 
+  
+  Parameters
+  ----------
+  filt_design_func : function
+    A function that takes the sample rate as an argument, and returns the
+    filter coefficients (b, a).
+
+  axis : int (default 1)
+    The axis along which to apply the filter. This should correspond to the
+    axis that contains the EEG samples. Defaults to 1.
+  '''
+  def __init__(self, filt_design_func, axis=1):
+    BaseNode.__init__(self)
+    self.filt_design_func = filt_design_func
+    self.axis = axis
+
+  def train_(self, d):
+    fs = get_samplerate(d)
+
+    self.log.info('Detected sample rate of %d Hz' % fs)
+    self.filter = self.filt_design_func(fs)
+
+  def apply_(self, d):
+    b, a = self.filter
+    data = signal.filtfilt(b, a, d.data, axis=self.axis)
+    return DataSet(data=data, default=d)
+
+class OnlineFilter(Filter):
+  '''
+  Forward filtering node suitable for on-line filtering. 
+  
+  Parameters
+  ----------
+  filt_design_func : function
+    A function that takes the sample rate as an argument, and returns the
+    filter coefficients (b, a).
+  '''
+  def __init__(self, filt_design_func):
+    Filter.__init__(self, filt_design_func)
+    self.zi = []
+
+  def apply_(self, d):
+    b, a = self.filter
+    if self.zi == []:
+      self.zi = [signal.lfiltic(b, a, np.zeros(b.size)) for fi in 
+        range(d.nfeatures)]
+
+    data, new_zi = signal.lfilter(b, a, d.data, zi=self.zi, axis=self.axis)
+    #new_zi = []
+    #data = []
+    #for i in range(d.nfeatures):
+    #  xi, zii = signal.lfilter(b, a, d.data[i, :], zi=self.zi[i])
+    #  data.append(xi[np.newaxis, :])
+    #  new_zi.append(zii)
+    self.zi = new_zi
+
+    return DataSet(data=data, default=d)
 
 class Butterworth(Filter):
     '''

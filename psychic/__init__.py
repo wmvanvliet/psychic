@@ -1,5 +1,5 @@
 '''
-Psychic is copyright (c) 2011 by Boris Reuderink
+Psychic is copyright (c) 2014 by Boris Reuderink and Marijn van Vliet
 '''
 import positions
 from utils import sliding_window_indices, sliding_window, stft, spectrogram,\

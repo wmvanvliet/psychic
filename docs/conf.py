@@ -30,7 +30,7 @@ except:
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['gen_rst', 'sphinx.ext.doctest',
               'sphinx.ext.autodoc', 'sphinx.ext.autosummary',
-              'sphinx.ext.pngmath', 'sphinx.ext.mathjax', 'numpy_ext.numpydoc'
+              'sphinx.ext.pngmath', 'sphinx.ext.mathjax', 'sphinxcontrib.napoleon', #'numpy_ext.numpydoc'
               ]
 
 autosummary_generate = True
@@ -51,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Psychic'
-copyright = u'2013, Boris Reuderink and Marijn van Vliet'
+copyright = u'2014, Boris Reuderink and Marijn van Vliet'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

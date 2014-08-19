@@ -13,10 +13,10 @@ BDF files
 
 Both functions will return a :class:`golem.DataSet` with the following fields:
 
- - ``d.X`` the [channels x samples] EEG data
- - ``d.Y`` the status channel
- - ``d.feat_lab`` the channel names
- - ``d.I`` timestamps for each sample
+ - ``data`` - the [channels x samples] EEG data
+ - ``labels`` - the status channel
+ - ``feat_lab`` - the channel names
+ - ``ids`` - timestamps for each sample
 
 Referencing
 +++++++++++
@@ -50,7 +50,7 @@ Another useful reference scheme is the Common Average Reference (CAR). Here,
 the reference signal is the average of all EEG electrodes:
 
 >>> # Speficy all EEG channels (the recording also contains EOG, which
->>> # we don't want to used as reference)
+>>> # we don't want to use as reference)
 >>> montage = psychic.nodes.EEGMontage(eeg=range(32))
 >>> d_referenced = montage.train_apply(d)
 >>> print d_referenced

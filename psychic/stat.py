@@ -209,7 +209,6 @@ def bonferroni_holm(ps):
     '''
     n = len(ps)
     ps, original_order = _sort(ps)
-    print ps
     adj_ps = np.asarray(ps) * (n - np.arange(n))
     return np.clip(adj_ps[original_order], 0, 1)
 

@@ -205,7 +205,6 @@ class TestMutualInformation(unittest.TestCase):
 
     def test_zero(self):
         self.assert_(np.isnan(mut_inf(np.zeros((5, 3)))))
-        self.assert_(np.isnan(mut_inf(np.zeros((5, 3)))))
 
     def test_no_modification(self):
         conf = np.ones((4, 3))

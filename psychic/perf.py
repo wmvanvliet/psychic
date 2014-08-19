@@ -9,10 +9,11 @@ def class_loss(d):
     The resulting array contains 1 for instance incorrectly classified,
     0 otherwise:
 
+    >>> from psychic import *
     >>> d = DataSet(data=helpers.to_one_of_n([0, 0, 0, 1, 1, 2]), 
-    ...                         labels=helpers.to_one_of_n([0, 0, 1, 0, 1, 2]))
+    ...             labels=helpers.to_one_of_n([0, 0, 1, 0, 1, 2]))
     >>> class_loss(d)
-    array([ 0.,    0.,    1.,    1.,    0.,    0.])
+    array([ 0.,  0.,  1.,  1.,  0.,  0.])
     '''
     assert d.nfeatures == d.nclasses
 

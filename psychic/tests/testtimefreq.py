@@ -12,7 +12,7 @@ class TestTFC(unittest.TestCase):
   def setUp(self):
     data = np.array([np.sin(i * 4 * 60 * np.linspace(0, np.pi * 2, 60 * FS)) 
       for i in range(16)])
-    labels = np.zeros(data.shape[1])
+    labels = np.zeros(data.shape[1], dtype=np.int)
     labels[[1000, 2000, 3000, 4000]] = 1
     ids = np.arange(data.shape[1]) / FS
 

@@ -13,7 +13,7 @@ Classes and functions concerning data sets
 
 .. autosummary::
     :toctree: generated/
-    :template: node.rst
+    :template: class.rst
 
     DataSet
 
@@ -22,6 +22,7 @@ Classes and functions concerning data sets
     :template: function.rst
 
     concatenate
+    as_instances
 
 Nodes
 -----

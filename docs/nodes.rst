@@ -6,18 +6,27 @@ which has two main methods:
 
 .. function:: Node.train(d)
 
-    The term 'train' comes from the machine-learning literature as Golem/Psychic is foremost
+    The term 'train' comes from the machine-learning literature as Psychic is foremost
     envisioned as a framework for brain-computer interfacing, of which machine-learning is an
     integral part.
 
-    This function examines the data *d*, which is supplied as a :class:`golem.DataSet`. It
+    This function examines the data *d*, which is supplied as a :class:`psychic.DataSet`. It
     stores any parameters it needs internally. This function returns the trained node. Not all
     nodes require training, but most do.
 
 .. function:: Node.apply(d)
 
     Performs the functionality of node on the data *d*, which is supplied as a
-    :class:`golem.DataSet`. Returns the resulting data.
+    :class:`psychic.DataSet`. Returns the resulting data.
+
+And a convenience method:
+
+.. function:: Node.train_apply(train, test)
+
+    Convenience function that calls both the ``train`` and the ``apply``
+    methods in sequence. If the ``test`` argument is omitted, both training and
+    application of the node is performed on the data specified in the ``train``
+    argument.
 
 For example, to create a node that downsamples the signal to 100 Hz:
 
@@ -57,25 +66,23 @@ Chaining nodes
 --------------
 
 To quickly apply multiple operations on the data, nodes can be chained, using
-the special :class:`golem.nodes.Chain` node. A chain of nodes behaves like a
+the special :class:`psychic.nodes.Chain` node. A chain of nodes behaves like a
 single node that performs the intermediate steps in sequence.
 
 For example, to first band-pass filter the signal and then downsample:
 
->>> import golem
->>>
 >>> filter = psychic.nodes.Butterworth(4, [0.5, 30])
 >>> downsample = psychic.nodes.Resample(100.0)
->>> chain = golem.nodes.Chain([filter, downsample])
+>>> chain = psychic.nodes.Chain([filter, downsample])
 >>> filtered_downsampled = chain.train_apply(eeg)
 
 Chains can contain an entire BCI pipeline, for example a SSVEP classifier:
 
->>> ssvep_data = golem.DataSet.load(psychic.find_data_path('ssvep-cluedo.dat'))
->>> pipeline = golem.nodes.Chain([
+>>> ssvep_data = psychic.DataSet.load(psychic.find_data_path('ssvep-cluedo.dat'))
+>>> pipeline = psychic.nodes.Chain([
 ...     psychic.nodes.Butterworth(2, [1, 30]),
 ...     psychic.nodes.SlidingWindow(win_size=20, win_step=20),
 ...     psychic.nodes.CanonCorr(sample_rate=128, frequencies=[60/7.,  60/6., 60/5., 60/4.])
 ... ])
->>> print golem.perf.accuracy(pipeline.train_apply(ssvep_data))
+>>> print psychic.perf.accuracy(pipeline.train_apply(ssvep_data))
 1.0

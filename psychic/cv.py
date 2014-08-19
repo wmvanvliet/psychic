@@ -40,6 +40,8 @@ def cross_validate(subsets, node):
         pred = inode.apply(te_stripped)
 
         # reattach labels
+        print pred
+        print te
         pred = DataSet(labels=te.labels, default=pred)
 
         del inode, tr, te
