@@ -1,5 +1,5 @@
 import numpy as np
-from golem.nodes import BaseNode
+from basenode import BaseNode
 from ..dataset import DataSet
 from spatialfilter import sym_whitening, cov0
 from ..utils import get_samplerate

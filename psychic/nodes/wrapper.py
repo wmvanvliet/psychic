@@ -1,9 +1,9 @@
 import numpy as np
-import golem
+from ..dataset import DataSet
 from ..utils import get_samplerate
 from ..trials import slice
 from ..filtering import decimate_rec
-from golem.nodes import BaseNode
+from basenode import BaseNode
 from ..markers import markers_to_events
 from collections import deque
 
@@ -67,7 +67,7 @@ class OnlineSlice(Slice):
   def apply_(self, d):
     # Initialize datasset
     feat_shape = (d.nfeatures, self.offsets_samples[1]-self.offsets_samples[0])
-    slices = golem.DataSet(
+    slices = DataSet(
       data=np.empty(( feat_shape[0]*feat_shape[1],0 )),
       labels=np.empty(( len(self.cl_lab),0 )),
       ids=np.empty(( 1,0 )),
@@ -98,7 +98,7 @@ class OnlineSlice(Slice):
       labels = np.zeros(( len(self.cl_lab), 1 ))
       labels[self.cl_lab.index(self.mdict[code]), 0] = 1
       ids = np.atleast_2d(d.ids[:,onset+self.offsets_samples[1]-1])
-      s = golem.DataSet(data=data, labels=labels, ids=ids, default=slices)
+      s = DataSet(data=data, labels=labels, ids=ids, default=slices)
       slices += s
 
     if len(events) == 0:

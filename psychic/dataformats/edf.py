@@ -4,7 +4,7 @@
 
 import re, datetime, operator, logging
 import numpy as np
-from golem import DataSet
+from ..dataset import DataSet
 
 class EDFEndOfData: pass
 

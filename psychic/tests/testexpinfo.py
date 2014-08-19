@@ -38,10 +38,10 @@ class TestExpInfo(unittest.TestCase):
       set('C3 Cz C4 L R T B Ex1 Ex2 Ma1 Ma2'.split()))
 
   def test_add_expinfo(self):
-    d_bad = DataSet(X=np.random.rand(5, 20), Y=np.ones((1, 20)),
+    d_bad = DataSet(np.random.rand(5, 20), np.ones((1, 20)),
       feat_lab=['chann%d' % i for i in range(5)])
     
-    d_good = DataSet(X=np.random.rand(11, 20), Y=np.ones((1, 20)),
+    d_good = DataSet(np.random.rand(11, 20), np.ones((1, 20)),
       feat_lab=self.expinfo.all_channels)
 
     d = add_expinfo(self.expinfo, d_good)
