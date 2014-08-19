@@ -14,7 +14,7 @@ import matplotlib.transforms as transforms
 import math
 import trials
 import golem
-import stats
+import stat
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
