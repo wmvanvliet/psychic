@@ -19,7 +19,7 @@ vertical lines.
 
     This function plots **all** data that it is given. Don't try to plot an
     hour long EEG recording in it's entirety. Use the ``.lix`` property of
-    :class:`golem.DataSet` to select a piece of data first.
+    :class:`psychic.DataSet` to select a piece of data first.
 
 For example:
 
@@ -72,8 +72,7 @@ desired manner.
 Basic usage:
 
 >>> import psychic
->>> import golem
->>> trials = golem.DataSet.load(psychic.find_data_path('priming-trials.dat'))
+>>> trials = psychic.DataSet.load(psychic.find_data_path('priming-trials.dat'))
 >>> trials = psychic.nodes.Baseline((-0.2, 0)).train_apply(trials, trials)
 >>> fig = psychic.plot_erp(trials.lix[['Fz', 'Cz', 'Pz'], :, :]);
 

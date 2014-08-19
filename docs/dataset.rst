@@ -33,7 +33,7 @@ above created a DataSet with 5 instances, where each instance has a single featu
 We can get at the data by using the ``data`` property:
 
 >>> print d.data
-[[1,2,3,4,5]]
+[[1 2 3 4 5]]
 
 Note that although we specified a 1D array in the constructor, the ``data`` property
 of a DataSet always has at least two dimensions: features x instances.
@@ -110,7 +110,7 @@ is assigned to one of them. We can now query the DataSet about classes:
 The DataSet knows how many classes there are by keeping a ``possible_labels`` property:
 
 >>> print d.possible_labels
-[1, 2]
+[1 2]
 
 The following code produces a DataSet with 3 classes, although none of the instances
 belong to the second class (maybe this is a subset of the complete data):
@@ -164,7 +164,7 @@ algorithm will assign each instance to the class with the highest score:
 
 >>> d = psychic.DataSet([1,2,3,4,5], labels=[[1.0, 0.7, 0.1, 0.2, 0.0],
 ...                                          [0.0, 0.1, 0.5, 0.7, 0.1],
-...                                          [0.0, 0.2, 0.4, 0.1, 0.9])
+...                                          [0.0, 0.2, 0.4, 0.1, 0.9]])
 >>> print d
 DataSet with 5 instances, 1 features [1], 3 classes: [2, 2, 1], extras: []
 
@@ -185,9 +185,9 @@ and are compatible, are transferred to the new one.
 >>> d2 = psychic.DataSet([[1,2,3,4,5],
 ...                       [6,7,8,9,10]], default=d)
 >>> print d2.ids
-[[0.1, 0.2, 0.3, 0.4, 0.5]]
+[[ 0.1  0.2  0.3  0.4  0.5]]
 >>> print d2.feat_lab
-[['feat0', 'feat1']]
+[[0, 1]]
 
 In the example above, the ``ids`` property was compatible and was transferred,
 but the ``feat_lab`` property was incompatible, so instead some default feature
@@ -215,16 +215,16 @@ To select the first EEG sample from a continuous recording:
 >>> # Load recording from BDF file
 >>> cont_eeg = psychic.load_bdf(psychic.find_data_path('priming-short.bdf'))
 >>> print cont_eeg
-DataSet with 149504 instances, 40 features [40], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 40 features [40], 3 classes: [148792, 355, 357], extras: []
 
 >>> # Select first sample
 >>> print cont_eeg[0]
-DataSet with 1 instances, 40 features [40], 1 classes: [1], extras: []
+DataSet with 1 instances, 40 features [40], 3 classes: [1, 0, 0], extras: []
 
 This dataset was recorded with a sample rate of 256 Hz. So to select the first second of data:
 
 >>> print cont_eeg[:256]
-DataSet with 256 instances, 40 features [40], 1 classes: [256], extras: []
+DataSet with 256 instances, 40 features [40], 3 classes: [256, 0, 0], extras: []
 >>> print 'The last time stamp:', cont_eeg[:256].ids[0,-1]
 The last time stamp: 0.99609375
 
@@ -236,26 +236,27 @@ magically follow suit:
 
 >>> # The first two channels and all instances:
 >>> print cont_eeg.ix[:2, :]
-DataSet with 149504 instances, 2 features [2], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 2 features [2], 3 classes: [148792, 355, 357], extras: []
 >>> # The first two channels and the first second of data:
 >>> print cont_eeg.ix[:2, :256]
-DataSet with 256 instances, 2 features [2], 1 classes: [256], extras: []
+DataSet with 256 instances, 2 features [2], 3 classes: [256, 0, 0], extras: []
 >>> # The 3rd, 4th and 20th channel, all instances (remember, indexing starts at 0):
 >>> print cont_eeg.ix[[2,3,19], :]
-DataSet with 149504 instances, 3 features [3], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 3 features [3], 3 classes: [148792, 355, 357], extras: []
 
 This also works when ``data`` has more than two dimensions. For example using the
 ``trials`` dataset:
 
+>>> trials = psychic.DataSet.load(psychic.find_data_path('priming-trials.dat'))
 >>> # The first two channels:
 >>> print trials.ix[:2, :, :]
-DataSet with 208 instances, 870 features [2x435], 2 classes: [104, 104], extras: []
+DataSet with 800 instances, 1382 features [2x691], 2 classes: [400, 400], extras: []
 >>> # The first two channels and the first 10 trials:
 >>> print trials.ix[:2, :, :10]
-DataSet with 10 instances, 870 features [2x435], 2 classes: [4, 6], extras: []
+DataSet with 10 instances, 1382 features [2x691], 2 classes: [1, 9], extras: []
 >>> # The last 100 samples:
 >>> print trials.ix[:, -100:, :]
-DataSet with 208 instances, 4000 features [40x100], 2 classes: [104, 104], extras: []
+DataSet with 800 instances, 3500 features [35x100], 2 classes: [400, 400], extras: []
 
 Manually converting between samples and time and looking up indices of channels can
 quickly become cumbersome. To make life easier, the dataset object also provides
@@ -264,38 +265,39 @@ performs a lookup using the ``feat_lab``, ``feat_nd_lab`` and ``I`` properties:
 
 >>> # Select channels 'Cz' and 'Pz', all instances:
 >>> print cont_eeg.lix[['Cz', 'Pz'], :]
-DataSet with 149504 instances, 2 features [2], 1 classes: [149504], extras: []
+DataSet with 149504 instances, 2 features [2], 3 classes: [148792, 355, 357], extras: []
 >>> # Select the first second of data, all channels:
 >>> print cont_eeg.lix[:, :1]
-DataSet with 256 instances, 40 features [40], 1 classes: [256], extras: []
+DataSet with 256 instances, 40 features [40], 3 classes: [256, 0, 0], extras: []
 >>> # Select time range 4 to 20 seconds for channel 'Cz':
 >>> print cont_eeg.lix['Cz', 4:20]
-DataSet with 4096 instances, 1 features [1], 1 classes: [4096], extras: []
+DataSet with 4096 instances, 1 features [1], 3 classes: [4096, 0, 0], extras: []
 
 And with the ``trials`` dataset:
 
 >>> # Select channels 'Cz' and 'Pz':
 >>> print trials.lix[['Cz', 'Pz'], :, :]
-DataSet with 208 instances, 870 features [2x435], 2 classes: [104, 104], extras: []
+DataSet with 800 instances, 1382 features [2x691], 2 classes: [400, 400], extras: []
 >>> # Select time when first word was displayed: -0.7 to 0 seconds
 >>> print trials.lix[:, -0.7:0, :]
-DataSet with 208 instances, 7160 features [40x179], 2 classes: [104, 104], extras: []
+DataSet with 800 instances, 6265 features [35x179], 2 classes: [400, 400], extras: []
 >>> # Select time when second word was displayed: 0 to 1 seconds
 >>> print trials.lix[:, 0:1, :]
-DataSet with 208 instances, 10240 features [40x256], 2 classes: [104, 104], extras: []
+DataSet with 800 instances, 8960 features [35x256], 2 classes: [400, 400], extras: []
 >>> # Select time range leading up to the event onset (t=0):
 >>> print trials.lix[:, :0, :]
-DataSet with 208 instances, 7160 features [40x179], 2 classes: [104, 104], extras: []
+DataSet with 800 instances, 6265 features [35x179], 2 classes: [400, 400], extras: []
 >>> # Select all trials that were recorded in the first minute:
 >>> print trials.lix[:, :, :60]
-DataSet with 11 instances, 17400 features [40x435], 2 classes: [4, 7], extras: []
+DataSet with 0 instances, 24185 features [35x691], 2 classes: [0, 0], extras: []
 
 The ``ix`` and ``lix`` indexers can be combined, so some dimensions can be indexed
 by ``ix`` and some by ``lix``, which can be very useful:
 
 >>> # Select the first 30 trials, channels 'Cz' and 'Pz':
 >>> print trials.ix[:, :, :30].lix[['Cz', 'Pz'], :, :]
-DataSet with 30 instances, 870 features [2x435], 2 classes: [16, 14], extras: []
+DataSet with 30 instances, 1382 features [2x691], 2 classes: [16, 14], extras: []
+
 
 Loading and saving datasets
 ---------------------------
@@ -304,7 +306,7 @@ A dataset can be loaded with the :func:`psychic.DataSet.load` function and saved
 with the :func:`psychic.DataSet.save` function. Both functions take a single
 argument, which can either be a python file object, or a string filename:
 
->>> d = psychic.DataSet.load(psychic.find_data_path('priming-trials.dat')
+>>> d = psychic.DataSet.load(psychic.find_data_path('priming-trials.dat'))
 >>> d.save('some-filename.dat')
 
 See also :doc:`dataformats` to load from and save to other formats.

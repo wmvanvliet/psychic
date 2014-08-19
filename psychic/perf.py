@@ -12,7 +12,7 @@ def class_loss(d):
     >>> from psychic import *
     >>> d = DataSet(data=helpers.to_one_of_n([0, 0, 0, 1, 1, 2]), 
     ...             labels=helpers.to_one_of_n([0, 0, 1, 0, 1, 2]))
-    >>> class_loss(d)
+    >>> perf.class_loss(d)
     array([ 0.,  0.,  1.,  1.,  0.,  0.])
     '''
     assert d.nfeatures == d.nclasses

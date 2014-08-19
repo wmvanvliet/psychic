@@ -67,7 +67,7 @@ class SpatialFilter(BaseNode):
     self.ftype = ftype
     self.preserve_feat_lab = preserve_feat_lab
 
-  def inter_ftype(self, d):
+  def infer_ftype(self, d):
     '''
     Infer the desired filter type (PLAIN/TRIAL/COV) from a given
     :class:`psychic.DataSet`.
@@ -79,6 +79,8 @@ class SpatialFilter(BaseNode):
         return COV
       else:
         return TRIAL
+    else:
+        raise RuntimeError('Could not infer data type from %s' % d)
 
   def get_nchannels(self, d):
     '''
@@ -115,7 +117,7 @@ class SpatialFilter(BaseNode):
 
   def apply_(self, d):
     if self.ftype == None:
-        self.ftype == self.infer_ftype(d)
+        self.ftype = self.infer_ftype(d)
     return self.sfilter(d)
 
 def sfilter_plain(d, W, preserve_feat_lab=False):
