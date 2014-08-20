@@ -36,37 +36,34 @@ class SLIC(BaseNode) :
     signals with a low periodicity or a periodicity with a different frequency
     will have a low correlation.
 
-    Expected input:
-    instances: trials/windows
-    features: sampels*channels
+    Parameters
+    ----------
+    frequencies : list of floats
+        The possible target frequencies.
+    sample_rate : float (default: None)
+        The sample rate of the data. When omitted, this is inferred during
+        the training step. When specified, no training of the node is
+        required.
 
-    Output:
-    instances: samples (one for each window)
-    features: channels (one frequency per channel)
-
+    References
+    ----------
     [1] Manyakov, Nikolay V, Nikolay Chumerin, Adrien Combaz, Arne Robben, and
     Marc M Van Hulle. 2010.  "Decoding SSVEP Responses Using Time Domain
     Classification." in International Conference on Neural Computation.
     Valentia, Spain.
     '''
-
-    def __init__(self, sample_rate, frequencies):
-        '''
-        Create a new SLIC node.
-
-        Required parameters:
-        sample_rate - The sample rate of the data. Needed, because the
-                      get_samplerate() utility function of psychic only works
-                      before windowing of the data.
-        frequencies - A list of frequencies to test for
-        '''
+    def __init__(self, frequencies, sample_rate=None):
         BaseNode.__init__(self)
         self.sample_rate = sample_rate
         self.frequencies = frequencies
         self.nfrequencies = len(frequencies)
 
     def train_(self, d):
-        pass
+        if d == None:
+            assert self.sample_rate != None, 'Cannot determine sample rate.'
+        else:
+            if self.sample_rate == None:
+                self.sample_rate = psychic.get_samplerate(d)
 
     def apply_(self, d):
         if d.ninstances == 0:
@@ -116,22 +113,38 @@ class SLIC(BaseNode) :
 class SSVEPNoiseReduce(BaseNode):
     '''
     Node that tries to reduce EEG activity that is not informative for SSVEP
-    classification using the method described in:
+    classification using the method described in [1].
 
-    Friman, O., Volosyak, ids., & Gräser, A. (2007). Multiple channel detection
-    of steady-state visual evoked potentials for brain-computer interfaces.
-    IEEE transactions on bio-medical engineering, 54(4), 742–50.
+    This node performs some calculations during the training phase. However,
+    when the ``sample_rate`` and ``nsamples`` parameters are supplied, this
+    node does not need any training data (set it to ``None``). If they are not
+    supplied, these are inferred from the training data. 
+
+    Parameters
+    ----------
+    frequencies : list of floats
+        SSVEP frequencies that should be optimized for.
+    nharmonics : int (default: 2)
+        Number of harmonics of the SSVEP frequencies to optimize for.
+    retain : float between 0 and 1 (default: 0.1)
+        Amount of noise variation to retain.
+    sample_rate : float (default: None)
+        The sample rate of the data. When omitted, this is inferred during
+        the training step. When specified along with ``nsamples``, no training
+        of the node is required.
+    nsamples : int (default: None)
+        Number of samples in each trial. When omitted, this is inferred during
+        the training step. When specified along with ``sample_rate``, no
+        training of the node is required.
+
+    References
+    ----------
+    [1] Friman, O., Volosyak, ids., & Gräser, A. (2007). Multiple channel
+    detection of steady-state visual evoked potentials for brain-computer
+    interfaces.  IEEE transactions on bio-medical engineering, 54(4), 742–50.
     '''
-    def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, nsamples=None):
-        '''
-        parameters:
-            sample_rate - sample rate of the signal
-            frequencies - SSVEP frequencies that should be optimized for
-            nharmonics  - number of harmonics of the SSVEP frequencies to optimize for
-            retain      - amount of noise variation to retain [0 - 1.0]
-            nsamples    - number of samples in the EEG trials, when specified,
-                          training of the node can be done without training data
-        '''
+    def __init__(self, frequencies, nharmonics=2, retain=0.1, sample_rate=None,
+            nsamples=None):
         BaseNode.__init__(self)
         self.sample_rate = sample_rate
         self.frequencies = frequencies
@@ -145,9 +158,13 @@ class SSVEPNoiseReduce(BaseNode):
 
     def train_(self, d):
         if d == None:
+            assert self.sample_rate != None, 'Cannot determine sample rate.'
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            self.nsamples = d.data.shape[1]
+            if self.sample_rate == None:
+                self.sample_rate = psychic.get_samplerate(d)
+            if self.nsamples == None:
+                self.nsamples = d.data.shape[1]
 
         # Construct a list of the SSVEP frequencies plus their harmonics
         freqs_to_remove = [f*h for f,h in itertools.product(self.frequencies, self.harmonics)]
@@ -216,11 +233,40 @@ try:
         '''
         SSVEP classifier based on Minimal Noise Energy Combination (MNEC) [1].
 
+        This node depends on the `Spectrum Analysis Tools
+        <https://pypi.python.org/pypi/spectrum>`_ package.
+
+        This node performs some calculations during the training phase.
+        However, when the ``sample_rate`` and ``nsamples`` parameters are
+        supplied, this node does not need any training data (set it to
+        ``None``). If they are not supplied, these are inferred from the
+        training data. 
+
+        Parameters
+        ----------
+        frequencies : list of floats
+            SSVEP frequencies that should be optimized for.
+        nharmonics : int (default: 2)
+            Number of harmonics of the SSVEP frequencies to optimize for.
+        retain : float between 0 and 1 (default: 0.1)
+            Amount of noise variation to retain.
+        sample_rate : float (default: None)
+            The sample rate of the data. When omitted, this is inferred during
+            the training step. When specified along with ``nsamples``, no
+            training of the node is required.
+        nsamples : int (default: None)
+            Number of samples in each trial. When omitted, this is inferred
+            during the training step. When specified along with
+            ``sample_rate``, no training of the node is required.
+
+        References
+        ----------
         [1] Friman, O., Volosyak, ids., & Gräser, A. (2007). Multiple channel
         detection of steady-state visual evoked potentials for brain-computer
         interfaces. IEEE transactions on bio-medical engineering, 54(4), 742–50.
         '''
-        def __init__(self, sample_rate, frequencies, nharmonics=2, retain=0.1, ar_order=20, weights=None, nsamples=None):
+        def __init__(self, frequencies, nharmonics=2, retain=0.1, ar_order=20,
+                weights=None, sample_rate=None, nsamples=None):
             BaseNode.__init__(self)
             self.sample_rate = sample_rate
             self.frequencies = frequencies
@@ -232,7 +278,7 @@ try:
             self.nsamples = nsamples
             self.weights = weights
 
-            self.noise_filter = SSVEPNoiseReduce(sample_rate, frequencies, nharmonics, retain, nsamples)
+            self.noise_filter = SSVEPNoiseReduce(frequencies, nharmonics, retain, sample_rate, nsamples)
 
         def reset(self):
             self.noise_filter.reset()
@@ -242,7 +288,7 @@ try:
             self.noise_filter.train_(d)
 
             # Prepare some calculations in advance and store them in matrix data
-            time = np.arange(self.noise_filter.nsamples) / float(self.sample_rate)
+            time = np.arange(self.noise_filter.nsamples) / float(self.noise_filter.sample_rate)
             data = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
                          [1, 2, self.nharmonics, self.nfrequencies] )
                 
@@ -314,20 +360,35 @@ class CanonCorr(BaseNode):
     '''
     SSVEP classifier based on Canonical Correlation Analysis (CCA) [1].
 
+    This node performs some calculations during the training phase.
+    However, when the ``sample_rate`` and ``nsamples`` parameters are
+    supplied, this node does not need any training data (set it to
+    ``None``). If they are not supplied, these are inferred from the
+    training data. 
+
+    Parameters
+    ----------
+    frequencies : list of floats
+        SSVEP frequencies that should be optimized for.
+    nharmonics : int (default: 2)
+        Number of harmonics of the SSVEP frequencies to optimize for.
+    sample_rate : float (default: None)
+        The sample rate of the data. When omitted, this is inferred during the
+        training step. When specified along with ``nsamples``, no training of
+        the node is required.
+    nsamples : int (default: None)
+        Number of samples in each trial. When omitted, this is inferred during
+        the training step. When specified along with ``sample_rate``, no
+        training of the node is required.
+
+    References
+    ----------
     [1] Frequency recognition based on canonical correlation analysis for
     SSVEP-based BCIs. Lin, Zhonglin / Zhang, Changshui / Wu, Wei / Gao,
     Xiaorong, IEEE transactions on bio-medical engineering, 53 (12 Pt 2),
     p.2610-2614, Dec 2006
     '''
-    def __init__(self, sample_rate, frequencies, nharmonics=2, nsamples=None):
-        '''
-        parameters:
-            sample_rate - sample rate of the signal
-            frequencies - SSVEP frequencies that should be optimized for
-            nharmonics  - number of harmonics of the SSVEP frequencies to optimize for
-            nsamples    - number of samples in the EEG trials, when specified,
-                          training of the node can be done without training data.
-        '''
+    def __init__(self, frequencies, nharmonics=2, sample_rate=None, nsamples=None):
         BaseNode.__init__(self)
         self.sample_rate = sample_rate
         self.frequencies = frequencies
@@ -340,9 +401,13 @@ class CanonCorr(BaseNode):
 
     def train_(self, d):
         if d == None:
+            assert self.sample_rate != None, 'Cannot determine sample rate.'
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            self.nsamples = d.data.shape[1]
+            if self.sample_rate == None:
+                self.sample_rate = psychic.get_samplerate(d)
+            if self.nsamples == None:
+                self.nsamples = d.data.shape[1]
 
         Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
                 self.sample_rate, self.nsamples)
@@ -394,20 +459,35 @@ class MSI(BaseNode):
     '''
     SSVEP classifier based on Multivariate Synchronization Index (MSI) [1].
 
+    This node performs some calculations during the training phase.
+    However, when the ``sample_rate`` and ``nsamples`` parameters are
+    supplied, this node does not need any training data (set it to
+    ``None``). If they are not supplied, these are inferred from the
+    training data. 
+
+    Parameters
+    ----------
+    frequencies : list of floats
+        SSVEP frequencies that should be optimized for.
+    nharmonics : int (default: 2)
+        Number of harmonics of the SSVEP frequencies to optimize for.
+    sample_rate : float (default: None)
+        The sample rate of the data. When omitted, this is inferred during the
+        training step. When specified along with ``nsamples``, no training of
+        the node is required.
+    nsamples : int (default: None)
+        Number of samples in each trial. When omitted, this is inferred during
+        the training step. When specified along with ``sample_rate``, no
+        training of the node is required.
+
+    References
+    ----------
     [1] Zhang, labels., Xu, P., Cheng, K., & Yao, D. (2013). Multivariate
     Synchronization Index for Frequency Recognition of SSVEP-based
     Brain-computer Interface. Journal of neuroscience methods, 1–9.
     doi:10.1016/j.jneumeth.2013.07.018
     '''
-    def __init__(self, sample_rate, frequencies, nharmonics=2, nsamples=None):
-        '''
-        parameters:
-            sample_rate - sample rate of the signal
-            frequencies - SSVEP frequencies that should be optimized for
-            nharmonics  - number of harmonics of the SSVEP frequencies to optimize for
-            nsamples    - number of samples in the EEG trials, when specified,
-                          training of the node can be done without training data.
-        '''
+    def __init__(self, frequencies, nharmonics=2, sample_rate=None, nsamples=None):
         BaseNode.__init__(self)
         self.sample_rate = sample_rate
         self.frequencies = frequencies
@@ -421,9 +501,13 @@ class MSI(BaseNode):
 
     def train_(self, d):
         if d == None:
+            assert self.sample_rate != None, 'Cannot determine sample rate.'
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            self.nsamples = d.data.shape[1]
+            if self.sample_rate == None:
+                self.sample_rate = psychic.get_samplerate(d)
+            if self.nsamples == None:
+                self.nsamples = d.data.shape[1]
 
         self.Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
             self.sample_rate, self.nsamples)
