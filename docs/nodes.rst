@@ -62,7 +62,7 @@ To do the actual downsampling:
 
 A convenience function `train_apply` exists to do both steps in one command:
 
->>> downsamples = downsample.train_apply(eeg)
+>>> downsampled = downsample.train_apply(eeg)
 
 Chaining nodes
 --------------

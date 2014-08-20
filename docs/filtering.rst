@@ -89,13 +89,13 @@ called linear spatial filters: the ouput is a linear mixture of the available ch
 
 .. math::
     \newcommand{mat}[1]{\mathrm{\bf #1}}
-    \mat{X}' = \mat{W} \cdot \mat{X}
+    \mat{X}' = \mat{W}^\intercal \cdot \mat{X}
 
-Where :math:`\mat{X}` is the [channels x samples] EEG signal and :math:`\mat{X}` is a
-[components x samples] matrix containing the result. Matrix :math:`\mat{W}` contains in each row a
+Where :math:`\mat{X}` is the [channels x samples] EEG signal and :math:`\mat{X}'` is a
+[components x samples] matrix containing the result. Matrix :math:`\mat{W}` contains in each column a
 spatial filter, that combines the original channels into one 'channel' that is
 called a component from now on. The dimensions of :math:`\mat{W}` are therefore
-[#components x #channels].
+(channels x components).
 
 For example, a spatial filter :math:`\mat{W}` that creates two components:
 
@@ -120,3 +120,5 @@ To create a new spatial filter, the :class:`psychic.nodes.SpatialFilter` can be 
 >>> d = psychic.DataSet(np.random.randn(8, 100))
 >>> print filter.apply(d)
 DataSet with 100 instances, 2 features [2], 1 classes: [100], extras: []
+
+Psychic comes with a multitude of spatial filters. See the :ref:`API documentation on spatial filters <api-spat>`.

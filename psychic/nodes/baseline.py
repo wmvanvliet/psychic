@@ -21,10 +21,10 @@ class PriorClassifier(BaseNode):
     import numpy as np
     
     # Generate the data.
-    xs = np.random.rand(100,6) # 100 samples, 6 features
-    ys = np.random.rand(100,2) # 100 samples, 2 classes
-    ys = golem.helpers.hard_max(ys) # hard labels
-    d = golem.DataSet(xs, ys, None)
+    data = np.random.rand(6, 100) # 100 samples, 6 features
+    labels = np.random.rand(2, 100) # 100 samples, 2 classes
+    labels = golem.helpers.hard_max(labels) # hard labels
+    d = golem.DataSet(data, labels)
     trainingset = d[:50] # use first half as training
     testset = d[50:] # second half as test set
     

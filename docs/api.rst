@@ -72,6 +72,8 @@ Time-frequency decomposition
 
     nodes.TFC
 
+.. _api-spat:
+
 Non-learning spatial filters
 ++++++++++++++++++++++++++++
 .. autosummary::
