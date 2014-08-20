@@ -1,6 +1,6 @@
-1 Make plot_timeseries plot channel labels
-1 Unified spatial filtering
-2 Make import psychic clean
-2 Remove crap
-2 Santity check in preprocessing (bad channels, discontinuities, EOG?)
-3 EDF loader
+1 Finish unit tests
+1 Finish documentation
+2 Create interface with MNE
+2 Make HDF5 the default file-format instead of pickled DataSets
+2 EDF writer
+3 Create new plotting framework based on 'Grammer of Graphics'

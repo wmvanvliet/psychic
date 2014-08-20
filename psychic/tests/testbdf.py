@@ -45,16 +45,16 @@ class TestBDFReader(unittest.TestCase):
 class TestBDFWriter(unittest.TestCase):
   def setUp(self):
     self.d = load_bdf(psychic.find_data_path('sine-256Hz.bdf'))
-    r = BDFReader(open(psychic.find_data_path('sine-256Hz.bdf'), 'rb'))
+    r = BDFReader(psychic.find_data_path('sine-256Hz.bdf'))
     self.header = r.header
     r.close()
 
+
+  def test_header(self):
     w = BDFWriter(psychic.find_data_path('sine-256Hz-test.bdf'),
           header=self.header)
     w.write(self.d)
     w.close()
-
-  def test_header(self):
     with open(psychic.find_data_path('sine-256Hz.bdf'), "rb") as f:
       file1 = f.read()
 
@@ -65,8 +65,30 @@ class TestBDFWriter(unittest.TestCase):
     self.assertEqual(file1[:header_length], file2[:header_length])
 
   def test_data(self):
+    w = BDFWriter(psychic.find_data_path('sine-256Hz-test.bdf'),
+          header=self.header)
+    w.write(self.d)
+    w.close()
     d2 = load_bdf(psychic.find_data_path('sine-256Hz-test.bdf'))
     np.testing.assert_allclose(self.d.data, d2.data, atol=0.05)
+
+  def test_header_types(self):
+    # Test using a DataSet for header values
+    w = BDFWriter(psychic.find_data_path('sine-256Hz-test.bdf'),
+          dataset=self.d)
+    w.write(self.d)
+    w.close()
+    r = BDFReader(psychic.find_data_path('sine-256Hz-test.bdf'))
+    np.testing.assert_array_equal(r.header['n_samples_per_record'], 256)
+
+    # Test specifying a sample_rate and num_samples for header values
+    w = BDFWriter(psychic.find_data_path('sine-256Hz-test.bdf'),
+          sample_rate=256, num_channels=self.d.nfeatures)
+    w.write(self.d)
+    w.close()
+    r = BDFReader(psychic.find_data_path('sine-256Hz-test.bdf'))
+    np.testing.assert_array_equal(r.header['n_samples_per_record'], 256)
+
 
 class TestBDF(unittest.TestCase):
   def test_load(self):

@@ -108,7 +108,7 @@ class BDFReader:
         n_channels = h['n_channels']
         n_samp = h['n_samples_per_record']
         assert len(np.unique(n_samp)) == 1, \
-            'Samplerates differ for different channels'
+            'Sample rates differ for different channels'
         n_samp = n_samp[0]
         result = np.zeros((n_channels, n_samp * n), np.float)
 
@@ -285,8 +285,8 @@ class BDFWriter:
     file : string or file handle
         The file name or file handle of the BDF file to open for writing.
 
-    samplerate : float
-        Samplerate of the data. If not specified, this is inferred form the
+    sample_rate : float
+        Sample rate of the data. If not specified, this is inferred form the
         ``header`` and/or ``dataset`` parameter.
 
     num_channels : int
@@ -304,14 +304,15 @@ class BDFWriter:
 
     Examples
     --------
+    Writing some data to a BDF file::
 
-    >>> d = psychic.DataSet.load('some_data.dat')
-    >>> d2 = psychic.DataSet.load('some_more_data.dat')
-    >>> bdf = BDFWriter('test.bdf', dataset=d)
-    >>> bdf.write_header()
-    >>> bdf.write(d)
-    >>> bdf.write(d2)
-    >>> bdf.close()
+      d = psychic.DataSet.load('some_data.dat')
+      d2 = psychic.DataSet.load('some_more_data.dat')
+      bdf = BDFWriter('test.bdf', dataset=d)
+      bdf.write_header()
+      bdf.write(d)
+      bdf.write(d2)
+      bdf.close()
 
     See also
     --------
@@ -320,7 +321,7 @@ class BDFWriter:
     :func:`psychic.save_bdf`
 
     '''
-    def __init__(self, file, samplerate=0, num_channels=0, header={}, dataset=None):
+    def __init__(self, file, sample_rate=0, num_channels=0, header={}, dataset=None):
         try:
             self.f = open(file, 'wb') if isinstance(file, str) else file
         except:
@@ -328,6 +329,7 @@ class BDFWriter:
 
         if dataset != None:
             # Figure out some values from the datafile
+            header = header.copy()
             header['n_channels'] = dataset.nfeatures
 
             if dataset.feat_lab != None:
@@ -363,9 +365,9 @@ class BDFWriter:
         self.digital_min = header['digital_min'] if 'digital_min' in header else [-1000 for x in range(n_channels)]
         self.digital_max = header['digital_max'] if 'digital_max' in header else [1000 for x in range(n_channels)]
         self.prefiltering = header['prefiltering'] if 'prefiltering' in header else ['' for x in range(n_channels)]
-        self.n_samples_per_record = header['n_samples_per_record'] if 'n_samples_per_record' in header else [samplerate for x in range(n_channels)]
-        assert len(np.unique(self.n_samples_per_record)) == 1, 'Samplerates differ for different channels'
-        assert self.n_samples_per_record[0] > 0, 'Number of samples per record cannot be determined. Please specify a samplerate.'
+        self.n_samples_per_record = header['n_samples_per_record'] if 'n_samples_per_record' in header else [sample_rate for x in range(n_channels)]
+        assert len(np.unique(self.n_samples_per_record)) == 1, 'Sample rates differ for different channels'
+        assert self.n_samples_per_record[0] > 0, 'Number of samples per record cannot be determined. Please specify a sample rate.'
         self.reserved = header['reserved'] if 'reserved' in header else ['Reserved' for x in range(n_channels)]
 
         self.records_written = 0
@@ -396,7 +398,7 @@ class BDFWriter:
         self.reserved.append('')
 
     def write_header(self):
-        """ Write the BDF file header, settings things such as the number of channels and samplerate. """
+        """ Write the BDF file header, settings things such as the number of channels and sample rate. """
 
         # Sanity checks on lengths
         assert len(self.label) == self.n_channels+1 

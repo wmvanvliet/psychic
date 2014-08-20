@@ -53,7 +53,7 @@ marks which time to take as t=0:
 .. figure::  images/plot_eeg_zoom_start.png
    :align:   center
 
-   First two seconds of EEG data, how with timestamps starting at 0.
+   First two seconds of EEG data, now with timestamps starting at 0.
 
 Plotting ERPs
 -------------

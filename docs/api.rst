@@ -37,9 +37,7 @@ Base Nodes
     :toctree: generated/
     :template: node.rst
 
-    nodes.basenode.BaseNode
     nodes.Chain
-    nodes.ZScore
     nodes.ApplyOverFeats
     nodes.ApplyOverInstances
 
@@ -74,6 +72,8 @@ Time-frequency decomposition
 
     nodes.TFC
 
+.. _api-spat:
+
 Non-learning spatial filters
 ++++++++++++++++++++++++++++
 .. autosummary::
@@ -82,7 +82,7 @@ Non-learning spatial filters
 
     nodes.SpatialFilter
     nodes.CAR
-    nodes.Whitening
+    nodes.Whiten
     nodes.SymWhitening
     nodes.SlowSphering
     nodes.SpatialBlur
@@ -206,7 +206,7 @@ Utility functions
 
     find_data_path
     get_samplerate
-    to_one_of_n
+    helpers.to_one_of_n
 
 Simulating data
 +++++++++++++++

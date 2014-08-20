@@ -36,10 +36,12 @@ class SpatialFilter(BaseNode):
   types of datasets.
   
   This is getting more complicated. So, this class does NOT:
+
   - Center the data. You are responsible to center the data, for example by
     high-pass filtering or a FeatMap node.
   
   But it does:
+
   - Provide some convenience functions to get a covariance *approximation* (see
     cov0) for formats (plain recording, trials, covs).
   - Apply the spatial filter to different formats.
@@ -52,7 +54,7 @@ class SpatialFilter(BaseNode):
 
   ftype : PLAIN/TRIAL/COV (default: None)
     When specified, this node will either expect plain continuous EEG data,
-    data cut in trials, or covariance matrices. Is not specified, this is
+    data cut in trials, or covariance matrices. If not specified, this is
     inferred from the data.
 
   preserve_feat_lab : bool (default: False)
@@ -164,6 +166,8 @@ def sfilter_cov(d, W, preserve_feat_lab=False):
   return DataSet(data=data, feat_lab=feat_lab, default=d)
 
 class CAR(SpatialFilter):
+  ''' Common average referencing. Calculates the mean across channels and
+  removes it from each channel. '''
   def __init__(self, ftype=None):
     SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
 
@@ -171,6 +175,7 @@ class CAR(SpatialFilter):
     self.W = car(self.get_nchannels(d))
 
 class Whiten(SpatialFilter):
+  ''' Decompose the signal into orthogonal components that are uncorrelated. '''
   def __init__(self, ftype=None):
     SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
 
@@ -178,6 +183,7 @@ class Whiten(SpatialFilter):
     self.W = whitening(self.get_cov(d))
 
 class SymWhitening(SpatialFilter):
+  ''' Symmetric whitening. '''
   def __init__(self, ftype=None):
     SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
 

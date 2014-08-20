@@ -261,7 +261,7 @@ DataSet with 800 instances, 3500 features [35x100], 2 classes: [400, 400], extra
 Manually converting between samples and time and looking up indices of channels can
 quickly become cumbersome. To make life easier, the dataset object also provides
 the ``lix`` indexer. It works in the same manner as the ``ix`` indexer, but first
-performs a lookup using the ``feat_lab``, ``feat_nd_lab`` and ``I`` properties:
+performs a lookup using the ``feat_lab`` and ``ids`` properties:
 
 >>> # Select channels 'Cz' and 'Pz', all instances:
 >>> print cont_eeg.lix[['Cz', 'Pz'], :]
