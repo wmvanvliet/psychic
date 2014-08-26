@@ -66,7 +66,7 @@ class Blowup(BaseNode):
         if d.ninstances == 0:
             return d
 
-        if (not self.enable_during_application) and inspect.stack()[2][3] == 'apply_':
+        if (not self.enable_during_application) and inspect.stack()[3][3] == 'apply_':
             self.log.debug('Not blowing up data in application mode.')
             return d
 
