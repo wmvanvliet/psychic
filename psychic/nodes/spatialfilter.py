@@ -221,8 +221,8 @@ class CSP(SpatialFilter):
 
   def train_(self, d):
     assert d.data.ndim == 3, 'Expected epoched data'
-    sigma_a = self.get_cov(d.get_class(self.classes(0)))
-    sigma_b = self.get_cov(d.get_class(self.classes(1)))
+    sigma_a = self.get_cov(d.get_class(self.classes[0]))
+    sigma_b = self.get_cov(d.get_class(self.classes[1]))
     self.W = csp(sigma_a, sigma_b, self.m)
 
 class SPoC(SpatialFilter):
@@ -279,13 +279,8 @@ class SpatialBlur(SpatialFilter):
     self.sigma = sigma
 
   def train_(self, d):
-    if self.ftype == PLAIN:
-      positions = d.feat_lab
-    elif self.ftype == TRIAL:
-      positions = d.feat_lab[0]
-    else:
-      raise ValueError('Operation not supported on covariance data')
-  
+    positions = d.feat_lab[0]
+    
     # Calculate distances for each electrode pair
     distances = np.array([
       [la.norm(np.array(POS_10_5[pos1]) - np.array(POS_10_5[pos2]))

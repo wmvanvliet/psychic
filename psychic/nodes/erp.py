@@ -1,9 +1,7 @@
 from ..dataset import DataSet
 from . import BaseNode
 import numpy as np
-from ..trials import reject_trials
-from ..trials import baseline
-from ..trials import erp
+from ..trials import reject_trials, baseline, erp, random_groups, ungroup
 import inspect
 
 class Mean(BaseNode):
@@ -16,10 +14,9 @@ class Mean(BaseNode):
     def apply_(self, d):
         if self.n == None:
             self.n = d.data.shape[2]
-        data = np.mean(d.data[:,:,:self.n], axis=self.axis).reshape(-1, d.ninstances)
-        feat_shape = tuple([dim for i,dim in enumerate(d.feat_shape) if i != self.axis])
+        data = np.mean(d.data[:,:,:self.n], axis=self.axis)
         feat_dim_lab = [lab for i,lab in enumerate(d.feat_dim_lab) if i != self.axis]
-        return DataSet(data=data, feat_shape=feat_shape, feat_dim_lab=feat_dim_lab, default=d)
+        return DataSet(data=data, feat_dim_lab=feat_dim_lab, default=d)
 
 class ERP(BaseNode):
     '''
@@ -58,16 +55,18 @@ class ERP(BaseNode):
 class Blowup(BaseNode):
     """ Blow up dataset """
 
-    def __init__(self, num_combinations=1000, enable_during_application=False):
+    def __init__(self, num_combinations=1000, enable_during_application=False,
+            mean=False):
         BaseNode.__init__(self)
         self.num_combinations = num_combinations
         self.enable_during_application = enable_during_application
+        self.mean = mean
 
     def apply_(self, d):
         if d.ninstances == 0:
             return d
 
-        if (not self.enable_during_application) and inspect.stack()[2][3] == 'apply_':
+        if (not self.enable_during_application) and inspect.stack()[3][3] == 'apply_':
             self.log.debug('Not blowing up data in application mode.')
             return d
 
@@ -83,61 +82,11 @@ class Blowup(BaseNode):
         num_combinations = self.num_combinations
         num_repetitions = d.data.shape[2]
 
-        # For each class, generate random combinations
-        xs = []
-        reverse_idxs = []
-        for cl_i in classes:
-            combinations = []
+        d2 = ungroup(d, axis=2)
+        d2, self.reverse_idx = random_groups(d2, num_repetitions,
+                num_combinations, self.mean)
 
-            data = d.get_class(cl_i).data
-
-            if data.shape[3] == 0:
-                # No instances of the class
-                continue
-
-            # Create reverse index for bookkeeping
-            reverse_idx = np.flatnonzero(d.labels[cl_i,:] == 1)
-            reverse_idx *= num_repetitions
-            reverse_idx = reverse_idx.repeat(num_repetitions)
-            reverse_idx += np.tile(np.arange(num_repetitions), data.shape[3])
-
-            # Unfold groups
-            data = data.reshape(data.shape[:-2] + (-1,))
-
-            # We're going to shuffle data along the 3rd axis
-            idx = range(data.shape[2])
-
-            # Use all of the trials as much as possible
-            for i in range( int(num_repetitions*num_combinations/len(idx)) ):
-                np.random.shuffle(idx)
-                combinations.append(data[:,:,idx])
-                reverse_idxs.append(reverse_idx[idx])
-
-            # If num_combinations is not a multitude of len(idx),
-            # append some extra
-            to_go = (num_repetitions*num_combinations) % len(idx)
-            if to_go > 0:    
-                np.random.shuffle(idx)
-                combinations.append(data[:,:,idx[:to_go]])
-                reverse_idxs.append(reverse_idx[idx[:to_go]])
-
-            xs.append( np.concatenate(combinations, axis=2).reshape(d.nfeatures, -1) )
-
-        
-        data = np.hstack(xs)
-
-        # Construct labels
-        labels = np.zeros(( len(classes), len(classes)*num_combinations ))
-        for cl in range(len(classes)):
-            offset = cl*num_combinations
-            labels[cl,offset:offset + num_combinations] = 1
-
-        # Construct ids
-        ids=np.arange(data.shape[1])
-
-        self.reverse_idx = np.hstack(reverse_idxs).reshape(num_repetitions, -1)
-        return DataSet(data=data, labels=labels, ids=ids, cl_lab=cl_lab,
-                default=d)
+        return d2
 
 class RejectTrials(BaseNode):
     """

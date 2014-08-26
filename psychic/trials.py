@@ -217,6 +217,26 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
     else:
         return (concatenate(d_trials, ignore_index=True), np.hstack(idxs))
 
+def ungroup(d, axis=2):
+    '''
+    Un-group along a certain axis.
+    '''
+    assert 0 < axis < d.data.ndim, 'Cannot ungroup along the first or last axis'
+
+    # Re-order axes
+    new_axis_order = range(axis-1) + [axis, axis-1] + range(axis+1, d.data.ndim)
+    data = d.data.transpose(new_axis_order)
+
+    # Re-shape axes to perform ungrouping
+    data = d.data.reshape(d.data.shape[:axis] + (-1,) + d.data.shape[axis+2:])
+
+    # Fix up feature and class labels
+    feat_lab = d.feat_lab[:axis] + d.feat_lab[axis+1:]
+    group_size = d.data.shape[axis]
+    labels = np.tile(d.labels, (1, group_size))
+
+    return DataSet(data=data, labels=labels, feat_lab=feat_lab, default=d)
+
 def reject_trials(d, cutoff=100, time_range=None):
     '''
     Reject trials by thresholding the absolute amplitude. 
@@ -457,3 +477,4 @@ def align(trials, window, offsets):
     trials_aligned = DataSet(data=data, feat_lab=feat_lab, default=trials)
 
     return trials_aligned
+
