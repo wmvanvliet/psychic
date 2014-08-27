@@ -385,12 +385,12 @@ class DataSet(object):
             if isinstance(cl, list) or isinstance(cl, np.ndarray):
                 idx = [self.cl_lab.index(i) if isinstance(i, str) else int(i)
                        for i in cl]
-                assert np.all(idx < self.ninstances)
+                assert np.all(idx < self.nclasses)
             elif isinstance(cl, str):
                 idx = [self.cl_lab.index(cl)]
             else:
                 idx = [int(cl)]
-                assert idx[0] < self.ninstances
+                assert idx[0] < self.nclasses
         except:
             raise ValueError('Invalid class: ' + str(cl))
 

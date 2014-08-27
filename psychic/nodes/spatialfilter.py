@@ -218,8 +218,8 @@ class CSP(SpatialFilter):
 
   def train_(self, d):
     assert d.data.ndim == 3, 'Expected epoched data'
-    sigma_a = self.get_cov(d.get_class(self.classes(0)))
-    sigma_b = self.get_cov(d.get_class(self.classes(1)))
+    sigma_a = self.get_cov(d.get_class(self.classes[0]))
+    sigma_b = self.get_cov(d.get_class(self.classes[1]))
     self.W = csp(sigma_a, sigma_b, self.m)
 
 class SPoC(SpatialFilter):

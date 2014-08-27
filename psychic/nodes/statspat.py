@@ -99,7 +99,7 @@ class SpatialFC(SpatialFilter):
     Fisher's criterion, so it increases the separation between classes while
     minimizing the variance within a class.
     '''
-    def __init__(self, classes=None, nc=1, theta=1.0):
+    def __init__(self, classes=[0,1], nc=1, theta=1.0):
         '''
         Creates an FC beamformer that will generate nc components. A
         regularization parameter theta can be supplied (0..1) to prevent
@@ -118,7 +118,7 @@ class SpatialFC(SpatialFilter):
         if self.classes == None:
             self.classes = range(d.nclasses)
 
-        Xs = [d.get_class(i).data for i in range(self.classes)]
+        Xs = [d.get_class(i).data for i in self.classes]
         self.V, self.W = _calc_beamformer_fc(Xs, self.nc, self.theta)
 
 class SpatialCFMS(SpatialFilter):

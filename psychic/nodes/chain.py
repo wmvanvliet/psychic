@@ -7,20 +7,16 @@ def _apply_sklearn(n, d, last_node=False):
     if n.__module__.startswith('sklearn'):
         # Use the most suitable function
         if not last_node and hasattr(n, 'transform'):
-            print 'transform'
             X = n.transform(d.X)
         elif hasattr(n, 'predict_proba'):
-            print 'predict_proba'
             X = n.predict_proba(d.X)
         elif hasattr(n, 'predict'):
-            print 'predict'
             p = n.predict(d.X)
             if p.dtype == np.float:
                 X = p
             else:
                 X = to_one_of_n(p.T, range(d.nclasses)).T
         elif last_node and hasattr(n, 'transform'):
-            print 'transform'
             X = n.transform(d.X)
         else:
             raise ValueError(
