@@ -1,14 +1,11 @@
 #coding=utf-8
-import itertools
+
 import numpy as np
 import scipy
 from numpy import linalg as la
 from ..dataset import DataSet
 from basenode import BaseNode
 from ..positions import POS_10_5
-
-# TODO: change to trials of [channels x time] to conform to standard math
-# notation, change spatial filters
 
 PLAIN, TRIAL, COV = range(3)
 
@@ -259,32 +256,78 @@ class SPoC(SpatialFilter):
     W = W[:, np.argsort(lambdas)[::-1][outer_n(self.m)]].T
 
 class Deflate(SpatialFilter):
-  def __init__(self, noise_selector, ftype=None):
+  '''
+  Remove cross-correlation between noise channels and the other channels. 
+  Based on [1]. It asumes the following model:
+  
+  data = S + A N 
+
+  Where S are the EEG sources, N are the EOG sources, and A is a mixing matrix,
+  and data is the recorded data. It finds a spatial filter W, such that W data = S.
+
+  Therefore, W Sigma W^T = Sigma_S
+
+
+  Parameters
+  ----------
+  noise : list of mixed int/str
+    The list of channels that contain the noise signal. Channels may be specified
+    with int indices and/or string labels.
+  ftype : PLAIN/TRIAL/COV (default: None)
+    When specified, this node will either expect plain continuous EEG data,
+    data cut in trials, or covariance matrices. If not specified, this is
+    inferred from the data.
+
+  References
+  ----------
+  [1] Schlögl, A., Keinrath, C., Zimmermann, D., Scherer, R., Leeb, R., &
+  Pfurtscheller, G. (2007). A fully automated correction method of EOG
+  artifacts in EEG recordings. Clinical Neurophysiology, 118(1), 98–104.
+  doi:10.1016/j.clinph.2006.09.003
+  '''
+  def __init__(self, noise, ftype=None):
     SpatialFilter.__init__(self, None, ftype)
-    self.noise_selector = np.asarray(noise_selector, bool)
+    self.noise = noise
 
   def train_(self, d):
-    self.W = deflate(self.get_cov(d), self.noise_selector)
+    self.noise_idx = [d.feat_lab[0].index(ch) if type(ch) == str else ch
+                      for ch in self.noise]
+    self.signal_idx = np.setdiff1d(self.noise_idx, np.arange(d.data.shape[0]))
+    noise_selector = np.zeros(d.data.shape[0], dtype=np.bool)
+    noise_selector[self.noise_idx] = True
+    self.W = deflate(self.get_cov(d), noise_selector)
 
   def apply_(self, d):
-    feat_lab = None
-    if self.ftype == PLAIN and d.feat_lab != None:
-      feat_lab = [d.feat_lab[i] for i in range(d.nfeatures) if not 
-        self.noise_selector[i]]
+    feat_lab = d.feat_lab.deepcopy()
+    feat_lab[0] = [feat_lab[0][ch] for ch in self.signal_idx]
     return DataSet(feat_lab=feat_lab, default=SpatialFilter.apply_(self, d))
 
 class SpatialBlur(SpatialFilter):
+  '''
+  Apply a Gaussian blur across channels. Channel positions are determined
+  through a lookup of the corresponding feature label.
+
+  Parameters
+  ----------
+  sigma : float
+    Standard deviation of the Gaussian kernel to use for blurring.
+  ftype : PLAIN/TRIAL/COV (default: None)
+    When specified, this node will either expect plain continuous EEG data,
+    data cut in trials, or covariance matrices. If not specified, this is
+    inferred from the data.
+  '''
   def __init__(self, sigma, ftype=None):
     SpatialFilter.__init__(self, None, ftype, preserve_feat_lab=True)
     self.sigma = sigma
 
   def train_(self, d):
-    if self.ftype == PLAIN:
-      positions = d.feat_lab
-    elif self.ftype == TRIAL:
-      positions = d.feat_lab[0]
-    else:
+    if self.ftype == None:
+        self.ftype = self.infer_ftype(d)
+
+    if self.ftype == COV:
       raise ValueError('Operation not supported on covariance data')
+
+    positions = d.feat_lab[0]
   
     # Calculate distances for each electrode pair
     distances = np.array([
@@ -361,8 +404,8 @@ def deflate(sigma, noise_selector):
 
   Therefore, W Sigma W^T = Sigma_S
 
-  @@TODO: W data and data W is not consistent yet.
-
+  References
+  ----------
   [1] Alois Schloegl, Claudia Keinrath, Doris Zimmermann, Reinhold Scherer,
   Robert Leeb, and Gert Pfurtscheller. A fully automated correction method of
   EOG artifacts in EEG recordings. Clinical Neurophysiology, 118:98--104, 2007.
