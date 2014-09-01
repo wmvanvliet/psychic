@@ -46,11 +46,12 @@ class TemplateFilter(BaseNode):
         When set, only spatial filtering is performed. Normally, both spatial
         and temporal filtering are performed.
     '''
-    def __init__(self, classes=(0,1), reg=0.2, time_range=None, spatial_only=False):
+    def __init__(self, classes=(0,1), reg=0.2, peak_ch=None, time_range=None, spatial_only=False):
         BaseNode.__init__(self)
         assert type(classes) == int or len(classes) == 2
         self.classes = classes
         self.reg = reg
+        self.peak_ch=peak_ch
 
         assert time_range == None or len(time_range) == 2,\
             'Time range should be specified as (begin, end)'
@@ -80,9 +81,16 @@ class TemplateFilter(BaseNode):
             feat_lab=[erp.feat_lab[0]],
         )
 
-        peak = self.time_idx[0] + np.argmax(np.abs(np.sum(
-            self.template.data[:, self.time_idx[0]:self.time_idx[1]],
-            axis=0)))
+        if self.peak_ch == None:
+            peak = (self.time_idx[0] + np.argmax(np.abs(np.sum(
+                self.template.data[:, self.time_idx[0]:self.time_idx[1]],
+                axis=0))))
+        else:
+            if type(self.peak_ch) == str:
+                self.peak_ch = self.template.feat_lab[0].index(self.peak_ch)
+            peak = (self.time_idx[0] +
+                np.argmax(np.abs(self.template.data[self.peak_ch,
+                    self.time_idx[0]:self.time_idx[1]])))
         self.spatial_template = self.template.data[:, [peak]]
 
         sigma_x = psychic.nodes.spatialfilter.plain_cov0(self.template)
@@ -113,14 +121,14 @@ class TemplateFilter(BaseNode):
         
         # Construct time filter
         template = self.temp_template.ix[:, :nsamples]
-        sigma_x = np.cov(d.data)
+        sigma_x = np.cov(d.data.reshape(-1, d.ninstances))
         sigma_x_i = np.linalg.inv(sigma_x + self.reg * np.eye(sigma_x.shape[0]))
         self.W_temp = sigma_x_i.dot(template.data.T).ravel()
 
         # Construct new dataset containing the filtered data
         y = self.W_temp.dot(d.data)
         y -= np.mean(y)
-        data = np.c_[-y, y].T
+        data = np.r_[-y, y]
         feat_lab = None
         return DataSet(data=data, feat_lab=feat_lab, default=d)
 
