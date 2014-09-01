@@ -7,8 +7,6 @@ def _ch_idx(channels, names):
     and string names.'''
     if channels == None:
         return set([])
-    elif channels == []:
-        return set([])
     else:
         return set([names.index(ch) if type(ch) == str else ch
                     for ch in channels])
