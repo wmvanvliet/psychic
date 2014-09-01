@@ -152,8 +152,8 @@ Beamformers
     :toctree: generated/
     :template: node.rst
 
-    nodes.TemplateFilter
-    nodes.GaussTemplateFilter
+    nodes.TemplateBeamformer
+    nodes.SpatialBeamformer
 
 File formats
 ------------
