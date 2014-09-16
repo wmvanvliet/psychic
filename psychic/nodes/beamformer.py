@@ -1,34 +1,77 @@
 from basenode import BaseNode
 from ..dataset import DataSet
-import scipy
 import numpy as np
-from psychic.nodes.spatialfilter import (SpatialFilter, sfilter_trial,
-        plain_cov0, trial_cov0)
+from ..stat import lw_cov
+from psychic.nodes.spatialfilter import SpatialFilter
+
 
 class SpatialBeamformer(SpatialFilter):
     '''
-    A beamformer that behaves like a spatial filter.
+    Spatial beamformer.
 
     Parameters
     ----------
-    L : 2D array (sources x channels)
-        The leadfield matrix of the signals to isolate
+    template : 1D array (n_channels)
+       Spatial activation pattern of the component to extract.
+
+    reg : float (default: 0.2)
+        Regularization parameter for the covariance matrix inversion. Also
+        known as diagonal loading.
+
+    cov_func : function (default: lw_cov)
+        Covariance function to use. Defaults to Ledoit & Wolf's function.
     '''
-    def __init__(self, L):
-        SpatialFilter.__init__(self, None)
-        self.L = L
+    def __init__(self, template, reg=0.2, cov_func=lw_cov):
+        SpatialFilter.__init__(self, 1)
+        self.template = template
+        self.reg = reg
+        self.cov_func = cov_func
+        self.template = np.asarray(template).flatten()[:, np.newaxis]
 
     def train_(self, d):
-        if d.data.ndim == 2:
-            self.cov_x = plain_cov0(d)
-        elif d.data.ndim == 3:
-            self.cov_x = trial_cov0(d)
-        else:
-            raise ValueError('Cannot operate on %d-dimensional data.' % d.data.ndim)
+        sigma_x = np.mean(
+            [self.cov_func(t) for t in np.rollaxis(d.data, -1)],
+            axis=0)
+        sigma_x += self.reg * np.eye(sigma_x.shape[0])
+        sigma_x_i = np.linalg.inv(sigma_x)
+        self.W = sigma_x_i.dot(self.template)
 
-        self.cov_s = np.cov(self.L, rowvar=0)
-        V, self.W = scipy.linalg.eig(self.cov_s, self.cov_x)
-        print np.real(V)
-        self.W = np.real(self.W)
-        self.W = self.W[:, np.argsort(V)]
-        self.W = self.W.T[:, :self.L.shape[0]]
+
+class TemplateBeamformer(BaseNode):
+    '''
+    Beamformer operating on a template.
+
+    Parameters
+    ----------
+    template : 2D array (n_channels, n_samples)
+       Activation pattern of the component to extract.
+
+    reg : float (default: 0.2)
+        Regularization parameter for the covariance matrix inversion. Also
+        known as diagonal loading.
+
+    cov_func : function (default: lw_cov)
+        Covariance function to use. Defaults to Ledoit & Wolf's function.
+    '''
+    def __init__(self, template, reg=0.2, cov_func=lw_cov):
+        BaseNode.__init__(self)
+        self.template = template
+        self.reg = reg
+        self.cov_func = cov_func
+        self.template = np.atleast_2d(template)
+
+    def train_(self, d):
+        nsamples, ntrials = d.data.shape[1:]
+        template = self.template[:, :nsamples]
+        sigma_x = self.cov_func(d.data.reshape(-1, ntrials))
+        sigma_x += self.reg * np.eye(sigma_x.shape[0])
+        sigma_x_i = np.linalg.inv(sigma_x)
+        self.W = sigma_x_i.dot(template.flatten()).ravel()
+
+    def apply_(self, d):
+        ntrials = d.data.shape[2]
+        y = self.W.dot(d.data.reshape(-1, ntrials))
+        y -= np.mean(y)
+        X = np.c_[-y, y].T
+        feat_lab = None
+        return DataSet(data=X, feat_lab=feat_lab, default=d)
