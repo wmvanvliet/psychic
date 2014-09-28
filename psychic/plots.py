@@ -1,3 +1,4 @@
+#encoding=utf-8
 import matplotlib.pyplot as plt
 import numpy as np
 from scalpplot import plot_scalp
@@ -829,5 +830,253 @@ def plot_erp_psd(d, freq_range=(2, 60), fig=None, **kwargs):
     plt.ylabel('Power (Db)')
     plt.legend(d.feat_lab[0])
     plt.title('Power spectral density, averaged over trials')
+
+    return fig
+
+def plot_topo(
+        d,
+        layout,
+        samplerate=None,
+        classes=None,
+        vspace=None,
+        cl_lab=None,
+        ch_lab=None,
+        draw_scale=True,
+        start=0,
+        fig=None,
+        mirror_y=False,
+        colors=['b', 'r', 'g', 'c', 'm', 'y', 'k', '#ffaa00'],
+        linestyles=['-','-','-','-','-','-','-','-'],
+        linewidths=[1, 1, 1, 1, 1, 1, 1, 1],
+        pval=0.05,
+        fwer=None,
+        np_test=False,
+        np_iter=1000,
+        conf_inter=None,
+        enforce_equal_n=True,
+    ):
+    '''
+    Create an Event Related Potential plot which aims to be as informative as
+    possible. The result is aimed to be a publication ready figure, therefore
+    this function supplies a lot of customization. The input can either be a 
+    sliced dataset (``d.data`` = [channels x samples x trials]) or a readily computed
+    ERP given by :class:`psychic.nodes.ERP` or :func:`psychic.erp`.
+
+    When possible, regions where ERPs differ significantly are shaded. This is
+    meant to be an early indication of area's of interest and not meant as
+    sound statistical evidence of an actual difference. When a sliced dataset
+    is given, which contains two classes (or two classes are specified using
+    the ``classes`` parameter) t-tests are performed for each sample.
+    Significant sections (see the ``pval`` parameter) are drawn shaded.
+    P-values are corrected using the Benjamini-Hochberg method. See the
+    ``fwer`` parameter for other corrections (or to disable it). See the
+    ``np_test`` parameter for a better (but slower) non-parametric test to
+    determine significant regions.
+
+    Parameters
+    ----------
+    d : :class:`psychic.DataSet`
+        A sliced Golem dataset that will be displayed.
+    layout : :class:`psychic.layouts.Layout`
+        Channel layout to use.
+    classes : list (default=all)
+        When specified, ERPs will be drawn only for the classes with the given
+        indices.
+    vspace : float (optional)
+        Amount of vertical space between the ERP traces, by default the minumum
+        value so traces don't overlap.
+    samplerate : float (optional)
+        By default determined through ``d.feat_lab[1]``, but can be
+        specified when missing.
+    cl_lab : list (optional)
+        List with a label for each class, by default taken from
+        ``d.cl_lab``, but can be specified if missing.
+    ch_lab : list (optional)
+        List of channel labels, by default taken from ``d.feat_lab[0]``,
+        but can be specified if missing.
+    draw_scale : bool (default=True)
+        Whether to draw a scale next to the plot.
+    start : float (default=0)
+        Time used as T0, by default timing is taken from
+        ``d.feat_lab[1]``, but can be specified if missing.
+    fig : :class:`matplotlib.Figure`
+        If speficied, a reference to the figure in which to draw the ERP plot.
+        By default a new figure is created.
+    mirror_y : bool (default=False)
+        When set, negative is plotted up. Some publications use this style
+        of plotting.
+    colors : list (optional)
+        Sets a color for each ERP. Values are given as matplotlib color specifications.
+        See: http://matplotlib.org/api/colors_api.html
+    linestyles : list (optional)
+        Line style specifications for each ERP.
+        See: http://matplotlib.org/1.3.0/api/pyplot_api.html#matplotlib.pyplot.plot
+    linewidths : list (optional)
+        Line width specifications for each ERP. Values are given in points.
+    pval : float (default=0.05)
+        Minimum p-value at which to color significant regions, set to None to
+        disable it completely.
+    fwer : function (default=None)
+        Method for pval adjustment to correct for family-wise errors rising
+        from performing multiple t-tests, choose one of the methods from the
+        :mod:`psychic.fwer` module, or specify ``None`` to disable this
+        correction.
+    np_test : bool (default=False)
+        Perform a non-parametric test to determine significant regions.  This
+        is much slower, but a much more powerful statistical method that deals
+        correctly with the family-wise error problem. When this method is used,
+        the ``fwer`` parameter is ignored.
+    np_iter : int (default=1000)
+        Number of iterations to perform when using the non-parametric test.
+        Higher means a better approximation of the true p-values, at the cost
+        of longer computation time.
+    conf_inter : float (default=None)
+        Draw given confidence interval of the ERP as a transparent band. The
+        confidence interval can be specified in percent. Set to None to disable
+        drawing of the confidence interval.
+    enforce_equal_n : bool (default=True)
+        Enforce that each ERP is calculated using the same number of trials. If
+        one of the classes has more trials than the others, a random subset of
+        the corresponding trials will be taken.
+
+    Returns
+    -------
+    fig : :class:`matplotlib.Figure`
+        A handle to the matplotlib figure.
+    '''
+
+    assert d.data.ndim == 3, 'Expecting sliced data'
+
+    num_channels, num_samples = d.data.shape[:2]
+
+    # Determine properties of the data that weren't explicitly supplied as
+    # arguments.
+    if cl_lab == None:
+        cl_lab = d.cl_lab if d.cl_lab else['class %d' % cl for cl in classes]
+
+    if ch_lab == None:
+        if d.feat_lab != None:
+            ch_lab = d.feat_lab[0]
+        else:
+            ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
+
+    if classes == None:
+        classes = range(d.nclasses)
+
+    num_classes = len(classes)
+
+    # Determine number of trials
+    num_trials = np.min( np.array(d.ninstances_per_class)[classes] )
+
+    # Calculate significance (if appropriate)
+    if num_classes == 2 and np.min(np.array(d.ninstances_per_class)[classes]) >= 5:
+
+        # Construct significant clusters for each channel. These will be
+        # highlighted in the plot.
+        significant_clusters = [] * num_channels
+
+        if np_test:
+            # Perform a non-parametric test
+            from stats import temporal_permutation_cluster_test as test
+            significant_clusters = test(d, np_iter, pval, classes)[:,:3]
+            significance_test_performed = True
+
+        elif pval != None:
+            # Perform a t-test
+            ts, ps = scipy.stats.ttest_ind(d.get_class(classes[0]).data, d.get_class(classes[1]).data, axis=2)
+
+            if fwer != None:
+                ps = fwer(ps.ravel()).reshape(ps.shape)
+
+            for ch in range(num_channels):
+                clusters = np.flatnonzero( np.diff(np.hstack(([False], ps[ch,:] < pval, [False]))) ).reshape(-1,2)
+                for cl, cluster in enumerate(clusters):
+                    significant_clusters.append([ch, cluster[0], cluster[1]]) 
+            significance_test_performed = True
+        else:
+            significance_test_performed = False
+    else:
+        significance_test_performed = False
+
+    # Calculate ERP
+    erp = trials.erp(d, classes=classes, enforce_equal_n=enforce_equal_n)
+
+    # Calculate a sane vspace
+    if vspace is None:
+        vspace = (np.min(erp.data), np.max(erp.data))
+    elif type(vspace) == float or type(vspace) == int:
+        vspace = (-vspace, vspace)
+
+    # Calculate timeline, using the best information available
+    if samplerate != None:
+        ids = np.arange(num_samples) / float(samplerate) - start
+    elif erp.feat_lab != None:
+        ids = np.array(erp.feat_lab[1], dtype=float) - start
+    else:
+        ids = np.arange(num_samples) - start
+
+    # Plot ERP
+    if fig is None:
+        fig = plot.figure()
+
+    def plot_channel(ax, ch):
+        to_plot = erp.data[ch,:,:] if not mirror_y else -erp.data[ch,:,:]
+        
+        # Plot each class
+        for cl in range(num_classes):
+            plt.plot(ids, to_plot[:, cl], label=cl_lab[classes[cl]],
+                     color=colors[cl % len(colors)], linestyle=linestyles[cl % len(linestyles)], linewidth=linewidths[cl % len(linewidths)], clip_on=False)
+
+        # Color significant differences
+        if significance_test_performed:
+            for cl in significant_clusters:
+                c, x1, x2 = cl
+                if c != ch:
+                    continue
+                x = range(int(x1), int(x2))
+                y1 = np.min(to_plot[x,:], axis=1)
+                y2 = np.max(to_plot[x,:], axis=1)
+                x = np.concatenate( (ids[x], ids[x[::-1]]) )
+                y = np.concatenate((y1, y2[::-1]))
+                p = ax.fill(x, y, facecolor='g', alpha=0.2)
+
+        plt.grid(False)
+        plt.axis('off')
+        plt.xlim(ids[0], ids[-1])
+        plt.ylim(vspace)
+        plt.axhline(0, color='k')
+        plt.axvline(0, color='k')
+        plt.text(0, 1, ch_lab[ch], verticalalignment='top',
+                 transform=ax.transAxes)
+
+    def plot_scale(ax):
+        ax.spines['left'].set_position(('data', 0))
+        ax.spines['left'].set_color('k')
+        ax.spines['bottom'].set_position(('data', 0))
+        ax.spines['bottom'].set_color('k')
+        ax.spines['right'].set_color('none')
+        ax.spines['top'].set_color('none')
+        ax.xaxis.set_ticks_position('bottom')
+        ax.yaxis.set_ticks_position('left')
+        fig.canvas.draw()
+        xticklabels = [tl.get_text() for tl in ax.get_xticklabels()]
+        ax.set_xticklabels([''] + xticklabels[1:])
+        plt.grid(False)
+        plt.axvline(0, color='k')
+        plt.axhline(0, color='k')
+        plt.ylim(vspace)
+        plt.xlabel('time (s)')
+        plt.ylabel(u'voltage (µV)')
+
+    for ch, l in enumerate(ch_lab):
+        try:
+            ax = fig.add_axes(layout.get_box(l))
+            plot_channel(ax, ch)
+        except ValueError:
+            pass
+
+    if draw_scale:
+        ax = fig.add_axes(layout.get_scale())
+        plot_scale(ax)
 
     return fig
