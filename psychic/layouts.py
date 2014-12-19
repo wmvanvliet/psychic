@@ -41,7 +41,32 @@ class Layout:
         x, y = self.scale_point
         return x, y, self.box_width, self.box_height
 
+    def axes(self, fig=None):
+        '''
+        Generator that creates matplotlib axes for the boxes.
+
+        Parameters
+        ----------
+        fig : matplotlib figure handle (default None)
+            If specified, a figure to create the axes for. Otherwise, a new
+            figure will be created.
+        '''
+        if fig is None:
+            fig = plt.figure()
+
+        for x, y in self.points:
+            yield fig.add_axes((x, y, self.box_width, self.box_height))
+
     def plot(self, fig=None):
+        '''
+        Plots the layout.
+
+        Parameters
+        ----------
+        fig : matplotlib figure handle (default None)
+            If specified, a figure to plot the layout in. Otherwise, a new
+            figure will be created.
+        '''
         if fig is None:
             fig = plt.figure()
 
@@ -168,16 +193,16 @@ _biosemi_32_points = {
 
     'AF3': (2, 8),
     'AF4': (4, 8),
-    'F3': (1, 7),
 
-    'F7': (2, 7),
+    'F7': (1, 7),
+    'F3': (2, 7),
     'Fz': (3, 7),
     'F4': (4, 7),
     'F8': (5, 7),
 
-    'FC1': (1.5, 6),
-    'FC2': (2.5, 6),
-    'FC5': (3.5, 6),
+    'FC5': (1.5, 6),
+    'FC1': (2.5, 6),
+    'FC2': (3.5, 6),
     'FC6': (4.5, 6),
 
     'T7': (1, 5),
@@ -186,10 +211,10 @@ _biosemi_32_points = {
     'C4': (4, 5),
     'T8': (5, 5),
 
-    'CP1': (1.5, 4),
-    'CP5': (2.5, 4),
-    'CP6': (3.5, 4),
-    'CP2': (4.5, 4),
+    'CP5': (1.5, 4),
+    'CP1': (2.5, 4),
+    'CP2': (3.5, 4),
+    'CP6': (4.5, 4),
 
     'P7': (1, 3),
     'P3': (2, 3),
@@ -205,67 +230,17 @@ _biosemi_32_points = {
     'O2': (4, 1),
 }
 
-_biosemi_ext_points = {
-    'EXG1': (6, 9),
-    'EXG2': (6, 8),
-    'EXG3': (6, 7),
-    'EXG4': (6, 6),
-    'EXG5': (6, 5),
-    'EXG6': (6, 4),
-    'EXG7': (6, 3),
-    'EXG8': (6, 2),
-}
 
-_biosemi_eog_points = {
-    'hEOG': (6, 9),
-    'vEOG': (6, 8),
-    'rEOG': (6, 7),
-    'HEOG': (6, 9),
-    'VEOG': (6, 8),
-    'REOG': (6, 7),
-}
-
-
-class Layout_Biosemi_32(Layout):
+class BioSemi_32(Layout):
     def __init__(self, d):
-        points = [_biosemi_32_points[l] for l in d.feat_lab[0]]
+        points = []
+        y = 9
+        for l in d.feat_lab[0]:
+            try:
+                points.append(_biosemi_32_points[l])
+            except:
+                points.append((6, y))
+                y -= 1
+
         Layout.__init__(self, d.feat_lab[0], points)
-        self.scale_point = (0.8, 0.1)
-
-
-class Layout_Biosemi_32_8(Layout):
-    def __init__(self, d):
-        points = []
-        labels = []
-        for l in d.feat_lab[0]:
-            try:
-                points.append(_biosemi_32_points[l])
-                labels.append(l)
-            except:
-                try:
-                    points.append(_biosemi_ext_points[l])
-                    labels.append(l)
-                except:
-                    pass
-
-        Layout.__init__(self, labels, points)
-        self.scale_point = (0.8, 0.1)
-
-
-class Layout_Biosemi_32_eog(Layout):
-    def __init__(self, d):
-        points = []
-        labels = []
-        for l in d.feat_lab[0]:
-            try:
-                points.append(_biosemi_32_points[l])
-                labels.append(l)
-            except:
-                try:
-                    points.append(_biosemi_eog_points[l])
-                    labels.append(l)
-                except:
-                    pass
-
-        Layout.__init__(self, labels, points)
         self.scale_point = (0.8, 0.1)
