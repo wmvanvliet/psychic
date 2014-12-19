@@ -96,6 +96,9 @@ class SpatialFilter(BaseNode):
     '''
     Get an estimation of the channel covariance matrix of the data.
     '''
+    if self.ftype is None:
+        self.ftype = self.infer_ftype(d)
+
     if self.ftype == PLAIN:
       return plain_cov0(d)
     if self.ftype == TRIAL:
@@ -292,13 +295,13 @@ class Deflate(SpatialFilter):
   def train_(self, d):
     self.noise_idx = [d.feat_lab[0].index(ch) if type(ch) == str else ch
                       for ch in self.noise]
-    self.signal_idx = np.setdiff1d(self.noise_idx, np.arange(d.data.shape[0]))
+    self.signal_idx = np.setdiff1d(np.arange(d.data.shape[0]), self.noise_idx)
     noise_selector = np.zeros(d.data.shape[0], dtype=np.bool)
     noise_selector[self.noise_idx] = True
     self.W = deflate(self.get_cov(d), noise_selector)
 
   def apply_(self, d):
-    feat_lab = d.feat_lab.deepcopy()
+    feat_lab = list(d.feat_lab)
     feat_lab[0] = [feat_lab[0][ch] for ch in self.signal_idx]
     return DataSet(feat_lab=feat_lab, default=SpatialFilter.apply_(self, d))
 
@@ -392,7 +395,7 @@ def select_channels(n, keep_inds):
   '''
   return np.eye(n)[:, keep_inds]
 
-def deflate(sigma, noise_selector):
+def deflate(sigma, noise_selector, keep_noise_ch=False):
   '''
   Remove cross-correlation between noise channels and the other channels. 
   Based on [1]. It asumes the following model:
