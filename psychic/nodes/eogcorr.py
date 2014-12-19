@@ -34,11 +34,11 @@ class EOGCorr(BaseNode):
         s = get_samplerate(d)
 
         # Extract EOG trials
-        d_sliced = slice(d, self.mdict, (int(-0.5*s), int(1.0*s)))
+        d_sliced = slice(d, self.mdict, (int(-1*s), int(1.5*s)))
 
         # Average the trials and baseline them
         d_erp = erp(d_sliced, enforce_equal_n=False)
-        d_erp = baseline(d_erp, (0, int(1.5*s)))
+        d_erp = baseline(d_erp, (0, int(0.5*s)))
 
         # Concatenate blink trials and eye movement trials
         d_blink = concatenate_trials(d_erp[0])
