@@ -1020,8 +1020,8 @@ def plot_topo(
         fig = plot.figure()
 
     def plot_channel(ax, ch):
-        to_plot = erp.data[ch,:,:] if not mirror_y else -erp.data[ch,:,:]
-        
+        to_plot = erp.data[ch,:,:] if not mirror_y else -erp.data[ch,: , :]
+
         # Plot each class
         for cl in range(num_classes):
             plt.plot(ids, to_plot[:, cl], label=cl_lab[classes[cl]],
@@ -1034,9 +1034,9 @@ def plot_topo(
                 if c != ch:
                     continue
                 x = range(int(x1), int(x2))
-                y1 = np.min(to_plot[x,:], axis=1)
-                y2 = np.max(to_plot[x,:], axis=1)
-                x = np.concatenate( (ids[x], ids[x[::-1]]) )
+                y1 = np.min(to_plot[x, :], axis=1)
+                y2 = np.max(to_plot[x, :], axis=1)
+                x = np.concatenate((ids[x], ids[x[::-1]]))
                 y = np.concatenate((y1, y2[::-1]))
                 p = ax.fill(x, y, facecolor='g', alpha=0.2)
 
@@ -1059,21 +1059,19 @@ def plot_topo(
         ax.xaxis.set_ticks_position('bottom')
         ax.yaxis.set_ticks_position('left')
         fig.canvas.draw()
+        plt.xlim(ids[0], ids[-1])
+        plt.ylim(vspace)
         xticklabels = [tl.get_text() for tl in ax.get_xticklabels()]
         ax.set_xticklabels([''] + xticklabels[1:])
         plt.grid(False)
         plt.axvline(0, color='k')
         plt.axhline(0, color='k')
-        plt.ylim(vspace)
         plt.xlabel('time (s)')
         plt.ylabel(u'voltage (µV)')
 
-    for ch, l in enumerate(ch_lab):
-        try:
-            ax = fig.add_axes(layout.get_box(l))
-            plot_channel(ax, ch)
-        except ValueError:
-            pass
+    for ch, ax in enumerate(layout.axes(fig)):
+        print ch
+        plot_channel(ax, ch)
 
     if draw_scale:
         ax = fig.add_axes(layout.get_scale())
