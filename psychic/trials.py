@@ -405,7 +405,7 @@ def concatenate_trials(d):
     
     data = np.transpose(d.data, [0,2,1]).reshape((nchannels, -1))
     labels = np.zeros((1, ninstances))
-    labels[:, np.arange(0, ninstances, trial_length)] = [np.flatnonzero(d.labels[:,i])[0] + 1 for i in range(d.ninstances)]
+    labels[:, np.arange(0, ninstances, trial_length)] = d.y + 1
     ids = np.atleast_2d( np.arange(ninstances) * np.median(np.diff([float(x) for x in d.feat_lab[1]])) )
     feat_lab = [d.feat_lab[0]]
 
