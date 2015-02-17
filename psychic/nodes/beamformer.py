@@ -5,7 +5,7 @@ import numpy as np
 from ..stat import lw_cov
 from psychic.nodes.spatialfilter import SpatialFilter
 from sklearn.grid_search import GridSearchCV
-from sklearn.covariance import ShrunkCovariance
+from sklearn.covariance import ShrunkCovariance, OAS
 
 class SpatialBeamformer(SpatialFilter):
     '''
@@ -23,13 +23,16 @@ class SpatialBeamformer(SpatialFilter):
     cov_func : function (default: lw_cov)
         Covariance function to use. Defaults to Ledoit & Wolf's function.
     '''
-    def __init__(self, template, reg=None, cov_func=lw_cov, normalize=True):
+    def __init__(self, template, reg=None, cov_func=None, normalize=True):
         SpatialFilter.__init__(self, 1)
         self.template = template
-        self.reg = reg
         self.cov_func = cov_func
         self.template = np.asarray(template).flatten()[:, np.newaxis]
         self.normalize = normalize
+        if reg is None:
+            self.reg = np.r_[0, np.logspace(-5, 0, 6)]
+        else:
+            self.reg = reg
 
         if normalize:
             self.template -= self.template.mean()
@@ -40,10 +43,12 @@ class SpatialBeamformer(SpatialFilter):
             d = baseline(d)
 
         # Calculate spatial covariance matrix
-        if self.reg is None:
-            gs = GridSearchCV(ShrunkCovariance(assume_centered=True), [{'shrinkage': np.logspace(-5, 0, 6)}])
-            c = gs.fit(concatenate_trials(d).X).best_estimator_
-            print 'Estimated shrinkage: ', c.shrinkage
+        if type(self.reg) == list or type(self.reg) == np.ndarray:
+            #gs = GridSearchCV(ShrunkCovariance(assume_centered=True), [{'shrinkage': self.reg}], cv=2)
+            #c = gs.fit(concatenate_trials(d).X).best_estimator_
+            c = OAS(assume_centered=True).fit(concatenate_trials(d).X)
+            print 'Estimated shrinkage: ', c.shrinkage_
+            self.reg = c.shrinkage_
         else:
             c = ShrunkCovariance(assume_centered=True, shrinkage=self.reg).fit(concatenate_trials(d).X)
         sigma_x_i = c.precision_
@@ -82,13 +87,17 @@ class TemplateBeamformer(BaseNode):
     cov_func : function (default: lw_cov)
         Covariance function to use. Defaults to Ledoit & Wolf's function.
     '''
-    def __init__(self, template, reg=None, cov_func=lw_cov, normalize=True):
+    def __init__(self, template, reg=None, cov_func=None, normalize=True):
         BaseNode.__init__(self)
         self.template = template
         self.reg = reg
         self.cov_func = cov_func
         self.template = np.atleast_2d(template)
         self.normalize = normalize
+        if self.reg is None:
+            self.reg = np.r_[0, np.linspace(0, 1, 6)]
+        else:
+            self.reg = reg
 
     def center(self, d):
         data_mean = d.data.reshape(-1, len(d)).mean(axis=1)
@@ -105,10 +114,12 @@ class TemplateBeamformer(BaseNode):
         #sigma_x += self.reg * np.eye(sigma_x.shape[0])
         #sigma_x_i = np.linalg.inv(sigma_x)
 
-        if self.reg is None:
-            gs = GridSearchCV(ShrunkCovariance(assume_centered=True), [{'shrinkage': np.logspace(-5, 0, 6)}])
-            c = gs.fit(d.data.reshape(-1, ntrials).T).best_estimator_
-            print 'Estimated shrinkage: ', c.shrinkage
+        if type(self.reg) == list or type(self.reg) == np.ndarray:
+            #gs = GridSearchCV(ShrunkCovariance(assume_centered=True), [{'shrinkage': self.reg}], cv=2)
+            #c = gs.fit(d.data.reshape(-1, ntrials).T).best_estimator_
+            c = OAS(assume_centered=True).fit(d.data.reshape(-1, ntrials).T)
+            print 'Estimated shrinkage: ', c.shrinkage_
+            self.reg = c.shrinkage_
         else:
             c = ShrunkCovariance(assume_centered=True, shrinkage=self.reg).fit(d.data.reshape(-1, ntrials).T)
         sigma_x_i = c.precision_
