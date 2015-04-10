@@ -93,7 +93,7 @@ class EEGMontage(BaseNode):
             'Parameter ref should either be None or a list'
         assert (bipolar is None or type(bipolar) == dict), \
             'Parameter bipolar should either be None or a dictionary'
-        if bipolar != None:
+        if bipolar is not None:
             for channels in bipolar.values():
                 assert len(channels) == 2, ('Bipolar channels should be a '
                                            'dictionary containing tuples as '
@@ -120,7 +120,7 @@ class EEGMontage(BaseNode):
         # EEG channels
         if self.eeg == []:
             self.eeg_idx = set(self.all_channels)
-        elif self.eeg != None:
+        elif self.eeg is not None:
             self.eeg_idx = _ch_idx(self.eeg, d.feat_lab[0])
         else:
             self.eeg_idx = set([])
@@ -158,7 +158,7 @@ class EEGMontage(BaseNode):
         self.eog_idx -= self.ref_idx
 
         # Bipolar references
-        if self.bipolar != None:
+        if self.bipolar is not None:
             self.bipolar_idx = {}
             for name, channels in self.bipolar.items():
                 self.bipolar_idx[name] = _ch_idx(channels, d.feat_lab[0])
@@ -176,7 +176,7 @@ class EEGMontage(BaseNode):
         data = d.data.copy()
 
         # Set bad channels to zero
-        if self.bads != None:
+        if self.bads is not None:
             data[list(self.bads_idx), :] = 0
 
         # Calculate reference signal
@@ -189,7 +189,7 @@ class EEGMontage(BaseNode):
             ref = np.mean(d.data[list(self.ref_idx), :], axis=0)
 
         # Reference signal (do not reference the reference and bad channels)
-        if ref != None:
+        if ref is not None:
             data[list(self.all_channels-self.ref_idx-self.bads_idx), :] -= ref
 
         # Bipolar channels
@@ -237,21 +237,21 @@ class EEGMontage(BaseNode):
         # Put everything in a DataSet
         data = [data]
         
-        if bipolar != None:
+        if bipolar is not None:
             for name, channel in bipolar.items():
                 data.append(channel[np.newaxis, :])
                 ch_names.append(name)
 
-        if heog != None:
+        if heog is not None:
             data.append(heog[np.newaxis, :])
             ch_names.append('hEOG')
-        if veog != None:
+        if veog is not None:
             data.append(veog[np.newaxis, :])
             ch_names.append('vEOG')
-        if reog != None:
+        if reog is not None:
             data.append(reog[np.newaxis, :])
             ch_names.append('rEOG')
-        if ref != None and not self.drop_ref:
+        if ref is not None and not self.drop_ref:
             data.append(ref[np.newaxis, :])
             ch_names.append('REF')
 

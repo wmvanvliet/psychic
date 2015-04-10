@@ -77,7 +77,7 @@ class OnlineSlice(Slice):
     )
 
     codes, onsets, durations = markers_to_events(d.labels.flat)
-    if self.buffer != None: 
+    if self.buffer is not None: 
       onsets = list( np.array(onsets) + self.buffer.ninstances )
       d = self.buffer + d
     events = deque(self.event_buffer + zip(codes, onsets))

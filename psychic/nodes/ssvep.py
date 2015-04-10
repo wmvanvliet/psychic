@@ -60,7 +60,7 @@ class SLIC(BaseNode) :
 
     def train_(self, d):
         if d is None:
-            assert self.sample_rate != None, 'Cannot determine sample rate.'
+            assert self.sample_rate is not None, 'Cannot determine sample rate.'
         else:
             if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
@@ -158,8 +158,8 @@ class SSVEPNoiseReduce(BaseNode):
 
     def train_(self, d):
         if d is None:
-            assert self.sample_rate != None, 'Cannot determine sample rate.'
-            assert self.nsamples != None, 'Cannot determine window length.'
+            assert self.sample_rate is not None, 'Cannot determine sample rate.'
+            assert self.nsamples is not None, 'Cannot determine window length.'
         else:
             if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
@@ -401,8 +401,8 @@ class CanonCorr(BaseNode):
 
     def train_(self, d):
         if d is None:
-            assert self.sample_rate != None, 'Cannot determine sample rate.'
-            assert self.nsamples != None, 'Cannot determine window length.'
+            assert self.sample_rate is not None, 'Cannot determine sample rate.'
+            assert self.nsamples is not None, 'Cannot determine window length.'
         else:
             if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
@@ -501,8 +501,8 @@ class MSI(BaseNode):
 
     def train_(self, d):
         if d is None:
-            assert self.sample_rate != None, 'Cannot determine sample rate.'
-            assert self.nsamples != None, 'Cannot determine window length.'
+            assert self.sample_rate is not None, 'Cannot determine sample rate.'
+            assert self.nsamples is not None, 'Cannot determine window length.'
         else:
             if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)

@@ -45,7 +45,7 @@ class BaseNode:
         self.log.info('testing on ' + str(d))
 
         # check validity of d
-        if self.empty_d != None and self.empty_d.feat_shape != d.feat_shape:
+        if self.empty_d is not None and self.empty_d.feat_shape != d.feat_shape:
             raise ValueError('Node was trained with differently shaped data. '+
                 '(was %s, is now %s)' % (self.empty_d.feat_shape, d.feat_shape))
 
@@ -59,7 +59,7 @@ class BaseNode:
         '''
         self.train(dtrain)
 
-        if dtest != None:
+        if dtest is not None:
             return self.apply(dtest)
         else:
             return self.apply(dtrain)
