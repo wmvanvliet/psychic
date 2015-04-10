@@ -327,12 +327,12 @@ class BDFWriter:
         except:
             raise
 
-        if dataset != None:
+        if dataset is not None:
             # Figure out some values from the datafile
             header = header.copy()
             header['n_channels'] = dataset.nfeatures
 
-            if dataset.feat_lab != None:
+            if dataset.feat_lab is not None:
                 header['label'] = list(dataset.feat_lab[0])
 
             sample_rate = psychic.get_samplerate(dataset)
@@ -479,7 +479,7 @@ class BDFWriter:
             self.write_header()
 
         # Prepend any data left in the buffer from the previous write
-        if self.samples_left_in_record != None:
+        if self.samples_left_in_record is not None:
             dataset = psychic.concatenate([self.samples_left_in_record, dataset], merge_possible_labels=True)
             self.samples_left_in_record = None
 

@@ -186,11 +186,11 @@ class DataSet(object):
         Create a new dataset.
         '''
         # first, take care of data, labels and ids
-        if default != None:
+        if default is not None:
             assert isinstance(default, DataSet), 'Default is not a DataSet'
 
         if data is None:
-            if default != None:
+            if default is not None:
                 data = default.data
             else:
                 raise ValueError, 'No data given'
@@ -198,7 +198,7 @@ class DataSet(object):
  
         if labels is None:
             # Maybe labels can be copied from default parameter
-            if default != None and default.labels.shape[1] == data.shape[-1]: 
+            if default is not None and default.labels.shape[1] == data.shape[-1]: 
                 labels = default.labels
 
             # Assign all instances to the same class
@@ -212,7 +212,7 @@ class DataSet(object):
         if labels.shape[0] == 1 and labels.dtype == np.int:
             if possible_labels is None:
                 # Maybe possible labels can be copied from default parameter
-                if (default != None and hasattr(default, 'possible_labels') and
+                if (default is not None and hasattr(default, 'possible_labels') and
                   len(np.setdiff1d(np.unique(labels), default.possible_labels)) == 0):
                     self.possible_labels = default.possible_labels
                 else:
@@ -221,7 +221,7 @@ class DataSet(object):
                 self.possible_labels = np.asarray(possible_labels)
 
         if ids is None:
-            if default != None and default.ids.shape[1] == data.shape[-1]:
+            if default is not None and default.ids.shape[1] == data.shape[-1]:
                 ids = default.ids
             else:
                 ids = np.arange(data.shape[-1], dtype=np.int)
@@ -246,7 +246,7 @@ class DataSet(object):
             
         # Add required structural info:
         if cl_lab is None:
-            if default != None and len(default.cl_lab) == self.nclasses:
+            if default is not None and len(default.cl_lab) == self.nclasses:
                 self.cl_lab = default.cl_lab
             else:
                 if self.labels.dtype == np.int and self.labels.shape[0] == 1:
@@ -260,8 +260,8 @@ class DataSet(object):
 
         if feat_lab is None:
             if (
-                default != None and
-                default.feat_lab != None and
+                default is not None and
+                default.feat_lab is not None and
                 len(feat_shape) == len(default.feat_lab) and
                 np.all([len(x) == y for x,y in zip(default.feat_lab, self.feat_shape)])
             ):
@@ -276,7 +276,7 @@ class DataSet(object):
 
         # Now we are basically done, but let's add optional info
         if feat_dim_lab is None:
-            if(default != None and default.feat_dim_lab != None and \
+            if(default is not None and default.feat_dim_lab is not None and \
                 len(default.feat_dim_lab) == len(feat_shape)):
                 self.feat_dim_lab = default.feat_dim_lab
             else:
@@ -285,7 +285,7 @@ class DataSet(object):
             self.feat_dim_lab = feat_dim_lab
 
         if extra is None:
-            if default != None and default.extra != None:
+            if default is not None and default.extra is not None:
                 self.extra = default.extra
             else:
                 self.extra = {}
@@ -353,7 +353,7 @@ class DataSet(object):
                         raise ValueError('Cannot add DataSets: cl_lab is different.')
 
 
-    def get_class(self, cl):
+    def get_class(self, cl, drop_others=False):
         """
         Construct a new DataSet containing only the instances belonging to the
         given class(es). 
@@ -372,6 +372,10 @@ class DataSet(object):
               ``d.ninstances``.
             - When ``cl`` is a list, instances belonging to any of the
               specified classes are returned.
+        drop_others : bool (default False)
+            Whether to remote the other classes from the ``.labels`` and 
+            ``.cl_lab`` fields.
+
 
         Returns
         -------
@@ -385,7 +389,7 @@ class DataSet(object):
             if isinstance(cl, list) or isinstance(cl, np.ndarray):
                 idx = [self.cl_lab.index(i) if isinstance(i, str) else int(i)
                        for i in cl]
-                assert np.all(idx < self.nclasses)
+                assert np.all(np.array(idx) < self.nclasses)
             elif isinstance(cl, str):
                 idx = [self.cl_lab.index(cl)]
             else:
@@ -395,10 +399,19 @@ class DataSet(object):
             raise ValueError('Invalid class: ' + str(cl))
 
         if self.labels.dtype == np.bool:
-            return self[np.sum(self.labels[idx,:], axis=0).astype(np.bool)]
+            d = self[np.sum(self.labels[idx,:], axis=0).astype(np.bool)]
         else:
             idx = np.sum([self.y == i for i in idx], axis=0).astype(np.bool)
-            return self[idx]
+            d = self[idx]
+
+        if drop_others:
+            return DataSet(
+                labels = d.labels[idx, :],
+                cl_lab = [d.cl_lab[i] for i in idx],
+                default = d
+            )
+        else:
+            return d
 
     def get_nth_class(self, n):
         ''' 
@@ -875,7 +888,7 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
 
     data = np.concatenate([d.data[...,np.newaxis] for d in datasets], axis=-1)
 
-    if labels != None:
+    if labels is not None:
         labels = np.atleast_2d(labels)
         assert labels.shape[1] == len(datasets), \
                 'labels must contain a class label for each trial'
@@ -890,7 +903,7 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
 
         cl_lab = ['class %02d' % (i+1) for i in range(nclasses)]
 
-    if ids != None:
+    if ids is not None:
         ids = np.atleast_2d(ids)
         assert len(np.unique(ids[0,:])) == len(datasets), \
                'ids must contain an identifier for each trial'

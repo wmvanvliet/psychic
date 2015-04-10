@@ -83,7 +83,7 @@ class Chain(BaseNode):
         return d
 
     def train_apply(self, dtrain, dtest=None):
-        if dtest != None:
+        if dtest is not None:
             return self.train(dtrain).apply(dtest)
         else:
             # Train and test set are the same, do some optimization

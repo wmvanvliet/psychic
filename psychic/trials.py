@@ -439,7 +439,7 @@ def trial_specgram(d, samplerate=None, NFFT=256):
     assert d.data.ndim == 3
 
     if samplerate is None:
-        assert d.feat_lab != None, 'Must either supply samplerate or feat_lab to deduce it.'
+        assert d.feat_lab is not None, 'Must either supply samplerate or feat_lab to deduce it.'
         samplerate = np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[1]])))
 
     all_TFs = []

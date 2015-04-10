@@ -16,13 +16,13 @@ class TFC(BaseNode):
   
   def apply_(self, d):
     assert len(d.feat_shape) == 2 # [channels x samples]
-    if d.feat_dim_lab != None:
+    if d.feat_dim_lab is not None:
       assert d.feat_dim_lab == ['channels', 'time']
 
     tfc = self.n.apply(d)
     feat_dim_lab = ['channels', 'time', 'frequency']
 
-    if d.feat_lab != None:
+    if d.feat_lab is not None:
       old_time = d.feat_lab[1]
       time = np.mean(sliding_window(old_time, self.nfft, self.win_step), axis=1)
       dt = np.mean(np.diff(old_time))
