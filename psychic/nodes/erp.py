@@ -12,7 +12,7 @@ class Mean(BaseNode):
         self.n = n
 
     def apply_(self, d):
-        if self.n == None:
+        if self.n is None:
             self.n = d.data.shape[2]
         data = np.mean(d.data[:,:,:self.n], axis=self.axis)
         feat_dim_lab = [lab for i,lab in enumerate(d.feat_dim_lab) if i != self.axis]
@@ -46,7 +46,7 @@ class ERP(BaseNode):
         self.axis = axis
 
     def train_(self, d):
-        if self.classes == None:
+        if self.classes is None:
             self.classes = range(d.nclasses)
 
     def apply_(self, d):
@@ -144,7 +144,7 @@ class Baseline(BaseNode):
         self.baseline_period = baseline_period
 
     def train_(self, d):
-        if self.baseline_period == None:
+        if self.baseline_period is None:
             self.begin_idx = 0
             self.end_idx = -1
         else:

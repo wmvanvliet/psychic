@@ -189,14 +189,14 @@ class DataSet(object):
         if default != None:
             assert isinstance(default, DataSet), 'Default is not a DataSet'
 
-        if data == None:
+        if data is None:
             if default != None:
                 data = default.data
             else:
                 raise ValueError, 'No data given'
         self._data = data = np.atleast_2d(data)
  
-        if labels == None:
+        if labels is None:
             # Maybe labels can be copied from default parameter
             if default != None and default.labels.shape[1] == data.shape[-1]: 
                 labels = default.labels
@@ -210,7 +210,7 @@ class DataSet(object):
         # When labels are specified as a single list of integers, keep track
         # of all possible labels.
         if labels.shape[0] == 1 and labels.dtype == np.int:
-            if possible_labels == None:
+            if possible_labels is None:
                 # Maybe possible labels can be copied from default parameter
                 if (default != None and hasattr(default, 'possible_labels') and
                   len(np.setdiff1d(np.unique(labels), default.possible_labels)) == 0):
@@ -220,7 +220,7 @@ class DataSet(object):
             else:
                 self.possible_labels = np.asarray(possible_labels)
 
-        if ids == None:
+        if ids is None:
             if default != None and default.ids.shape[1] == data.shape[-1]:
                 ids = default.ids
             else:
@@ -245,7 +245,7 @@ class DataSet(object):
             arr.flags.writeable = False
             
         # Add required structural info:
-        if cl_lab == None:
+        if cl_lab is None:
             if default != None and len(default.cl_lab) == self.nclasses:
                 self.cl_lab = default.cl_lab
             else:
@@ -258,7 +258,7 @@ class DataSet(object):
 
         feat_shape = data.shape[:-1]
 
-        if feat_lab == None:
+        if feat_lab is None:
             if (
                 default != None and
                 default.feat_lab != None and
@@ -275,7 +275,7 @@ class DataSet(object):
             self.feat_lab = copy.deepcopy(feat_lab)
 
         # Now we are basically done, but let's add optional info
-        if feat_dim_lab == None:
+        if feat_dim_lab is None:
             if(default != None and default.feat_dim_lab != None and \
                 len(default.feat_dim_lab) == len(feat_shape)):
                 self.feat_dim_lab = default.feat_dim_lab
@@ -284,7 +284,7 @@ class DataSet(object):
         else:
             self.feat_dim_lab = feat_dim_lab
 
-        if extra == None:
+        if extra is None:
             if default != None and default.extra != None:
                 self.extra = default.extra
             else:
@@ -742,12 +742,12 @@ class _DataSetLabeledIndexer(_DataSetIndexer):
             for axis, ind in enumerate(key):
                 # Lookup indexes using lab.index()
                 if type(ind) == slice:
-                    if ind.start == None:
+                    if ind.start is None:
                         start = 0
                     else:
                         start = self._lookup(lab[axis], ind.start)
 
-                    if ind.stop == None:
+                    if ind.stop is None:
                         stop = self.d.data.shape[axis]
                     else:
                         stop = self._lookup(lab[axis], ind.stop)
@@ -882,7 +882,7 @@ def as_instances(datasets, labels=None, cl_lab=None, ids=None):
     else:
         labels = np.eye(len(datasets), dtype=np.bool)
 
-    if cl_lab == None:
+    if cl_lab is None:
         if labels.shape[0] == 1 and labels.dtype == np.int:
             nclasses = len(np.unique(labels))
         else:

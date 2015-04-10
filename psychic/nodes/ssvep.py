@@ -59,10 +59,10 @@ class SLIC(BaseNode) :
         self.nfrequencies = len(frequencies)
 
     def train_(self, d):
-        if d == None:
+        if d is None:
             assert self.sample_rate != None, 'Cannot determine sample rate.'
         else:
-            if self.sample_rate == None:
+            if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
 
     def apply_(self, d):
@@ -157,13 +157,13 @@ class SSVEPNoiseReduce(BaseNode):
         self.SSVEPRemovalMatrix = None
 
     def train_(self, d):
-        if d == None:
+        if d is None:
             assert self.sample_rate != None, 'Cannot determine sample rate.'
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            if self.sample_rate == None:
+            if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
-            if self.nsamples == None:
+            if self.nsamples is None:
                 self.nsamples = d.data.shape[1]
 
         # Construct a list of the SSVEP frequencies plus their harmonics
@@ -338,7 +338,7 @@ try:
                 SNRs = np.reshape(P / sigma, (self.nharmonics*nchannels, self.nfrequencies))
                 nSNRs = SNRs.shape[0]
                 
-                if self.weights == None:
+                if self.weights is None:
                     self.weights = np.ones(nSNRs) / float(nSNRs)
                 else:
                     if len(self.weights) > nSNRs:
@@ -400,13 +400,13 @@ class CanonCorr(BaseNode):
         self.QYs = None
 
     def train_(self, d):
-        if d == None:
+        if d is None:
             assert self.sample_rate != None, 'Cannot determine sample rate.'
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            if self.sample_rate == None:
+            if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
-            if self.nsamples == None:
+            if self.nsamples is None:
                 self.nsamples = d.data.shape[1]
 
         Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
@@ -500,13 +500,13 @@ class MSI(BaseNode):
         self.C = None
 
     def train_(self, d):
-        if d == None:
+        if d is None:
             assert self.sample_rate != None, 'Cannot determine sample rate.'
             assert self.nsamples != None, 'Cannot determine window length.'
         else:
-            if self.sample_rate == None:
+            if self.sample_rate is None:
                 self.sample_rate = psychic.get_samplerate(d)
-            if self.nsamples == None:
+            if self.nsamples is None:
                 self.nsamples = d.data.shape[1]
 
         self.Ys = create_sin_cos_matrix(self.frequencies, self.nharmonics,
