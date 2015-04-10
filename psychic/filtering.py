@@ -87,7 +87,7 @@ def rereference_rec(d, reference_channels=None, keep=True):
   nchannels = d.nfeatures
 
   # Use common average referencing by default
-  if reference_channels == None:
+  if reference_channels is None:
     reference_channels = range(nchannels)
 
   # Check if given list of lists and convert feature labels to channel indices

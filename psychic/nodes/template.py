@@ -53,14 +53,14 @@ class TemplateFilter(BaseNode):
         self.reg = reg
         self.peak_ch=peak_ch
 
-        assert time_range == None or len(time_range) == 2,\
+        assert time_range is None or len(time_range) == 2,\
             'Time range should be specified as (begin, end)'
 
         self.time_range = time_range
         self.spatial_only = spatial_only
 
     def train_(self, d):
-        if self.time_range == None:
+        if self.time_range is None:
             self.time_range = (0, d.feat_lab[1][-1])
             self.time_idx = (0, d.data.shape[1]+1)
         else:
@@ -81,7 +81,7 @@ class TemplateFilter(BaseNode):
             feat_lab=[erp.feat_lab[0]],
         )
 
-        if self.peak_ch == None:
+        if self.peak_ch is None:
             peak = (self.time_idx[0] + np.argmax(np.abs(np.sum(
                 self.template.data[:, self.time_idx[0]:self.time_idx[1]],
                 axis=0))))

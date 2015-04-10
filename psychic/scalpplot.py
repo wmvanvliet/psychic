@@ -11,7 +11,7 @@ def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5,
   plot_sensors=True, plot_contour=True, cmap=plt.cm.jet, clim=None, smark='k.', linewidth=2, fontsize=8):
 
   # add densities
-  if clim == None:
+  if clim is None:
     clim = [np.min(densities), np.max(densities)]
   locs = [positions.project_scalp(*sensor_locs[lab]) for lab in sensors]
   add_density(densities, locs, cmap=cmap, clim=clim, plot_contour=plot_contour)

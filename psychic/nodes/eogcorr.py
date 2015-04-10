@@ -25,7 +25,7 @@ class EOGCorr(BaseNode):
             self.reog = d.feat_lab[0].index(self.reog)
 
         self.eog = set([self.heog, self.veog, self.reog])
-        if self.eeg == None:
+        if self.eeg is None:
             self.eeg = set(range(d.nfeatures)) - self.eog
         else:
             self.eeg = set([d.feat_lab[0].index(ch) if type(ch) == str else ch
