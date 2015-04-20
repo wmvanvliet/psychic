@@ -8,6 +8,7 @@ from scipy import linalg
 class EOGCorr(BaseNode):
     def __init__(self, mdict, heog='hEOG', veog='vEOG', reog='rEOG',
                  keep_eog=True, eeg=None):
+        assert sorted(mdict.values()) == ['blink', 'down', 'left', 'right', 'up']
         BaseNode.__init__(self)
         self.heog = heog
         self.veog = veog
