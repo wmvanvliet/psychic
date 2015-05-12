@@ -18,9 +18,9 @@ import stat
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
-  if offset == None:
+  if offset is None:
     offset = np.max(np.std(frames, axis=0)) * 3
-  if time == None:
+  if time is None:
     time = np.arange(frames.shape[0])
   plt.plot(time, frames - np.mean(frames, axis=0) + 
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
@@ -175,13 +175,13 @@ def plot_eeg(
     num_channels, num_samples = data.data.shape
 
     # Spread out the channels
-    if vspace == None:
+    if vspace is None:
         vspace = np.max(np.max(data.data, axis=1) - np.min(data.data, axis=1))
 
     bases = vspace * np.arange(0, num_channels)[::-1] - np.mean(data.data, axis=1)
     to_plot = data.data + np.tile( bases, (num_samples,1) ).T
 
-    if fig == None:
+    if fig is None:
         fig = plot.figure()
 
     # Plot EEG
@@ -223,10 +223,10 @@ def plot_specgrams(
         fig=None):
     ''' For each channel, plot a spectogram. '''
 
-    if fig == None:
+    if fig is None:
         fig = plot.figure()
 
-    if samplerate == None:
+    if samplerate is None:
         samplerate = psychic.get_samplerate(data)
 
     num_channels = data.nfeatures
@@ -250,7 +250,7 @@ def plot_specgrams(
         ax.xaxis.grid(True, which='major', color='w')
         ax.yaxis.grid(False)
 
-        if data.feat_lab != None:
+        if data.feat_lab is not None:
             plot.ylabel(data.feat_lab[channel])
         else:
             plot.ylabel('CH%02d' % (channel+1))
@@ -382,16 +382,16 @@ def plot_erp(
 
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
-    if cl_lab == None:
+    if cl_lab is None:
         cl_lab = d.cl_lab if d.cl_lab else['class %d' % cl for cl in classes]
 
-    if ch_lab == None:
-        if d.feat_lab != None:
+    if ch_lab is None:
+        if d.feat_lab is not None:
             ch_lab = d.feat_lab[0]
         else:
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
-    if classes == None:
+    if classes is None:
         classes = range(d.nclasses)
 
     num_classes = len(classes)
@@ -412,11 +412,11 @@ def plot_erp(
             significant_clusters = test(d, np_iter, pval, classes)[:,:3]
             significance_test_performed = True
 
-        elif pval != None:
+        elif pval is not None:
             # Perform a t-test
             ts, ps = scipy.stats.ttest_ind(d.get_class(classes[0]).data, d.get_class(classes[1]).data, axis=2)
 
-            if fwer != None:
+            if fwer is not None:
                 ps = fwer(ps.ravel()).reshape(ps.shape)
 
             for ch in range(num_channels):
@@ -433,22 +433,22 @@ def plot_erp(
     erp = trials.erp(d, classes=classes, enforce_equal_n=enforce_equal_n)
 
     # Calculate a sane vspace
-    if vspace == None:
+    if vspace is None:
         vspace = (np.max(erp.data) - np.min(erp.data)) 
 
     # Calculate timeline, using the best information available
-    if samplerate != None:
+    if samplerate is not None:
         ids = np.arange(num_samples) / float(samplerate) - start
-    elif erp.feat_lab != None:
+    elif erp.feat_lab is not None:
         ids = np.array(erp.feat_lab[1], dtype=float) - start
     else:
         ids = np.arange(num_samples) - start
 
     # Plot ERP
-    if fig == None:
+    if fig is None:
         fig = plot.figure()
 
-    if ncols == None:
+    if ncols is None:
         ncols = max(1, num_channels/15)
 
     channels_per_col = int(np.ceil(num_channels / float(ncols)))
@@ -492,7 +492,7 @@ def plot_erp(
                 p = plot.fill(x, y, facecolor='g', alpha=0.2)
 
         # Plot confidence intervals
-        if conf_inter != None:
+        if conf_inter is not None:
             stds = np.concatenate([
                 np.std(d.get_class(classes[i]).data[channels,:,:], axis=2)[:,:,np.newaxis]
                 for i in range(num_classes)
@@ -528,9 +528,9 @@ def plot_erp_specdiffs(
         fig=None):
     assert d.data.ndim == 3
     assert len(classes) == 2
-    assert d.feat_lab != None
+    assert d.feat_lab is not None
 
-    if fig == None:
+    if fig is None:
         fig = plot.figure()
 
     tf = trials.trial_specgram(d, samplerate, NFFT)
@@ -605,9 +605,9 @@ def plot_erp_specgrams(
         freq_range=[0.1, 50],
         fig=None):
     assert d.data.ndim == 3
-    assert d.feat_lab != None
+    assert d.feat_lab is not None
 
-    if fig == None:
+    if fig is None:
         fig = plot.figure()
 
     tf = trials.trial_specgram(d, samplerate, NFFT)
@@ -676,7 +676,7 @@ def plot_erp_image(d, labels=None, fig=None):
     assert d.data.ndim == 3, 'Expecting sliced data'
     nchannels, nsamples, ntrials = d.data.shape
 
-    if labels == None:
+    if labels is None:
         order = np.arange(ntrials)
     else:
         order = np.argsort(labels)
@@ -687,10 +687,10 @@ def plot_erp_image(d, labels=None, fig=None):
     for t in range(smooth, ntrials-smooth):
         data[:,:,t] = np.mean(d.data[:,:,t-smooth:t+smooth+1], axis=2)
 
-    if fig == None:
+    if fig is None:
         fig = plt.figure()
 
-    if d.feat_lab != None:
+    if d.feat_lab is not None:
         time = [float(i) for i in d.feat_lab[1]]
     else:
         time = np.arange(nsamples)
@@ -702,7 +702,7 @@ def plot_erp_image(d, labels=None, fig=None):
         ax = plt.subplot(nrows, ncols, ch+1)
         plt.imshow(data[ch,:,::-1].T, interpolation='nearest', extent=(time[0], time[-1], 0, ntrials), aspect='auto')
 
-        if labels != None and labels[0] >= time[0] and labels[-1] <= time[-1]:
+        if labels is not None and labels[0] >= time[0] and labels[-1] <= time[-1]:
            plt.plot(labels, np.arange(ntrials), '-k', linewidth=1)
 
         if ch % ncols != 0:
@@ -711,7 +711,7 @@ def plot_erp_image(d, labels=None, fig=None):
         if ch < (nrows-1)*ncols:
             [l.set_visible(False) for l in ax.get_xticklabels()]
 
-        if d.feat_lab == None:
+        if d.feat_lab is None:
             plt.title('Channel %02d' % (ch+1))
         else:
             plt.title(d.feat_lab[0][ch])
@@ -721,7 +721,7 @@ def plot_erp_image(d, labels=None, fig=None):
 
     plt.xlabel('time (s)')
 
-    if fig == None:
+    if fig is None:
         plt.tight_layout()
 
 def plot_psd(d, freq_range=(2, 60), fig=None, **kwargs):
@@ -755,7 +755,7 @@ def plot_psd(d, freq_range=(2, 60), fig=None, **kwargs):
     '''
     assert d.data.ndim == 2, 'Expecting continuous EEG data'
 
-    if fig == None:
+    if fig is None:
         fig = plt.figure(figsize=(8,5))
 
     Fs = psychic.get_samplerate(d)
@@ -808,7 +808,7 @@ def plot_erp_psd(d, freq_range=(2, 60), fig=None, **kwargs):
     '''
     assert d.data.ndim == 3, 'Expecting EEG data cut in trials'
 
-    if fig == None:
+    if fig is None:
         fig = plt.figure(figsize=(8,5))
 
     Fs = psychic.get_samplerate(d)
@@ -951,16 +951,16 @@ def plot_topo(
 
     # Determine properties of the data that weren't explicitly supplied as
     # arguments.
-    if cl_lab == None:
+    if cl_lab is None:
         cl_lab = d.cl_lab if d.cl_lab else['class %d' % cl for cl in classes]
 
-    if ch_lab == None:
-        if d.feat_lab != None:
+    if ch_lab is None:
+        if d.feat_lab is not None:
             ch_lab = d.feat_lab[0]
         else:
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
-    if classes == None:
+    if classes is None:
         classes = range(d.nclasses)
 
     num_classes = len(classes)
@@ -981,11 +981,11 @@ def plot_topo(
             significant_clusters = test(d, np_iter, pval, classes)[:,:3]
             significance_test_performed = True
 
-        elif pval != None:
+        elif pval is not None:
             # Perform a t-test
             ts, ps = scipy.stats.ttest_ind(d.get_class(classes[0]).data, d.get_class(classes[1]).data, axis=2)
 
-            if fwer != None:
+            if fwer is not None:
                 ps = fwer(ps.ravel()).reshape(ps.shape)
 
             for ch in range(num_channels):
@@ -1008,9 +1008,9 @@ def plot_topo(
         vspace = (-vspace, vspace)
 
     # Calculate timeline, using the best information available
-    if samplerate != None:
+    if samplerate is not None:
         ids = np.arange(num_samples) / float(samplerate) - start
-    elif erp.feat_lab != None:
+    elif erp.feat_lab is not None:
         ids = np.array(erp.feat_lab[1], dtype=float) - start
     else:
         ids = np.arange(num_samples) - start

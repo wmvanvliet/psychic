@@ -5,7 +5,7 @@ import numpy as np
 def _ch_idx(channels, names):
     '''Construct a set of channel indices, given a list of mixed integer indices
     and string names.'''
-    if channels == None:
+    if channels is None:
         return set([])
     else:
         return set([names.index(ch) if type(ch) == str else ch
@@ -83,24 +83,24 @@ class EEGMontage(BaseNode):
             heog=None, veog=None, calc_reog=False, drop=None, drop_ref=False):
         BaseNode.__init__(self)
 
-        assert (eeg == None or hasattr(eeg, '__iter__')), \
+        assert (eeg is None or hasattr(eeg, '__iter__')), \
             'Parameter eeg should either be None or a list'
-        assert (eog == None or hasattr(eog, '__iter__')), \
+        assert (eog is None or hasattr(eog, '__iter__')), \
             'Parameter eog should either be None or a list'
-        assert (bads == None or hasattr(bads, '__iter__')), \
+        assert (bads is None or hasattr(bads, '__iter__')), \
             'Parameter bads should either be None or a list'
-        assert (ref == None or hasattr(ref, '__iter__')), \
+        assert (ref is None or hasattr(ref, '__iter__')), \
             'Parameter ref should either be None or a list'
-        assert (bipolar == None or type(bipolar) == dict), \
+        assert (bipolar is None or type(bipolar) == dict), \
             'Parameter bipolar should either be None or a dictionary'
-        if bipolar != None:
+        if bipolar is not None:
             for channels in bipolar.values():
                 assert len(channels) == 2, ('Bipolar channels should be a '
                                            'dictionary containing tuples as '
                                            'values')
-        assert (heog == None or (hasattr(heog, '__iter__') and len(heog) == 2)), \
+        assert (heog is None or (hasattr(heog, '__iter__') and len(heog) == 2)), \
             'Parameter heog should either be None or a tuple'
-        assert (veog == None or (hasattr(veog, '__iter__') and len(veog) == 2)), \
+        assert (veog is None or (hasattr(veog, '__iter__') and len(veog) == 2)), \
             'Parameter veog should either be None or a tuple'
 
         self.eeg = eeg
@@ -120,7 +120,7 @@ class EEGMontage(BaseNode):
         # EEG channels
         if self.eeg == []:
             self.eeg_idx = set(self.all_channels)
-        elif self.eeg != None:
+        elif self.eeg is not None:
             self.eeg_idx = _ch_idx(self.eeg, d.feat_lab[0])
         else:
             self.eeg_idx = set([])
@@ -158,7 +158,7 @@ class EEGMontage(BaseNode):
         self.eog_idx -= self.ref_idx
 
         # Bipolar references
-        if self.bipolar != None:
+        if self.bipolar is not None:
             self.bipolar_idx = {}
             for name, channels in self.bipolar.items():
                 self.bipolar_idx[name] = _ch_idx(channels, d.feat_lab[0])
@@ -176,11 +176,11 @@ class EEGMontage(BaseNode):
         data = d.data.copy()
 
         # Set bad channels to zero
-        if self.bads != None:
+        if self.bads is not None:
             data[list(self.bads_idx), :] = 0
 
         # Calculate reference signal
-        if self.ref == None:
+        if self.ref is None:
             ref = None
         elif self.ref == []:
             # CAR
@@ -189,11 +189,11 @@ class EEGMontage(BaseNode):
             ref = np.mean(d.data[list(self.ref_idx), :], axis=0)
 
         # Reference signal (do not reference the reference and bad channels)
-        if ref != None:
+        if ref is not None:
             data[list(self.all_channels-self.ref_idx-self.bads_idx), :] -= ref
 
         # Bipolar channels
-        if self.bipolar == None:
+        if self.bipolar is None:
             bipolar = None
         else:
             bipolar = {}
@@ -202,13 +202,13 @@ class EEGMontage(BaseNode):
                 bipolar[name] = data[channels[0],:] - data[channels[1],:]
 
         # Calculate hEOG and vEOG
-        if self.heog == None:
+        if self.heog is None:
             heog = None
         else:
             heog = (data[list(self.heog_idx)[0], :] -
                     data[list(self.heog_idx)[1], :])
 
-        if self.veog == None:
+        if self.veog is None:
             veog = None
         else:
             veog = (data[list(self.veog_idx)[0], :] -
@@ -237,21 +237,21 @@ class EEGMontage(BaseNode):
         # Put everything in a DataSet
         data = [data]
         
-        if bipolar != None:
+        if bipolar is not None:
             for name, channel in bipolar.items():
                 data.append(channel[np.newaxis, :])
                 ch_names.append(name)
 
-        if heog != None:
+        if heog is not None:
             data.append(heog[np.newaxis, :])
             ch_names.append('hEOG')
-        if veog != None:
+        if veog is not None:
             data.append(veog[np.newaxis, :])
             ch_names.append('vEOG')
-        if reog != None:
+        if reog is not None:
             data.append(reog[np.newaxis, :])
             ch_names.append('rEOG')
-        if ref != None and not self.drop_ref:
+        if ref is not None and not self.drop_ref:
             data.append(ref[np.newaxis, :])
             ch_names.append('REF')
 

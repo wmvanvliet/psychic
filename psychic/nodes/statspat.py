@@ -115,7 +115,7 @@ class SpatialFC(SpatialFilter):
         assert len(d.feat_shape) == 2, 'Expecting sliced data'
         assert d.nclasses > 1, 'Expecting more than one class'
 
-        if self.classes == None:
+        if self.classes is None:
             self.classes = range(d.nclasses)
 
         Xs = [d.get_class(i).data for i in self.classes]

@@ -74,7 +74,7 @@ def erp(d, classes=None, enforce_equal_n=True):
     '''
     assert d.data.ndim > 2
 
-    if classes == None or len(classes) == 0:
+    if classes is None or len(classes) == 0:
         # Take all classes with >0 instances
         classes = [cl for cl in range(d.nclasses)
                    if d.ninstances_per_class[cl] > 0]
@@ -172,7 +172,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
     d_trials = []
     idxs = []
 
-    if groups_per_class == None:
+    if groups_per_class is None:
         groups_per_class = np.min(d.ninstances_per_class) / group_size
 
     for cl in range(d.nclasses):
@@ -261,7 +261,7 @@ def reject_trials(d, cutoff=100, time_range=None):
     reject : :class:`numpy.Array`
         Boolean mask used to reject indices.
     '''
-    if time_range == None:
+    if time_range is None:
         time_range = (0, d.data.shape[1])
 
     if hasattr(cutoff, '__iter__'):
@@ -437,8 +437,8 @@ def trial_specgram(d, samplerate=None, NFFT=256):
     '''
     assert d.data.ndim == 3
 
-    if samplerate == None:
-        assert d.feat_lab != None, 'Must either supply samplerate or feat_lab to deduce it.'
+    if samplerate is None:
+        assert d.feat_lab is not None, 'Must either supply samplerate or feat_lab to deduce it.'
         samplerate = np.round(1./np.median(np.diff([float(x) for x in d.feat_lab[1]])))
 
     all_TFs = []

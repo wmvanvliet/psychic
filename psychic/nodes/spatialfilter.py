@@ -118,7 +118,7 @@ class SpatialFilter(BaseNode):
       return sfilter_cov(d, self.W, self.preserve_feat_lab)
 
   def apply_(self, d):
-    if self.ftype == None:
+    if self.ftype is None:
         self.ftype = self.infer_ftype(d)
     return self.sfilter(d)
 
@@ -145,7 +145,7 @@ def sfilter_trial(d, W, preserve_feat_lab=False):
   if preserve_feat_lab and (data.shape == d.data.shape):
     feat_lab = d.feat_lab
   else:
-    if d.feat_lab == None:
+    if d.feat_lab is None:
       feat_lab = None
     else:
       feat_lab=[['COMP %02d' % (i+1) for i in range(nchannels)], d.feat_lab[1]]
@@ -324,7 +324,7 @@ class SpatialBlur(SpatialFilter):
     self.sigma = sigma
 
   def train_(self, d):
-    if self.ftype == None:
+    if self.ftype is None:
         self.ftype = self.infer_ftype(d)
 
     if self.ftype == COV:

@@ -16,13 +16,13 @@ def sliding_window(signal, window_size, window_step, win_func=None):
   signal = np.asarray(signal)
   if signal.ndim != 1:
     raise ValueError, 'Sliding window works on 1D arrays only!'
-  if win_func != None:
+  if win_func is not None:
     if win_func.size != window_size:
       raise ValueError, 'window_size (%d) does not match win_func.size (%d)' % (
         window_size, win_func.size)
   indices = sliding_window_indices(window_size, window_step, signal.shape[0])
   windows = signal.take(indices=indices)
-  if win_func != None:
+  if win_func is not None:
     windows = windows * win_func # broadcasting matches from last dim
   return windows
 

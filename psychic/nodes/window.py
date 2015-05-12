@@ -96,7 +96,7 @@ class OnlineSlidingWindow(SlidingWindow):
     self.buffer = None
 
   def apply_(self, d):
-    if self.buffer != None:
+    if self.buffer is not None:
       self.buffer = self.buffer + d
     else:
       self.buffer = d
