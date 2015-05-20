@@ -47,7 +47,7 @@ class SpatialBeamformer(SpatialFilter):
             #gs = GridSearchCV(ShrunkCovariance(assume_centered=True), [{'shrinkage': self.reg}], cv=2)
             #c = gs.fit(concatenate_trials(d).X).best_estimator_
             c = OAS(assume_centered=True).fit(concatenate_trials(d).X)
-            print 'Estimated shrinkage: ', c.shrinkage_
+            self.log.info('Estimated shrinkage: %f' % c.shrinkage_)
             self.reg = c.shrinkage_
         else:
             c = ShrunkCovariance(assume_centered=True, shrinkage=self.reg).fit(concatenate_trials(d).X)
@@ -66,8 +66,9 @@ class SpatialBeamformer(SpatialFilter):
         )
 
     def apply_(self, d):
-        d = DataSet(d.data - d.data.mean(axis=0), default=d)
-        d = baseline(d)
+        if self.normalize:
+            d = DataSet(d.data - d.data.mean(axis=0), default=d)
+            d = baseline(d)
         return SpatialFilter.apply_(self, d)
 
 
@@ -118,7 +119,7 @@ class TemplateBeamformer(BaseNode):
             #gs = GridSearchCV(ShrunkCovariance(assume_centered=True), [{'shrinkage': self.reg}], cv=2)
             #c = gs.fit(d.data.reshape(-1, ntrials).T).best_estimator_
             c = OAS(assume_centered=True).fit(d.data.reshape(-1, ntrials).T)
-            print 'Estimated shrinkage: ', c.shrinkage_
+            self.log.info('Estimated shrinkage: %f' % c.shrinkage_)
             self.reg = c.shrinkage_
         else:
             c = ShrunkCovariance(assume_centered=True, shrinkage=self.reg).fit(d.data.reshape(-1, ntrials).T)

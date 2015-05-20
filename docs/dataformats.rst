@@ -41,7 +41,8 @@ contain one second of data. The ``read`` method returns a `generator <https://wi
 or more records at the time:
 
 >>> # read 4 records, one by one
->>> chunks = [r.read().next() for i in range(4)]
+>>> chunk_generator = r.read()
+>>> chunks = [chunk_generator.next() for i in range(4)]
 >>> print len(chunks)
 4
 
