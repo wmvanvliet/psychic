@@ -1,1 +1,1 @@
-import edf, bdf
+import edf, bdf, curry
