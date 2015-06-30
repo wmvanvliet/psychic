@@ -1,5 +1,4 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
 from scipy import interpolate
 from matplotlib.path import Path
@@ -7,12 +6,18 @@ from matplotlib.patches import PathPatch, Circle
 
 import positions
 
-def plot_scalp(densities, sensors, sensor_locs=positions.POS_10_5, 
-  plot_sensors=True, plot_contour=True, cmap=plt.cm.jet, clim=None, smark='k.', linewidth=2, fontsize=8):
+def plot_scalp(densities, sensors, sensor_locs=None,
+  plot_sensors=True, plot_contour=True, cmap=None, clim=None, smark='k.', linewidth=2, fontsize=8):
+
+  if sensor_locs is None:
+    sensor_locs = positions.POS_10_5
+  if cmap is None:
+    cmap = plt.get_cmap('RdBu_r')
 
   # add densities
   if clim is None:
-    clim = [np.min(densities), np.max(densities)]
+    cmax = np.max(np.abs(densities))
+    clim = [-cmax, cmax]
   locs = [positions.project_scalp(*sensor_locs[lab]) for lab in sensors]
   add_density(densities, locs, cmap=cmap, clim=clim, plot_contour=plot_contour)
 

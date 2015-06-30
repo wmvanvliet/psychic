@@ -25,7 +25,7 @@ def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   plt.plot(time, frames - np.mean(frames, axis=0) + 
     np.arange(frames.shape[1]) * offset, color=color, ls=linestyle)
 
-def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None, 
+def plot_scalpgrid(scalps, sensors, locs=None, width=None, 
   clim=None, cmap=None, titles=None, smark='k.', plot_contour=True):
   '''
   Plots a grid with scalpplots. Scalps contains the different scalps in the
@@ -50,7 +50,8 @@ def plot_scalpgrid(scalps, sensors, locs=POS_10_5, width=None,
   height = int(np.ceil(nscalps/float(width)))
 
   if not clim:
-    clim = [np.min(scalps), np.max(scalps)]
+    cmax = np.max(np.abs(scalps))
+    clim = [-cmax, cmax]
 
   plt.clf()
   for i in range(nscalps):

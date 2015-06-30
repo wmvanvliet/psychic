@@ -386,7 +386,8 @@ def csp(sigma_a, sigma_b, m):
   W = csp_base(sigma_a, sigma_b)
   if W.shape[1] > m: 
     return W[:, outer_n(m)]
-  return W
+  else:
+    return W
 
 def select_channels(n, keep_inds):
   '''
