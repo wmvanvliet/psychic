@@ -1,4 +1,4 @@
-Psychic is copyright (c) 2015 by Boris Reuderink (b.reuderink@gmai.com) and
+Psychic is copyright (c) 2015 by Boris Reuderink (b.reuderink@gmail.com) and
 Marijn van Vliet (w.m.vanvliet@gmail.com)
 
 Psychic is a Python package for EEG analysis and BCI construction.
