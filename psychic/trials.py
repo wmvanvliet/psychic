@@ -32,7 +32,7 @@ def baseline(d, baseline_period=None):
     assert d.data.ndim <= 3
 
     if d.data.ndim == 2:
-        num_samples = d.data.ninstances
+        num_samples = data.ninstances
         d = d.data - np.tile( np.mean(d.data[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
 
     else:
@@ -395,7 +395,6 @@ def concatenate_trials(d):
         - ``d.ids``: Timestamps for each sample
         - ``d.feat_lab``: This is set to ``d.feat_lab[0]``, which usually
           contains the channel names.
-
     '''
     assert d.data.ndim == 3, 'Expecting sliced data'
 

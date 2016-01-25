@@ -401,16 +401,16 @@ class BDFWriter:
         """ Write the BDF file header, settings things such as the number of channels and sample rate. """
 
         # Sanity checks on lengths
-        assert len(self.label) == self.n_channels+1 
-        assert len(self.transducer_type) == self.n_channels+1
-        assert len(self.units) == self.n_channels+1
-        assert len(self.physical_min) == self.n_channels+1
-        assert len(self.physical_max) == self.n_channels+1
-        assert len(self.digital_min) == self.n_channels+1
-        assert len(self.digital_max) == self.n_channels+1
-        assert len(self.prefiltering) == self.n_channels+1
-        assert len(self.n_samples_per_record) == self.n_channels+1
-        assert len(self.reserved) == self.n_channels+1
+        assert len(self.label) == self.n_channels
+        assert len(self.transducer_type) == self.n_channels
+        assert len(self.units) == self.n_channels
+        assert len(self.physical_min) == self.n_channels
+        assert len(self.physical_max) == self.n_channels
+        assert len(self.digital_min) == self.n_channels
+        assert len(self.digital_max) == self.n_channels
+        assert len(self.prefiltering) == self.n_channels
+        assert len(self.n_samples_per_record) == self.n_channels
+        assert len(self.reserved) == self.n_channels
 
         try:
             # Seek back to the beginning of the file
