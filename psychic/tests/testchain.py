@@ -126,4 +126,4 @@ class TestChain(unittest.TestCase):
             ch = Chain([linear_model.LinearRegression()])
             self.assertEqual(str(ch),
                 'Chain (LinearRegression(copy_X=True, fit_intercept=True, '+
-                'normalize=False))')
+                'n_jobs=1, normalize=False))')
