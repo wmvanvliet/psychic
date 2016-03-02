@@ -52,7 +52,7 @@ class SpatialBeamformer(SpatialFilter):
             d = baseline(d)
 
         # Calculate spatial covariance matrix
-        c = self.cov().fit(concatenate_trials(d).X)
+        c = self.cov.fit(concatenate_trials(d).X)
         sigma_x_i = c.precision_
 
         # Compute spatial LCMV filter
@@ -111,19 +111,19 @@ class TemplateBeamformer(BaseNode):
         elif type(shrinkage) == float or type(shrinkage) == int:
             self.cov = ShrunkCovariance(shrinkage=shrinkage)
 
-    def center(self, d):
+    def _center(self, d):
         data_mean = d.data.reshape(-1, len(d)).mean(axis=1)
         data_mean = data_mean.reshape(d.feat_shape + (1,))
         return DataSet(d.data - data_mean, default=d)
 
     def train_(self, d):
         if self.center:
-            d = self.center(d)
+            d = self._center(d)
 
         nsamples, ntrials = d.data.shape[1:]
         template = self.template[:, :nsamples]
 
-        c = self.cov().fit(d.data.reshape(-1, ntrials).T)
+        c = self.cov.fit(d.data.reshape(-1, ntrials).T)
         sigma_x_i = c.precision_
 
         template = self.template.flatten()[:, np.newaxis]
@@ -135,8 +135,8 @@ class TemplateBeamformer(BaseNode):
         )
 
     def apply_(self, d):
-        if self.normalize:
-            d = self.center(d)
+        if self.center:
+            d = self._center(d)
 
         ntrials = d.data.shape[2]
         X = self.W.T.dot(d.data.reshape(-1, ntrials))
