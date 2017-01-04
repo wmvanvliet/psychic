@@ -17,7 +17,7 @@ import dataformats
 from dataformats.edf import load_edf
 from dataformats.bdf import BDFReader, BDFWriter, load_bdf, save_bdf
 from dataformats.curry import load_curry
-from trials import erp, baseline, ttest, random_groups, ungroup, reject_trials, slice, concatenate_trials, trial_specgram, align
+from trials import erp, slope_erp, baseline, ttest, random_groups, ungroup, reject_trials, slice, concatenate_trials, trial_specgram, align
 import fake
 from dataset import DataSet, concatenate, as_instances
 from stat import lw_cov

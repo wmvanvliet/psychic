@@ -61,7 +61,7 @@ class EOGCorr(BaseNode):
         corr1 = np.zeros(d_blink.data.T.shape)
         for channel in range(d_blink.nfeatures):
             corr1[:, channel] = d_blink.data[channel,:] - d_blink.data[self.heog,:]*self.Bh[channel] - d_blink.data[self.veog,:]*self.Bv[channel]
-            
+
         # Calculate Br    
         v2 = np.vstack((
             np.ones(d_blink.ninstances),

@@ -32,7 +32,7 @@ def baseline(d, baseline_period=None):
     assert d.data.ndim <= 3
 
     if d.data.ndim == 2:
-        num_samples = data.ninstances
+        num_samples = d.ninstances
         d = d.data - np.tile( np.mean(d.data[:,baseline_period[0]:baseline_period[1]], axis=1).T, (num_samples, 1) ).T
 
     else:
@@ -53,7 +53,7 @@ def erp(d, classes=None, enforce_equal_n=True):
 
     Parameters
     ----------
-    data : :class:`psychic.DataSet`
+    d: :class:`psychic.DataSet`
         The trials
     classes: list (optional)
         When specified, the ERP is only calculated for the classes with the
@@ -66,7 +66,7 @@ def erp(d, classes=None, enforce_equal_n=True):
     
     Returns
     -------
-    d : :class:`psychic.DataSet`
+    d: :class:`psychic.DataSet`
         A DataSet containing for each class the ERP. 
 
         - ``d.data``: [channels x samples x classes]
@@ -104,6 +104,56 @@ def erp(d, classes=None, enforce_equal_n=True):
     cl_lab = [lab for i,lab in enumerate(d.cl_lab) if i in classes]
 
     return DataSet(data=erp, labels=labels, ids=ids, cl_lab=cl_lab,
+                   default=d)
+
+def slope_erp(d, Y, cl_lab=None):
+    '''
+    For each class, calculate the slope ERP by regressing the given variables Y
+    onto the trials. Note: no baselining is performed, see
+    :func:`psychic.baseline`.
+
+    Parameters
+    ----------
+    d : :class:`psychic.DataSet`
+        The trials
+    Y : 1D or 2D array (n_trials, n_classes)
+        The variables to regress onto the trials to construct the slope ERP.
+        Each variable will create one class in the resulting dataset.
+    cl_lab : list of str (optional)
+        For each variable, a descriptive name.
+
+    Returns
+    -------
+    d : :class:`psychic.DataSet`
+        A DataSet containing for each variable the slope ERP.
+
+        - ``d.data``: [channels x samples x classes]
+        - ``d.labels``: The class labels. Each class has one instance (one
+                        slope ERP).
+    '''
+    if Y.ndim == 1:
+        Y = Y[:, np.newaxis]
+    X = d.X - d.X.mean(axis=0, keepdims=True)
+
+    assert X.shape[0] == Y.shape[0]
+
+    classes = list(range(Y.shape[1]))
+    labels = helpers.to_one_of_n(classes).astype(np.bool)
+    ids = np.atleast_2d(classes)
+    if cl_lab is None:
+        cl_lab = ['class %d' % i for i in classes]
+    elif isinstance(cl_lab, str):
+        cl_lab = [cl_lab]
+
+    assert len(cl_lab) == Y.shape[1]
+
+    slope_erps = []
+    for i in range(Y.shape[1]):
+        w = np.linalg.lstsq(Y[:, [i]], X)[0]
+        slope_erps.append(w.reshape(d.feat_shape))
+    slope_erps = np.array(slope_erps).transpose(1, 2, 0)
+
+    return DataSet(data=slope_erps, labels=labels, ids=ids, cl_lab=cl_lab,
                    default=d)
 
 def ttest(d, classes=[0, 1], shuffle=True):
