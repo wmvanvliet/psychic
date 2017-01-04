@@ -45,7 +45,7 @@ def baseline(d, baseline_period=None):
 
     return DataSet(data, default=d)
 
-def erp(d, classes=None, enforce_equal_n=True):
+def erp(d, classes=None, enforce_equal_n=False):
     '''
     For each class, calculate the Event Related Potential by averaging the 
     corresponding trials. Note: no baselining is performed, see
@@ -58,7 +58,7 @@ def erp(d, classes=None, enforce_equal_n=True):
     classes: list (optional)
         When specified, the ERP is only calculated for the classes with the
         given indices.
-    enforce_equal_n : bool (default=True)
+    enforce_equal_n : bool (default=False)
         When set, each ERP is calculated by averaging the same number of
         trials. For example, if class1 has m and class2 has n trials and m > n.
         The ERP for class1 will be calculated by taking n random trials from
@@ -91,7 +91,7 @@ def erp(d, classes=None, enforce_equal_n=True):
 
         if enforce_equal_n:
             # Enforce an equal number of trials for all classes. Picking them
-            # at random.  Otherwise the ERPs will be skewed, simply because a
+            # at random. Otherwise the ERPs will be skewed, simply because a
             # different number of trials are averaged.
             idx = range(trials.shape[-1])[:num_trials]
             np.random.shuffle(idx)
