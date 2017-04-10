@@ -17,3 +17,4 @@ from baseline import PriorClassifier, RandomClassifier, WeakClassifier
 from chain import Chain
 from simple import ZScore, ApplyOverFeats, ApplyOverInstances
 from beamformer import SpatialBeamformer, TemplateBeamformer
+from faster import InterpolateChannels

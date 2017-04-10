@@ -24,6 +24,7 @@ from stat import lw_cov
 import cv
 import perf
 import helpers
+import faster
 
 import os.path as op
 def find_data_path(fname=''):
