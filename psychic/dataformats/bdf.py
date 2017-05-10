@@ -1,4 +1,4 @@
-import re, datetime, unittest, logging, struct
+import re, datetime, logging, struct
 import numpy as np
 import psychic
 
@@ -272,16 +272,16 @@ def int24_to_le(ints):
     binary[:, 2] = ((uints >> 16) & 0xff).flatten()
     return binary.flatten()
 
-def num_to_bytes(num, strlen, encoding='utf-8'):
-    return bytes(('%d' % num).ljust(strlen), encoding)
+def num_to_bytes(num, strlen):
+    return bytes(('%d' % num).ljust(strlen))
 
 def read_str(file, maxlen, encoding='utf-8'):
     '''Read a string from a binary file.'''
     return file.read(maxlen).decode(encoding).strip()
 
-def str_to_bytes(string, maxlen, encoding='utf-8'):
+def str_to_bytes(string, maxlen):
     '''Format a string into a bytearray'''
-    return bytes(string.ljust(maxlen), encoding)
+    return bytes(string.ljust(maxlen))
 
 class BDFWriter:
     '''
