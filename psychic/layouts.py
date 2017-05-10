@@ -1,7 +1,8 @@
 import numpy as np
-from scalpplot import positions
 from itertools import combinations
 from matplotlib import pyplot as plt
+
+from .scalpplot import positions
 
 
 class Layout:

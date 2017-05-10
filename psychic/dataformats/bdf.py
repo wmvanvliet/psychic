@@ -1,11 +1,10 @@
 import re, datetime, unittest, logging, struct
-import string
 import numpy as np
 import psychic
 
 bdf_log = logging.getLogger('BDFReader')
 
-class BDFEndOfData: pass
+class BDFEndOfData(BaseException): pass
 
 class BDFReader:
     '''
@@ -42,21 +41,21 @@ class BDFReader:
         f = self.file
         h = self.header = {}
         assert(f.tell() == 0) # check file position
-        assert(f.read(8) == '\xffBIOSEMI')
+        assert(f.read(8) == b'\xffBIOSEMI')
 
         # recording info
-        h['local_subject_id'] = f.read(80).strip()
-        h['local_recording_id'] = f.read(80).strip()
+        h['local_subject_id'] = read_str(f, 80)
+        h['local_recording_id'] = read_str(f, 80)
 
         # parse timestamp
-        (day, month, year) = [int(x) for x in re.findall('(\d+)', f.read(8))]
-        (hour, minute, sec)= [int(x) for x in re.findall('(\d+)', f.read(8))]
+        (day, month, year) = [int(x) for x in re.findall('(\d+)', read_str(f, 8))]
+        (hour, minute, sec)= [int(x) for x in re.findall('(\d+)', read_str(f, 8))]
         h['date_time'] = datetime.datetime(year + 2000, month, day, 
             hour, minute, sec)
 
         # misc
         self.header_nbytes = int(f.read(8))
-        format = f.read(44).strip()
+        format = read_str(f, 44)
         # BioSig toolbox does not set format
         # assert format == '24BIT'
         h['n_records'] = int(f.read(8))
@@ -64,15 +63,15 @@ class BDFReader:
         self.nchannels = h['n_channels'] = int(f.read(4))
 
         # read channel info
-        channels = range(h['n_channels'])
-        h['label'] = [f.read(16).strip() for n in channels]
-        h['transducer_type'] = [f.read(80).strip() for n in channels]
-        h['units'] = [f.read(8).strip() for n in channels]
+        channels = list(range(h['n_channels']))
+        h['label'] = [read_str(f, 16) for n in channels]
+        h['transducer_type'] = [read_str(f, 80) for n in channels]
+        h['units'] = [read_str(f, 8) for n in channels]
         h['physical_min'] = [int(f.read(8)) for n in channels]
         h['physical_max'] = [int(f.read(8)) for n in channels]
         h['digital_min'] = [int(f.read(8)) for n in channels]
         h['digital_max'] = [int(f.read(8)) for n in channels]
-        h['prefiltering'] = [f.read(80).strip() for n in channels]
+        h['prefiltering'] = [read_str(f, 80) for n in channels]
         h['n_samples_per_record'] = [int(f.read(8)) for n in channels]
         f.read(32 * h['n_channels']) # reserved
         
@@ -116,7 +115,7 @@ class BDFReader:
             for i in range(n):
                 for j in range(n_channels):
                     bytes = self.file.read(n_samp * 3)
-                    if len(bytes) <> n_samp * 3:
+                    if len(bytes) != n_samp * 3:
                         raise BDFEndOfData
                     result[j, i*n_samp:(i+1)*n_samp] = le_to_int24(bytes)
         except BDFEndOfData:
@@ -250,14 +249,14 @@ class BDFReader:
         ', '.join(h['label']), max(h['n_samples_per_record']), h['date_time'],\
         )
 
-def le_to_int24(bytes):
+def le_to_int24(binary):
     '''Convert groups of 3 bytes (little endian, two's complement) to an
     iterable to a numpy array of 24-bit integers.'''
-    if type(bytes) == str:
-        bytes = np.fromstring(bytes, np.uint8)
+    if type(binary) == str or type(binary) == bytes:
+        binary = np.fromstring(binary, np.uint8)
     else:
-        bytes = np.asarray(bytes, np.uint8)
-    int_rows = bytes.reshape(-1, 3).astype(np.int32)
+        binary = np.asarray(binary, np.uint8)
+    int_rows = binary.reshape(-1, 3).astype(np.int32)
     ints = int_rows[:, 0] + (int_rows[:, 1] << 8) + (int_rows[:, 2] << 16)
     ints[ints >= (1 << 23)] -= (1 << 24)
     return ints
@@ -267,14 +266,22 @@ def int24_to_le(ints):
     numpy array.'''
     uints = np.array(ints, np.int32)
     uints[np.asarray(ints) < 0] -= (1 << 24)
-    bytes = np.zeros((uints.size, 3), np.uint8)
-    bytes[:, 0] = (uints & 0xff).flatten()
-    bytes[:, 1] = ((uints >> 8) & 0xff).flatten()
-    bytes[:, 2] = ((uints >> 16) & 0xff).flatten()
-    return bytes.flatten()
+    binary = np.zeros((uints.size, 3), np.uint8)
+    binary[:, 0] = (uints & 0xff).flatten()
+    binary[:, 1] = ((uints >> 8) & 0xff).flatten()
+    binary[:, 2] = ((uints >> 16) & 0xff).flatten()
+    return binary.flatten()
 
-def num_to_str(num, strlen):
-    return string.ljust('%d' % num, strlen) 
+def num_to_bytes(num, strlen, encoding='utf-8'):
+    return bytes(('%d' % num).ljust(strlen), encoding)
+
+def read_str(file, maxlen, encoding='utf-8'):
+    '''Read a string from a binary file.'''
+    return file.read(maxlen).decode(encoding).strip()
+
+def str_to_bytes(string, maxlen, encoding='utf-8'):
+    '''Format a string into a bytearray'''
+    return bytes(string.ljust(maxlen), encoding)
 
 class BDFWriter:
     '''
@@ -341,7 +348,7 @@ class BDFWriter:
             header['n_samples_per_record'] = [int(sample_rate*record_length) for x in range(header['n_channels'])]
 
         # Use supplied header or defaults
-        self.id_code = '\xffBIOSEMI'
+        self.id_code = b'\xffBIOSEMI'
         self.local_subject_id = header['local_subject_id'] if 'local_subject_id' in header else ''
         self.local_recording_id = header['local_recording_id'] if 'local_recording_id' in header else ''
 
@@ -417,39 +424,39 @@ class BDFWriter:
             self.f.seek(0,0)
             self.f.write(
                 struct.pack('8s80s80s8s8s8s44s8s8s4s',
-                    string.ljust(self.id_code, 8),
-                    string.ljust(self.local_subject_id, 80),
-                    string.ljust(self.local_recording_id, 80),
-                    string.ljust(self.start_date, 8),
-                    string.ljust(self.start_time, 8),
-                    num_to_str(self.n_channels*256 + 256, 8),
-                    string.ljust(self.format, 44),
-                    num_to_str(self.n_records, 8), 
-                    num_to_str(self.record_length, 8),
-                    num_to_str(self.n_channels, 4),
+                    self.id_code,
+                    str_to_bytes(self.local_subject_id, 80),
+                    str_to_bytes(self.local_recording_id, 80),
+                    str_to_bytes(self.start_date, 8),
+                    str_to_bytes(self.start_time, 8),
+                    num_to_bytes(self.n_channels*256 + 256, 8),
+                    str_to_bytes(self.format, 44),
+                    num_to_bytes(self.n_records, 8), 
+                    num_to_bytes(self.record_length, 8),
+                    num_to_bytes(self.n_channels, 4),
                 )
             )
             
             for label in self.label:
-                self.f.write( struct.pack('16s', string.ljust(label, 16)) )
+                self.f.write( struct.pack('16s', str_to_bytes(label, 16)) )
             for transducer_type in self.transducer_type:
-                self.f.write( struct.pack('80s', string.ljust(transducer_type, 80)) )
+                self.f.write( struct.pack('80s', str_to_bytes(transducer_type, 80)) )
             for units in self.units:
-                self.f.write( struct.pack('8s', string.ljust(units, 8)) )
+                self.f.write( struct.pack('8s', str_to_bytes(units, 8)) )
             for physical_min in self.physical_min:
-                self.f.write( struct.pack('8s', num_to_str(physical_min, 8)) )
+                self.f.write( struct.pack('8s', num_to_bytes(physical_min, 8)) )
             for physical_max in self.physical_max:
-                self.f.write( struct.pack('8s', num_to_str(physical_max, 8)) )
+                self.f.write( struct.pack('8s', num_to_bytes(physical_max, 8)) )
             for digital_min in self.digital_min:
-                self.f.write( struct.pack('8s', num_to_str(digital_min, 8)) )
+                self.f.write( struct.pack('8s', num_to_bytes(digital_min, 8)) )
             for digital_max in self.digital_max:
-                self.f.write( struct.pack('8s', num_to_str(digital_max, 8)) )
+                self.f.write( struct.pack('8s', num_to_bytes(digital_max, 8)) )
             for prefiltering in self.prefiltering:
-                self.f.write( struct.pack('80s', string.ljust(prefiltering, 80)) )
+                self.f.write( struct.pack('80s', str_to_bytes(prefiltering, 80)) )
             for n_samples_per_record in self.n_samples_per_record:
-                self.f.write( struct.pack('8s', num_to_str(n_samples_per_record, 8)) )
+                self.f.write( struct.pack('8s', num_to_bytes(n_samples_per_record, 8)) )
             for reserved in self.reserved:
-                self.f.write( struct.pack('32s', string.ljust(reserved, 32)) ) 
+                self.f.write( struct.pack('32s', str_to_bytes(reserved, 32)) ) 
             self.f.flush()
 
             # Seek forward to the end of the file

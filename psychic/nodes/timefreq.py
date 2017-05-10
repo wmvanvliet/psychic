@@ -1,7 +1,7 @@
 import numpy as np
 from ..dataset import DataSet
-from basenode import BaseNode
-from simple import ApplyOverInstances
+from .basenode import BaseNode
+from .simple import ApplyOverInstances
 from ..utils import spectrogram, sliding_window
 
 class TFC(BaseNode):

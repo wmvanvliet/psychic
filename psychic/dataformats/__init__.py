@@ -1,1 +1,1 @@
-import edf, bdf, curry
+from . import edf, bdf, curry

@@ -1,7 +1,7 @@
-from dataset import DataSet
-from helpers import to_one_of_n
+from .dataset import DataSet
+from .helpers import to_one_of_n
 from scipy.stats import norm
-import positions
+from . import positions
 import numpy as np
 
 def sine(freq, nchannels, duration, sample_rate):

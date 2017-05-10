@@ -1,13 +1,14 @@
 import logging
 import numpy as np
-from dataset import DataSet
+from .dataset import DataSet
 
-from markers import markers_to_events
+from .markers import markers_to_events
 
 def sliding_window_indices(window_size, window_step, sig_len):
   '''Returns indices for a sliding window with shape [nwindows x window_size]'''
   nwindows = int(np.floor((sig_len - window_size + window_step) / 
     float(window_step)))
+  print(nwindows)
   starts = np.arange(nwindows).reshape(nwindows, 1) * window_step
   return starts + np.arange(window_size)
 
@@ -15,11 +16,11 @@ def sliding_window(signal, window_size, window_step, win_func=None):
   '''Apply a sliding window to a 1D signal. Returns [#windows x window_size].'''
   signal = np.asarray(signal)
   if signal.ndim != 1:
-    raise ValueError, 'Sliding window works on 1D arrays only!'
+    raise ValueError('Sliding window works on 1D arrays only!')
   if win_func is not None:
     if win_func.size != window_size:
-      raise ValueError, 'window_size (%d) does not match win_func.size (%d)' % (
-        window_size, win_func.size)
+      raise ValueError('window_size (%d) does not match win_func.size (%d)' % (
+        window_size, win_func.size))
   indices = sliding_window_indices(window_size, window_step, signal.shape[0])
   windows = signal.take(indices=indices)
   if win_func is not None:

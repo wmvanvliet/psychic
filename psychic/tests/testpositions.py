@@ -10,7 +10,7 @@ class Test10_5(unittest.TestCase):
 
     def test_eq_dists(labs):
       dists = [dist(POS_10_5[a], POS_10_5[b]) for a, b in zip(labs, labs[1:])]
-      self.assert_(np.all(np.abs(np.diff(dists)) < 1e-3))
+      self.assertTrue(np.all(np.abs(np.diff(dists)) < 1e-3))
 
     test_eq_dists('Nz Fpz AFz Fz FCz Cz CPz Pz POz Oz Iz'.split())
     test_eq_dists('Fpz Fp1 AF7 F7 FT7 T7 TP7 P7 PO7 O1 Oz'.split())
@@ -20,7 +20,7 @@ class Test10_5(unittest.TestCase):
   def test_plot_locs(self):
     locs = []
     plt.clf()
-    for (label, coord) in POS_10_5.items():
+    for (label, coord) in list(POS_10_5.items()):
       x, y = project_scalp(*coord)
       plt.text(x, y + .03, label, fontsize=6, ha='center')
       locs.append((x, y))

@@ -5,6 +5,7 @@ from ..dataset import DataSet
 from ..trials import concatenate_trials
 
 from ..nodes.spatialfilter import *
+from functools import reduce
 
 class TestSpatialFilter(unittest.TestCase):
   def setUp(self):
@@ -113,7 +114,7 @@ class TestSpatialFilters(unittest.TestCase):
   def test_car(self):
     data = np.random.rand(4, 10)
     W = car(data.shape[0])
-    self.assert_(np.allclose(np.dot(W.T, data), data - np.mean(data, axis=0)))
+    self.assertTrue(np.allclose(np.dot(W.T, data), data - np.mean(data, axis=0)))
 
   def test_outer_n(self):
     np.testing.assert_equal(outer_n(1), [0])

@@ -1,9 +1,10 @@
-import cPickle
+import pickle
 import operator
 import numpy as np
-import helpers
+from . import helpers
 import copy
 import operator
+from functools import reduce
 
 class DataSet(object):
     """
@@ -193,7 +194,7 @@ class DataSet(object):
             if default is not None:
                 data = default.data
             else:
-                raise ValueError, 'No data given'
+                raise ValueError('No data given')
         self._data = data = np.atleast_2d(data)
  
         if labels is None:
@@ -267,7 +268,7 @@ class DataSet(object):
             ):
                 self.feat_lab = default.feat_lab
             else:
-                self.feat_lab = [range(x) for x in feat_shape]
+                self.feat_lab = [list(range(x)) for x in feat_shape]
         else:
             # Make sure feat_lab is a list of lists
             if not np.all([isinstance(x, list) for x in feat_lab]):
@@ -322,7 +323,7 @@ class DataSet(object):
                              % (self.nfeatures, other.nfeatures))
 
         # Compare all other members, except data, labels and ids
-        for key in self.__dict__.keys():
+        for key in list(self.__dict__.keys()):
             if key not in other.__dict__:
                 raise ValueError('Cannot add DataSets: %s not present' % key)
 
@@ -471,7 +472,7 @@ class DataSet(object):
                 default=self
             )
         else:
-            raise ValueError, 'Unknown indexing type.'
+            raise ValueError('Unknown indexing type.')
 
     def __len__(self):
         '''
@@ -487,7 +488,7 @@ class DataSet(object):
         return ('DataSet with %d instances, %d features [%s], %d classes: %s, '
             'extras: %s') % (self.ninstances, self.nfeatures, 
             'x'.join([str(di) for di in self.feat_shape]), 
-            self.nclasses, repr(self.ninstances_per_class), repr(self.extra.keys()))
+            self.nclasses, repr(self.ninstances_per_class), repr(list(self.extra.keys())))
 
     def __repr__(self):
         return str(self)
@@ -511,7 +512,7 @@ class DataSet(object):
         '''
         if not isinstance(b, DataSet):
             return False
-        for member in a.__dict__.keys():
+        for member in list(a.__dict__.keys()):
             am, bm = a.__dict__[member], b.__dict__[member]
             if isinstance(am, np.ndarray):
                 if am.shape != bm.shape or not np.all(am == bm):
@@ -566,7 +567,7 @@ class DataSet(object):
         the filename.
         '''
         f = open(file, 'wb') if isinstance(file, str) else file
-        cPickle.dump(self, f, cPickle.HIGHEST_PROTOCOL)
+        pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         if isinstance(file, str):
             f.close()
 
@@ -578,7 +579,7 @@ class DataSet(object):
         the filename.
         '''
         f = open(file, 'rb') if isinstance(file, str) else file
-        d = cPickle.load(f)
+        d = pickle.load(f)
         assert isinstance(d, DataSet)
         d.check_consistency()
         if isinstance(file, str):
@@ -814,7 +815,7 @@ def concatenate(datasets, ignore_index=False, merge_possible_labels=False):
     assert len(datasets) > 0
     for d in datasets:
         if not isinstance(d, DataSet):
-            raise ValueError, 'Can only concatenate DataSet objects.'
+            raise ValueError('Can only concatenate DataSet objects.')
 
     if len(datasets) == 1:
         return datasets[0]
@@ -835,7 +836,7 @@ def concatenate(datasets, ignore_index=False, merge_possible_labels=False):
     # Deal with integer labels
     if merge_possible_labels and hasattr(base, 'possible_labels'):
         # Keep track of integer label -> class label mapping
-        mdict = dict(reduce(operator.add, [zip(d.possible_labels, d.cl_lab) for d
+        mdict = dict(reduce(operator.add, [list(zip(d.possible_labels, d.cl_lab)) for d
             in datasets]))
 
         # Merge possible labels

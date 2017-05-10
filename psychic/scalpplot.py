@@ -4,7 +4,7 @@ from scipy import interpolate
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch, Circle
 
-import positions
+from . import positions
 
 def plot_scalp(densities, sensors, sensor_locs=None,
   plot_sensors=True, plot_contour=True, cmap=None, clim=None, smark='k.', linewidth=2, fontsize=8):
@@ -53,7 +53,7 @@ def add_head(linewidth=2):
 
   # add nose and ears
   for p in [nose, lear, rear]:
-    code, verts = zip(*p)
+    code, verts = list(zip(*p))
     ax.add_patch(PathPatch(Path(verts, code), fill=False, linewidth=linewidth))
 
 
@@ -74,7 +74,7 @@ def add_density(dens, locs, cmap=plt.cm.jet, clim=None, plot_contour=True):
   '''
   RESOLUTION = 50
   RADIUS = 1.2
-  xs, ys = zip(*locs)
+  xs, ys = list(zip(*locs))
   extent = [-1.2, 1.2, -1.2, 1.2]
   vmin, vmax = clim
 

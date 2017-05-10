@@ -1,6 +1,6 @@
 import operator
-from dataset import DataSet
-from nodes import BaseNode
+from .dataset import DataSet
+from .nodes import BaseNode
 import numpy as np
 
 class ExperimentInfo:
@@ -17,7 +17,7 @@ class ExperimentInfo:
       self.emg_chan = [str(ch) for ch in emg_chan]
       self.ref_chan = [str(ch) for ch in ref_chan]
 
-      for (expname, exp) in experiments.items():
+      for (expname, exp) in list(experiments.items()):
         if not set(exp.channels).issubset(self.all_channels):
           raise ValueError('%s is not in record info.' %
             list(set(exp.channels).difference(self.all_channels)))
@@ -30,10 +30,10 @@ class ExperimentInfo:
 def markers(markers):
   markers = dict(markers)
   assert len(markers) > 0
-  keys = [int(k) for k in markers.keys()]
-  values = [str(v) for v in markers.values()]
+  keys = [int(k) for k in list(markers.keys())]
+  values = [str(v) for v in list(markers.values())]
   assert all([m > 0 for m in keys])
-  return dict(zip(keys, values))
+  return dict(list(zip(keys, values)))
 
 def interval(interval):
   assert len(interval) == 2

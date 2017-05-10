@@ -1,10 +1,10 @@
 import numpy as np
 import scipy
 import logging
-import helpers
-import markers
-import utils
-from dataset import DataSet, concatenate
+from . import helpers
+from . import markers
+from . import utils
+from .dataset import DataSet, concatenate
 from matplotlib.mlab import specgram
 
 def baseline(d, baseline_period=None):
@@ -93,7 +93,7 @@ def erp(d, classes=None, enforce_equal_n=False):
             # Enforce an equal number of trials for all classes. Picking them
             # at random. Otherwise the ERPs will be skewed, simply because a
             # different number of trials are averaged.
-            idx = range(trials.shape[-1])[:num_trials]
+            idx = list(range(trials.shape[-1]))[:num_trials]
             np.random.shuffle(idx)
             erp[...,i] = np.mean(trials[...,idx], axis=trials.ndim-1)
         else:
@@ -247,7 +247,7 @@ def random_groups(d, group_size, groups_per_class=None, mean=False):
             if mean:
                 feat_lab = d.feat_lab
             else:
-                feat_lab = d.feat_lab + [range(group_size)] if d.feat_lab else None
+                feat_lab = d.feat_lab + [list(range(group_size))] if d.feat_lab else None
 
             labels = d.labels[:,idx[0,:]]
             ids = d.ids[:,idx[0,:]]
@@ -274,7 +274,7 @@ def ungroup(d, axis=2):
     assert 0 < axis < d.data.ndim, 'Cannot ungroup along the first or last axis'
 
     # Re-order axes
-    new_axis_order = range(axis-1) + [axis, axis-1] + range(axis+1, d.data.ndim)
+    new_axis_order = list(range(axis-1)) + [axis, axis-1] + list(range(axis+1, d.data.ndim))
     data = d.data.transpose(new_axis_order)
 
     # Re-shape axes to perform ungrouping
@@ -383,7 +383,7 @@ def slice(d, markers_to_class, offsets):
     
     cl_lab = sorted(set(markers_to_class.values()))
     events, events_i, events_d = markers.markers_to_events(d.labels.flat)
-    for (mark, cl) in markers_to_class.items():
+    for (mark, cl) in list(markers_to_class.items()):
         cl_i = cl_lab.index(cl)
         for i in events_i[events==mark]: # fails if there is *ONE* event
             (start, end) = i + start_off, i + end_off
@@ -406,7 +406,7 @@ def slice(d, markers_to_class, offsets):
         ids = np.zeros((1,0))
     else:
         data = np.concatenate([x[...,np.newaxis] for x in data], axis=2)
-        labels = helpers.to_one_of_n(labels, class_rows=range(len(cl_lab)))
+        labels = helpers.to_one_of_n(labels, class_rows=list(range(len(cl_lab))))
         ids = np.atleast_2d(np.vstack(ids).T)
 
     feat_dim_lab = ['channels', 'time']

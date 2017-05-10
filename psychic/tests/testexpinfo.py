@@ -18,7 +18,7 @@ class TestExpInfo(unittest.TestCase):
   def setUp(self):
     self.ex_mi = Experiment(marker_to_class={1:'left', 2:'right'},
       trial_offset=[.5, 3], baseline_offset=[-1, 0], band=[8, 30],
-      channels=['C3', 'C4'], paradigm='MI', test_folds=range(10))
+      channels=['C3', 'C4'], paradigm='MI', test_folds=list(range(10)))
     
     self.expinfo = ExperimentInfo(
       ac_freq=50, 

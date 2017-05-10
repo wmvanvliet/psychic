@@ -116,7 +116,7 @@ class SpatialFC(SpatialFilter):
         assert d.nclasses > 1, 'Expecting more than one class'
 
         if self.classes is None:
-            self.classes = range(d.nclasses)
+            self.classes = list(range(d.nclasses))
 
         Xs = [d.get_class(i).data for i in self.classes]
         self.V, self.W = _calc_beamformer_fc(Xs, self.nc, self.theta)

@@ -1,8 +1,9 @@
 import copy
 import logging
 import numpy as np
-from dataset import DataSet
-import helpers
+from .dataset import DataSet
+from . import helpers
+from functools import reduce
 
 log = logging.getLogger('psychic.cv')
 
@@ -40,8 +41,8 @@ def cross_validate(subsets, node):
         pred = inode.apply(te_stripped)
 
         # reattach labels
-        print pred
-        print te
+        print(pred)
+        print(te)
         pred = DataSet(labels=te.labels, default=pred)
 
         del inode, tr, te
@@ -108,7 +109,7 @@ def cross_validation_sets(subsets):
     k = len(subsets)
     for ki in range(k):
         training_set = (reduce(lambda a, b: a + b, 
-            [subsets[i] for i in range(len(subsets)) if i <> ki]))
+            [subsets[i] for i in range(len(subsets)) if i != ki]))
         test_set = subsets[ki]
         log.info('Building training and test set %d of %d' % (ki + 1, k))
         yield training_set, test_set

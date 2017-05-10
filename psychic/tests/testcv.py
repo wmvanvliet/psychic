@@ -3,6 +3,7 @@ import numpy as np
 from .. import cv, fake, perf
 from ..nodes import PriorClassifier
 from .. import DataSet
+from functools import reduce
 
 class TestCrossValidation(unittest.TestCase):
     def setUp(self):
@@ -36,7 +37,7 @@ class TestCrossValidation(unittest.TestCase):
             self.assertEqual(len(subsets), K)
             set_size = d.ninstances/float(K)
             for s in subsets:
-                self.assert_(np.floor(set_size) <= s.ninstances <= np.ceil(set_size))
+                self.assertTrue(np.floor(set_size) <= s.ninstances <= np.ceil(set_size))
             
             self.check_disjoint(subsets)
             d2 = reduce(operator.add, subsets)
@@ -67,8 +68,8 @@ class TestCrossValidation(unittest.TestCase):
                 self.mem = {}
 
             def train(self, d):
-                pairs = zip(d.ids.flat, d.ids.T.tolist())
-                self.mem = dict(self.mem.items() + pairs)
+                pairs = list(zip(d.ids.flat, d.ids.T.tolist()))
+                self.mem = dict(list(self.mem.items()) + pairs)
 
             def apply(self, d): 
                 data = np.asarray([self.mem.get(i, [0, 0, 0]) for i in d.ids.flat])
@@ -85,6 +86,6 @@ class TestCrossValidation(unittest.TestCase):
         self.assertEqual(len(tds), 50)
         self.assertAlmostEqual(perf.mean_std(perf.accuracy, tds)[0], .5)
         fold_ids = np.array([td.ids.flatten() for td in tds])
-        self.failIf(
+        self.assertFalse(
             (np.var(fold_ids.reshape(-1, d.ninstances), axis=0) == 0).any(),
             'The folds are all the same!')

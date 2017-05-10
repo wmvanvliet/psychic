@@ -1,7 +1,7 @@
 import warnings
 import numpy as np
-import helpers
-import stat
+from . import helpers
+from . import stat
 
 def class_loss(d):
     r'''
@@ -61,7 +61,7 @@ def mean_std(loss_f, ds):
     '''
     Calculate mean and std for loss function loss_f over a list ds with DataSets
     '''
-    losses = map(loss_f, ds)
+    losses = list(map(loss_f, ds))
     return (np.mean(losses, axis=0), np.std(losses, axis=0))
 
 def mutinf(d):

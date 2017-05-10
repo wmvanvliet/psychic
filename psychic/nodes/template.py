@@ -1,4 +1,4 @@
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..dataset import DataSet
 import psychic
 import numpy as np

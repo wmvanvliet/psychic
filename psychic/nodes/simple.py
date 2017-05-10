@@ -1,5 +1,5 @@
 import numpy as np
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..dataset import DataSet
 
 class ApplyOverInstances(BaseNode):
@@ -8,7 +8,7 @@ class ApplyOverInstances(BaseNode):
     self.mapping = mapping
 
   def apply_(self, d):
-    instances = np.asarray(map(self.mapping, np.rollaxis(d.data, -1)))
+    instances = np.asarray(list(map(self.mapping, np.rollaxis(d.data, -1))))
     data = np.rollaxis(instances, 0, len(instances.shape))
     return DataSet(data, default=d)
 

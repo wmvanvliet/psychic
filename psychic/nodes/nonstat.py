@@ -1,7 +1,7 @@
 import numpy as np
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..dataset import DataSet
-from spatialfilter import sym_whitening, cov0
+from .spatialfilter import sym_whitening, cov0
 from ..utils import get_samplerate
 from scipy import signal
 
@@ -26,7 +26,7 @@ class SlowSphering(BaseNode):
     data = slow_sphere(d.data, self.fil, int(self.reest * self.samplerate))
     return DataSet(data, default=d)
 
-def slow_sphere(samples, (b, a), wstep):
+def slow_sphere(samples, xxx_todo_changeme, wstep):
   '''
   Applies a symmetrical whitening transform to samples, based on locally
   estimated covariance matrices. (b, a) is a FIR or IIR filter that determines
@@ -41,6 +41,7 @@ def slow_sphere(samples, (b, a), wstep):
 
   The filter (b, a) should be designed to match wstep.
   '''
+  (b, a) = xxx_todo_changeme
   samples = np.atleast_2d(samples)
 
   sigs = np.asarray([cov0(samples[:, i:i+wstep]) for i in 

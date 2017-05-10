@@ -1,6 +1,6 @@
 import numpy as np
 from ..dataset import DataSet
-from basenode import BaseNode
+from .basenode import BaseNode
 
 class PriorClassifier(BaseNode):
   """

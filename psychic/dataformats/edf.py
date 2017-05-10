@@ -5,8 +5,9 @@
 import re, datetime, operator, logging
 import numpy as np
 from ..dataset import DataSet
+from functools import reduce
 
-class EDFEndOfData: pass
+class EDFEndOfData(BaseException): pass
 
 EVENT_CHANNEL = 'EDF Annotations'
 
@@ -21,7 +22,7 @@ def tal(tal_str):
     '(?:\x14\x00)'
 
   def annotation_to_list(annotation):
-    return unicode(annotation, 'utf-8').split('\x14') if annotation else []
+    return annotation.split('\x14') if annotation else []
 
   def parse(dic):
     return (
@@ -31,18 +32,22 @@ def tal(tal_str):
 
   return [parse(m.groupdict()) for m in re.finditer(exp, tal_str)]
 
+def read_str(file, maxlen, encoding='utf-8'):
+    '''Read a string from a binary file.'''
+    return file.read(maxlen).decode(encoding).strip()
+
 def edf_header(f):
   h = {}
   assert f.tell() == 0 # check file position
-  assert f.read(8) == '0       '
+  assert f.read(8) == b'0       '
 
   # recording info)
-  h['local_subject_id'] = f.read(80).strip()
-  h['local_recording_id'] = f.read(80).strip()
+  h['local_subject_id'] = read_str(f, 80)
+  h['local_recording_id'] = read_str(f, 80)
 
   # parse timestamp
-  (day, month, year) = [int(x) for x in re.findall('(\d+)', f.read(8))]
-  (hour, minute, sec)= [int(x) for x in re.findall('(\d+)', f.read(8))]
+  (day, month, year) = [int(x) for x in re.findall('(\d+)', read_str(f, 8))]
+  (hour, minute, sec)= [int(x) for x in re.findall('(\d+)', read_str(f, 8))]
   h['date_time'] = str(datetime.datetime(year + 2000, month, day, 
     hour, minute, sec))
 
@@ -56,15 +61,15 @@ def edf_header(f):
   nchannels = h['n_channels'] = int(f.read(4))
 
   # read channel info
-  channels = range(h['n_channels'])
-  h['label'] = [f.read(16).strip() for n in channels]
-  h['transducer_type'] = [f.read(80).strip() for n in channels]
-  h['units'] = [f.read(8).strip() for n in channels]
+  channels = list(range(h['n_channels']))
+  h['label'] = [read_str(f, 16) for n in channels]
+  h['transducer_type'] = [read_str(f, 80) for n in channels]
+  h['units'] = [read_str(f, 8) for n in channels]
   h['physical_min'] = np.asarray([float(f.read(8)) for n in channels])
   h['physical_max'] = np.asarray([float(f.read(8)) for n in channels])
   h['digital_min'] = np.asarray([float(f.read(8)) for n in channels])
   h['digital_max'] = np.asarray([float(f.read(8)) for n in channels])
-  h['prefiltering'] = [f.read(80).strip() for n in channels]
+  h['prefiltering'] = [read_str(f, 80) for n in channels]
   h['n_samples_per_record'] = [int(f.read(8)) for n in channels]
   f.read(32 * nchannels) # reserved
   
@@ -166,7 +171,7 @@ def load_edf(fname, annotation_to_marker):
 
   '''
   log = logging.getLogger('psychic.utils.load_edf')
-  assert 0 not in annotation_to_marker.values()
+  assert 0 not in list(annotation_to_marker.values())
   with open(fname, 'rb') as f:
     reader = BaseEDFReader(f)
     reader.read_header()
@@ -197,7 +202,7 @@ def load_edf(fname, annotation_to_marker):
       for (o, d, aa) in annotations for a in aa]
     labels = np.zeros(data.shape[1])
     if events:
-      offsets, mi = zip(*events)
+      offsets, mi = list(zip(*events))
       yi = np.searchsorted(ids, offsets)
       labels[yi] = mi
 

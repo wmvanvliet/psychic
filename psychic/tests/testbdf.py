@@ -4,6 +4,7 @@ import numpy as np
 import psychic
 from psychic.dataformats.bdf import BDFReader, BDFWriter, le_to_int24, int24_to_le, load_bdf, save_bdf
 from ..markers import markers_to_events, biosemi_find_ghost_markers
+from functools import reduce
 
 class TestConversion(unittest.TestCase):
   def setUp(self):

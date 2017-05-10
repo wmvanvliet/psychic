@@ -5,6 +5,7 @@ from ..nodes import SlidingWindow, OnlineSlidingWindow
 from ..dataset import DataSet
 from ..helpers import to_one_of_n
 from scipy import signal
+from functools import reduce
 
 class TestWindowNode(unittest.TestCase):
   def setUp(self):

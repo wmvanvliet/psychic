@@ -3,6 +3,7 @@ from ..helpers import to_one_of_n
 import numpy as np
 import unittest
 import tempfile
+from functools import reduce
 
 class TestDataSet(unittest.TestCase):
     def setUp(self):
@@ -29,12 +30,12 @@ class TestDataSet(unittest.TestCase):
         np.testing.assert_equal(d.data, self.data)
         self.assertEqual(d.nfeatures, 5*3)
         self.assertEqual(d.feat_shape, (5,3))
-        self.assertEqual(d.feat_lab, [range(5), range(3)])
+        self.assertEqual(d.feat_lab, [list(range(5)), list(range(3))])
         self.assertEqual(d.feat_dim_lab, ['feat_dim0', 'feat_dim1'])
         np.testing.assert_equal(d.labels, np.ones((1, 10), dtype=np.bool))
         self.assertEqual(d.nclasses, 1)
         self.assertEqual(d.cl_lab, ['class0'])
-        np.testing.assert_equal(d.ids, np.atleast_2d(range(10)))
+        np.testing.assert_equal(d.ids, np.atleast_2d(list(range(10))))
         self.assertEqual(d.extra, {})
 
     def test_full_constructor(self):
@@ -47,7 +48,7 @@ class TestDataSet(unittest.TestCase):
         self.assertEqual(d.feat_lab, self.feat_lab)
         self.assertEqual(d.feat_dim_lab, self.feat_dim_lab)
         np.testing.assert_equal(d.labels, self.labels)
-        np.testing.assert_equal(d.possible_labels, range(7, 12))
+        np.testing.assert_equal(d.possible_labels, list(range(7, 12)))
         self.assertEqual(d.nclasses, 5)
         self.assertEqual(d.cl_lab, self.cl_lab)
         np.testing.assert_equal(d.ids, self.ids)
@@ -79,7 +80,7 @@ class TestDataSet(unittest.TestCase):
         np.testing.assert_equal(d.data, data)
         self.assertEqual(d.nfeatures, 4*3)
         self.assertEqual(d.feat_shape, (4,3))
-        self.assertEqual(d.feat_lab, [range(4), range(3)])
+        self.assertEqual(d.feat_lab, [list(range(4)), list(range(3))])
         self.assertEqual(d.feat_dim_lab, self.feat_dim_lab)
         np.testing.assert_equal(d.labels, self.labels)
         np.testing.assert_equal(d.possible_labels, self.d.possible_labels)
@@ -95,13 +96,13 @@ class TestDataSet(unittest.TestCase):
         np.testing.assert_equal(d.data, data)
         self.assertEqual(d.nfeatures, 5)
         self.assertEqual(d.feat_shape, (5,))
-        self.assertEqual(d.feat_lab, [range(5)])
+        self.assertEqual(d.feat_lab, [list(range(5))])
         self.assertEqual(d.feat_dim_lab, ['feat_dim0'])
         np.testing.assert_equal(d.labels, np.ones((1, 7), dtype=np.bool))
         self.assertFalse(hasattr(d, 'possible_labels'))
         self.assertEqual(d.nclasses, 1)
         self.assertEqual(d.cl_lab, ['class0'])
-        np.testing.assert_equal(d.ids, np.atleast_2d(range(7)))
+        np.testing.assert_equal(d.ids, np.atleast_2d(list(range(7))))
         self.assertEqual(d.extra, self.extra)
 
     def test_construction_empty(self):
@@ -123,18 +124,18 @@ class TestDataSet(unittest.TestCase):
         d = DataSet([1.1, 2.2, 3.3])
         np.testing.assert_equal(d.data, [[1.1, 2.2, 3.3]])
 
-        d = DataSet(self.data, labels=range(10))
-        np.testing.assert_equal(d.labels, np.atleast_2d(range(10)))
+        d = DataSet(self.data, labels=list(range(10)))
+        np.testing.assert_equal(d.labels, np.atleast_2d(list(range(10))))
         self.assertEqual(d.nclasses, 10)
 
-        d = DataSet(self.data, ids=range(10))
-        np.testing.assert_equal(d.ids, np.atleast_2d(range(10)))
+        d = DataSet(self.data, ids=list(range(10)))
+        np.testing.assert_equal(d.ids, np.atleast_2d(list(range(10))))
 
     def test_X(self):
         ''' Test the 'X' property '''
-        d = DataSet(range(10))
+        d = DataSet(list(range(10)))
         self.assertEqual(d.X.ndim, 2)
-        np.testing.assert_equal(d.X, np.atleast_2d(range(10)).T)
+        np.testing.assert_equal(d.X, np.atleast_2d(list(range(10))).T)
 
         d = self.d
         self.assertEqual(d.X.ndim, 2)
@@ -164,7 +165,7 @@ class TestDataSet(unittest.TestCase):
         d = self.d
         self.assertEqual(d.ninstances, 10)
 
-        d = DataSet(range(243))
+        d = DataSet(list(range(243)))
         self.assertEqual(d.ninstances, 243)
 
     def test_nclasses(self):
@@ -186,9 +187,9 @@ class TestDataSet(unittest.TestCase):
 
         # When dealing with integer labels, the number of defined classes should
         # not change when slicing a part of the dataset
-        self.assertEquals(d_int[:2].nclasses, 10)
-        self.assertEquals(d_bool[:2].nclasses, 5)
-        self.assertEquals(d_float[:2].nclasses, 10)
+        self.assertEqual(d_int[:2].nclasses, 10)
+        self.assertEqual(d_bool[:2].nclasses, 5)
+        self.assertEqual(d_float[:2].nclasses, 10)
 
     def test_ninstances_per_class(self):
         ''' Test the 'ninstances_per_class' property '''
@@ -221,7 +222,7 @@ class TestDataSet(unittest.TestCase):
         d = self.d
         self.assertEqual(d.feat_shape, (5,3))
 
-        d = DataSet(range(10))
+        d = DataSet(list(range(10)))
         self.assertEqual(d.feat_shape, (1,))
 
     def test_constructor_errors(self):
@@ -251,7 +252,7 @@ class TestDataSet(unittest.TestCase):
             feat_lab=[['a', 'b', 'c', 'd', 'e'], [1,2,3,4]])
         self.assertRaises(ValueError, DataSet, data,
             feat_dim_lab=['dim1', 'dim2'])
-        self.assertRaises(ValueError, DataSet, data, labels=range(4),
+        self.assertRaises(ValueError, DataSet, data, labels=list(range(4)),
             cl_lab=['class1'])
 
         # Test wrong dimensions
@@ -310,7 +311,7 @@ class TestDataSet(unittest.TestCase):
 
         # shuffle and sort
         ds = d.shuffled()
-        self.failIfEqual(ds, d)
+        self.assertNotEqual(ds, d)
         self.assertEqual(ds[np.argsort(ds.ids.flat)], d)
 
     def test_sorted(self):
@@ -322,11 +323,11 @@ class TestDataSet(unittest.TestCase):
 
         # shuffle and sort
         d1ds = d1d.shuffled()
-        self.failIfEqual(d1d, d1ds)
+        self.assertNotEqual(d1d, d1ds)
         self.assertEqual(d1d, d1ds.sorted())
 
         d2ds = d2d.shuffled()
-        self.failIfEqual(d2d, d2ds)
+        self.assertNotEqual(d2d, d2ds)
         self.assertEqual(d2d, d2ds.sorted())
 
     def test_equality(self):
@@ -348,14 +349,14 @@ class TestDataSet(unittest.TestCase):
 
         # test all kinds of differences
         for dd in diff_ds:
-            self.failIfEqual(dd, d)
+            self.assertNotEqual(dd, d)
         
         # test special cases
         self.assertEqual(d, DataSet(data=d.data.copy(), labels=d.labels.copy(),
             ids=d.ids.copy(), default=d))
-        self.failIfEqual(d, 3)
-        self.failIfEqual(d[:0], d) # triggered special cast in np.array comparison.
-        self.failIfEqual(d[:0], d[0]) # similar
+        self.assertNotEqual(d, 3)
+        self.assertNotEqual(d[:0], d) # triggered special cast in np.array comparison.
+        self.assertNotEqual(d[:0], d[0]) # similar
 
     def test_add(self):
         '''Test the creation of compound datasets using the add-operator.'''

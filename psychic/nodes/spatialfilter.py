@@ -4,10 +4,11 @@ import numpy as np
 import scipy
 from numpy import linalg as la
 from ..dataset import DataSet
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..positions import POS_10_5
+from functools import reduce
 
-PLAIN, TRIAL, COV = range(3)
+PLAIN, TRIAL, COV = list(range(3))
 
 def cov0(data):
   '''
@@ -369,7 +370,7 @@ def sym_whitening(sigma, rtol=1e-15):
 
 def outer_n(n):
   '''Return a list with indices from both ends, i.e.: [0, 1, 2, -3, -2, -1]'''
-  return np.roll(np.arange(n) - n/2, (n + 1) / 2)
+  return np.roll(np.arange(n) - n//2, (n + 1) // 2)
 
 def csp_base(sigma_a, sigma_b):
   '''Return CSP transformation matrix. No dimension reduction is performed.'''

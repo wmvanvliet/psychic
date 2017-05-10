@@ -47,7 +47,7 @@ class ERP(BaseNode):
 
     def train_(self, d):
         if self.classes is None:
-            self.classes = range(d.nclasses)
+            self.classes = list(range(d.nclasses))
 
     def apply_(self, d):
         return erp(d, classes=self.classes, enforce_equal_n=self.enforce_equal_n)
@@ -72,7 +72,7 @@ class Blowup(BaseNode):
 
         assert d.data.ndim == 4
 
-        classes = range(d.nclasses)
+        classes = list(range(d.nclasses))
         cl_lab = d.cl_lab
         if np.min( np.array(d.ninstances_per_class) ) == 0:
             self.log.warning("Some classes have 0 instances and will be skipped")

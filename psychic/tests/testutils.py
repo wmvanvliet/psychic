@@ -10,14 +10,14 @@ class TestSlidingWindow(unittest.TestCase):
     windows = utils.sliding_window_indices(5, 2, 10)
     self.assertEqual(windows.shape, (3, 5))
     np.testing.assert_equal(windows[:, 0], [0, 2, 4])
-    np.testing.assert_equal(windows[0, :], range(5))
+    np.testing.assert_equal(windows[0, :], list(range(5)))
 
   def test_functionality_1D(self):
     signal = np.arange(10)
     windows = utils.sliding_window(signal, 5, 2)
     self.assertEqual(windows.shape, (3, 5))
     np.testing.assert_equal(windows[:, 0], [0, 2, 4])
-    np.testing.assert_equal(windows[0, :], range(5))
+    np.testing.assert_equal(windows[0, :], list(range(5)))
 
   def test_winf(self):
     signal = np.arange(10)
@@ -66,7 +66,7 @@ class TestSpectrogram(unittest.TestCase):
 
     self.alpha_beta = self.alpha + self.beta    
     self.beta_spike = self.beta.copy()
-    self.beta_spike[self.N/2] = 100
+    self.beta_spike[self.N // 2] = 100
 
   def test_stepsize(self):
     FS, N, NFFT = self.FS, self.N, self.NFFT
@@ -75,7 +75,7 @@ class TestSpectrogram(unittest.TestCase):
     for step in [NFFT, NFFT/2, NFFT/4, NFFT/8, 1]:
       spec = utils.spectrogram(s, NFFT, step)
       self.assertEqual(spec.shape[0], 1 + (s.size - NFFT) / step)
-      self.assertEqual(spec.shape[1], NFFT/2 + 1)
+      self.assertEqual(spec.shape[1], NFFT//2 + 1)
       np.testing.assert_approx_equal(np.sum(spec), energy_s, 3)
 
   def test_NFFT(self):
@@ -84,8 +84,8 @@ class TestSpectrogram(unittest.TestCase):
     energy_s = np.sum(s**2)
     for NFFT in [4, 8, 9, 31, 32, 33, 128, 512]:
       spec = utils.spectrogram(s, NFFT, NFFT)
-      self.assertEqual(spec.shape[0], s.size / NFFT)
-      self.assertEqual(spec.shape[1], NFFT/2 + 1)
+      self.assertEqual(spec.shape[0], s.size // NFFT)
+      self.assertEqual(spec.shape[1], NFFT//2 + 1)
       np.testing.assert_approx_equal(np.sum(spec), energy_s, 3)
 
   def test_temp_power(self):
@@ -127,13 +127,13 @@ class TestSpectrogram(unittest.TestCase):
   
   def test_wave_spike(self):
     FS, N, NFFT = self.FS, self.N, self.NFFT
-    spec = utils.spectrogram(self.beta_spike, NFFT, NFFT/2)
+    spec = utils.spectrogram(self.beta_spike, NFFT, NFFT//2)
     # no negative values
-    self.assert_((spec > 0).all())
+    self.assertTrue((spec > 0).all())
 
     # verify that the spike is centered in time
-    self.assertEqual(spec.shape, (79, NFFT/2 + 1))
-    self.assertEqual(np.argmax(np.mean(spec, axis=1)), spec.shape[0]/2)
+    self.assertEqual(spec.shape, (79, NFFT//2 + 1))
+    self.assertEqual(np.argmax(np.mean(spec, axis=1)), spec.shape[0]//2)
 
     # verify that the peak frequency ~ 30Hz
     freqs = np.fft.fftfreq(NFFT, 1./FS)
@@ -147,16 +147,16 @@ class TestFindSegments(unittest.TestCase):
       [(-2, 1), (4, 7)])
       
   def test_overlapping(self):
-    self.assertEqual(utils.find_segments([3, 1, 3, 4, 1, 4], range(6), 3, 4),
+    self.assertEqual(utils.find_segments([3, 1, 3, 4, 1, 4], list(range(6)), 3, 4),
       [(2, 3), (0, 5)])
 
   def test_malformed(self):
     self.assertRaises(AssertionError, utils.find_segments, [4, 3, 4], 
-      range(3), 3, 4)
+      list(range(3)), 3, 4)
 
   def test_openended(self):
     logging.getLogger('psychic.utils.find_segments').setLevel(logging.ERROR)
-    self.assertEqual(utils.find_segments([3, 1], range(2), 3, 4), [])
+    self.assertEqual(utils.find_segments([3, 1], list(range(2)), 3, 4), [])
     logging.getLogger('psychic.utils.find_segments').setLevel(logging.WARNING)
 
 class TestCutSegments(unittest.TestCase):
@@ -182,7 +182,7 @@ class TestGetSamplerate(unittest.TestCase):
       df = DataSet(ids=np.arange(100)/float(f), default=d_2d)
       self.assertEqual(utils.get_samplerate(df), f)
 
-      df = DataSet(feat_lab=[range(10), (np.arange(100)/float(f)).tolist()],
+      df = DataSet(feat_lab=[list(range(10)), (np.arange(100)/float(f)).tolist()],
                    default=d_3d)
       self.assertEqual(utils.get_samplerate(df), f)
 

@@ -1,21 +1,21 @@
-import testbasenode
-import testbdf
-import testcv
-import testdataset
-import testedf
-import testeegmontage
-import testexpinfo
-import testfiltering
-import testmarkers
-import testnonstat
-import testparafac
-import testperf
-import testplots
-import testpositions
-import testsimple
-import testslidingwindow
-import testspatialfilter
-import teststat
-import testtimefreq
-import testtrials
-import testutils
+from . import testbasenode
+from . import testbdf
+from . import testcv
+from . import testdataset
+from . import testedf
+from . import testeegmontage
+from . import testexpinfo
+from . import testfiltering
+from . import testmarkers
+from . import testnonstat
+from . import testparafac
+from . import testperf
+from . import testplots
+from . import testpositions
+from . import testsimple
+from . import testslidingwindow
+from . import testspatialfilter
+from . import teststat
+from . import testtimefreq
+from . import testtrials
+from . import testutils

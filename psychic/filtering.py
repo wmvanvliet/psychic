@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import signal
-from dataset import DataSet
-from markers import resample_markers
+from .dataset import DataSet
+from .markers import resample_markers
 
 def ewma_filter(alpha):
   '''
@@ -31,12 +31,13 @@ def ma(x, n):
   return np.convolve(x, np.ones(n)/n)[:x.size]
 
 
-def filtfilt_rec(d, (b, a), axis=1):
+def filtfilt_rec(d, xxx_todo_changeme, axis=1):
   '''
   Apply a filter defined by the filter coefficients (b, a) to a 
   DataSet, *forwards and backwards*. 
   d.data is interpreted as [frames x channels].
   '''
+  (b, a) = xxx_todo_changeme
   return DataSet(data=signal.filtfilt(b, a, d.data, axis=axis), default=d)
 
 def resample_rec(d, factor, max_marker_delay=0):
@@ -88,7 +89,7 @@ def rereference_rec(d, reference_channels=None, keep=True):
 
   # Use common average referencing by default
   if reference_channels is None:
-    reference_channels = range(nchannels)
+    reference_channels = list(range(nchannels))
 
   # Check if given list of lists and convert feature labels to channel indices
   list_of_lists = None

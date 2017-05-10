@@ -32,7 +32,7 @@ def hard_max(data):
     if data.shape[1] == 0: 
         return data.copy()
     result = np.zeros(data.shape)
-    result[np.argmax(data, axis=0),range(data.shape[1])] = 1
+    result[np.argmax(data, axis=0),list(range(data.shape[1]))] = 1
     result[:, np.any(np.isnan(data), axis=0)] *= np.nan
     return result
 

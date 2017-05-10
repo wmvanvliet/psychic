@@ -82,12 +82,12 @@ class TestEEGMontage(unittest.TestCase):
 
     def test_car(self):
         d_car = CAR(ftype=0).train_apply(self.d.ix[:10,:])
-        d_ref = EEGMontage(eeg=range(10)).apply(self.d)
+        d_ref = EEGMontage(eeg=list(range(10))).apply(self.d)
         np.testing.assert_almost_equal(d_car.data, d_ref.data[:10,:])
 
         # Bad channels should not be included in the CAR
         d_car = CAR(ftype=0).train_apply(self.d.ix[5:10,:])
-        d_ref = EEGMontage(eeg=range(10), bads=range(5)).apply(self.d)
+        d_ref = EEGMontage(eeg=list(range(10)), bads=list(range(5))).apply(self.d)
         np.testing.assert_almost_equal(d_car.data, d_ref.data[5:10,:])
 
     def test_bipolar(self):

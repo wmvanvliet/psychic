@@ -1,5 +1,6 @@
 import operator, logging
 import numpy as np
+from functools import reduce
 # TODO: 
 # [ ] Add NaN handling to enable working with missing data
 

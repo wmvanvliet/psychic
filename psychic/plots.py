@@ -1,9 +1,9 @@
 #encoding=utf-8
 import matplotlib.pyplot as plt
 import numpy as np
-from scalpplot import plot_scalp
-from positions import POS_10_5
-from markers import markers_to_events
+from .scalpplot import plot_scalp
+from .positions import POS_10_5
+from .markers import markers_to_events
 import psychic
 import scipy
 import matplotlib
@@ -13,8 +13,8 @@ from matplotlib.lines import Line2D
 from matplotlib import mlab
 import matplotlib.transforms as transforms
 import math
-import trials
-import stat
+from . import trials
+from . import stat
 
 def plot_timeseries(frames, time=None, offset=None, color='k', linestyle='-'):
   frames = np.asarray(frames)
@@ -101,7 +101,7 @@ def _draw_eeg_frame(
                 transform=trans, linewidth=1, color='k')
         scale.set_clip_on(False)
         axes.add_line(scale)
-        axes.text(scale_xpos+0.02, 0, u'%.4g \u00B5V' % vspace,
+        axes.text(scale_xpos+0.02, 0, '%.4g \u00B5V' % vspace,
                 transform=trans, va='center')
         axes.text(scale_xpos+0.02, scale_top, '+' if not mirror_y else '-', transform=trans, va='center')
         axes.text(scale_xpos+0.02, scale_bottom, '-' if not mirror_y else '+', transform=trans, va='center')
@@ -393,7 +393,7 @@ def plot_erp(
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
     if classes is None:
-        classes = range(d.nclasses)
+        classes = list(range(d.nclasses))
 
     num_classes = len(classes)
 
@@ -474,7 +474,7 @@ def plot_erp(
         
         # Plot each class
         for cl in range(num_classes):
-            traces = matplotlib.collections.LineCollection( [zip(ids, to_plot[y,:,cl]) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]] )
+            traces = matplotlib.collections.LineCollection( [list(zip(ids, to_plot[y,:,cl])) for y in range(len(channels))], label=cl_lab[classes[cl]], color=[colors[cl % len(colors)]], linestyle=[linestyles[cl % len(linestyles)]], linewidth=[linewidths[cl % len(linewidths)]] )
             plot.gca().add_collection(traces)
 
         # Color significant differences
@@ -485,7 +485,7 @@ def plot_erp(
                     continue
                 else:
                     c -= channels[0]
-                x = range(int(x1), int(x2))
+                x = list(range(int(x1), int(x2)))
                 y1 = np.min(to_plot[c,x,:], axis=1)
                 y2 = np.max(to_plot[c,x,:], axis=1)
                 x = np.concatenate( (ids[x], ids[x[::-1]]) )
@@ -943,7 +943,7 @@ def plot_topo(
             ch_lab = ['CH %d' % (x+1) for x in range(num_channels)]
 
     if classes is None:
-        classes = range(d.nclasses)
+        classes = list(range(d.nclasses))
 
     num_classes = len(classes)
 
@@ -1015,7 +1015,7 @@ def plot_topo(
                 c, x1, x2 = cl
                 if c != ch:
                     continue
-                x = range(int(x1), int(x2))
+                x = list(range(int(x1), int(x2)))
                 y1 = np.min(to_plot[x, :], axis=1)
                 y2 = np.max(to_plot[x, :], axis=1)
                 x = np.concatenate((ids[x], ids[x[::-1]]))
@@ -1049,7 +1049,7 @@ def plot_topo(
         plt.axvline(0, color='k')
         plt.axhline(0, color='k')
         plt.xlabel('time (s)')
-        plt.ylabel(u'voltage (µV)')
+        plt.ylabel('voltage (µV)')
 
     for ch, ax in enumerate(layout.axes(fig)):
         plot_channel(ax, ch)

@@ -1,5 +1,5 @@
 ﻿import numpy as np
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..dataset import DataSet
 from ..utils import get_samplerate
 from ..trials import erp, baseline, concatenate_trials, slice

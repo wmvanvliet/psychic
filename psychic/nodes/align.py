@@ -1,9 +1,9 @@
 import numpy as np
 from ..trials import erp
 from ..dataset import DataSet
-from spatialfilter import SpatialBlur
+from .spatialfilter import SpatialBlur
 
-def channel_temporal_offsets(data, k=range(-20, 20)):
+def channel_temporal_offsets(data, k=list(range(-20, 20))):
     '''
     Calculate temporal shift required for optimal cross channel covariances.
 
@@ -58,7 +58,7 @@ class AlignedSpatialBlur(SpatialBlur):
 
     def __init__(self, sigma, k, ftype=1):
         SpatialBlur.__init__(self, sigma, ftype)
-        self.k = range(-k, k)
+        self.k = list(range(-k, k))
 
     def train_(self, d):
         if self.ftype == 0:

@@ -60,6 +60,6 @@ class TestParafac(unittest.TestCase):
     self.assertEqual(s.size, 2)
 
     # sanity checks:
-    self.assert_(np.all(np.diff(s) < 0)) # sanity check
+    self.assertTrue(np.all(np.diff(s) < 0)) # sanity check
     np.testing.assert_almost_equal(normalized_loadings(l)[0], [1, 1])
-    self.assert_(mse < np.var(T))
+    self.assertTrue(mse < np.var(T))

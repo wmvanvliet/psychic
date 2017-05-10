@@ -3,7 +3,7 @@ from ..dataset import DataSet
 from ..utils import get_samplerate
 from ..trials import slice
 from ..filtering import decimate_rec
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..markers import markers_to_events
 from collections import deque
 
@@ -80,7 +80,7 @@ class OnlineSlice(Slice):
     if self.buffer is not None: 
       onsets = list( np.array(onsets) + self.buffer.ninstances )
       d = self.buffer + d
-    events = deque(self.event_buffer + zip(codes, onsets))
+    events = deque(self.event_buffer + list(zip(codes, onsets)))
 
     while len(events) > 0:
       code, onset = events.popleft()

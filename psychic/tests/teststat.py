@@ -29,19 +29,19 @@ class TestLedoitWolfCov(unittest.TestCase):
     def test_condition_number(self):
         S_star = lw_cov(self.X0)
         S = np.cov(self.X0, rowvar=False)
-        self.assert_(np.linalg.cond(S_star) < np.linalg.cond(S))
+        self.assertTrue(np.linalg.cond(S_star) < np.linalg.cond(S))
 
     def test_accuracy(self):
         X, S, Sigma = self.X0, self.S, self.Sigma
         Sigma = np.dot(self.A.T, self.A)
-        self.assert_(np.linalg.norm(lw_cov(X) - Sigma)
+        self.assertTrue(np.linalg.norm(lw_cov(X) - Sigma)
             < np.linalg.norm(S - Sigma))
 
     def test_inv_accuracy(self):
         X, S, Sigma = self.X0, self.S, self.Sigma
         S_star = lw_cov(X)
         invSigma, invS, invS_star = [np.linalg.inv(Y) for Y in [Sigma, S, S_star]]
-        self.assert_(np.linalg.norm(invS_star - invSigma) 
+        self.assertTrue(np.linalg.norm(invS_star - invSigma) 
             < np.linalg.norm(invS - invSigma))
 
 class TestKullbackLeibler(unittest.TestCase):
@@ -72,7 +72,7 @@ class TestKullbackLeibler(unittest.TestCase):
                 for d in np.linspace(0, 10, 50)])
             
             # check that the KLD is monotonically increasing
-            self.assert_(np.all(np.diff(kld) > 0))
+            self.assertTrue(np.all(np.diff(kld) > 0))
 
     def test_cov_divergence(self):
         Sig_q, inv_Sig_p, mu = self.Sig1, self.inv_Sig1, self.mu1
@@ -83,7 +83,7 @@ class TestKullbackLeibler(unittest.TestCase):
             S = alpha * Sig_p + (1. - alpha) * Sig_q
             kl.append(norm_kl_divergence(inv_Sig_p, mu, S, mu))
 
-        self.assert_(np.all(np.diff(kl) > 0))
+        self.assertTrue(np.all(np.diff(kl) > 0))
 
     def test_numerical(self):
         mu_p, mu_q, sig_p, sig_q = -1, 0, 1, .5
@@ -137,8 +137,8 @@ class TestROC(unittest.TestCase):
         labels = np.array([ 0, 0, 0, 0, 1, 1, 1, 1])
         t0, f0 = roc(scores, labels)
 
-        self.assert_((t0 == [0, .25, 1, 1]).all())
-        self.assert_((f0 == [0, 0, .75, 1]).all())
+        self.assertTrue((t0 == [0, .25, 1, 1]).all())
+        self.assertTrue((f0 == [0, 0, .75, 1]).all())
 
 class TestAUC(unittest.TestCase):
     def test_AUC_extrema(self):
@@ -155,14 +155,14 @@ class TestAUC(unittest.TestCase):
                 xs = np.random.random(N)
                 ys = (np.linspace(0, 1, N) <= rho).round()
                 self.assertAlmostEqual(auc(xs, ys), 1-auc(xs, np.abs(ys-1)))
-                self.assert_(0 <= auc(xs, ys) <= 1)
+                self.assertTrue(0 <= auc(xs, ys) <= 1)
 
     def test_AUC_confidence(self):
         '''Test AUC confidence interval for trends'''
         # we do not know much, but we can test for trends
-        self.assert_(auc_confidence(1) > auc_confidence(100))
-        self.assert_(auc_confidence(100, rho=.1) > auc_confidence(100))
-        self.assert_(auc_confidence(100, delta=1e-8) > auc_confidence(100))
+        self.assertTrue(auc_confidence(1) > auc_confidence(100))
+        self.assertTrue(auc_confidence(100, rho=.1) > auc_confidence(100))
+        self.assertTrue(auc_confidence(100, delta=1e-8) > auc_confidence(100))
 
         # and symmetry
         for rho in [.01, .1, .5]:
@@ -189,7 +189,7 @@ class TestAUC(unittest.TestCase):
                     epsilon = auc_confidence(N, rho, delta)
                     dev = np.abs(np.array(aucs) - 0.5)
                     e_p = np.mean(dev > epsilon)
-                    self.assert_(e_p <= delta, 
+                    self.assertTrue(e_p <= delta, 
                         'empirical p (=%f) > delta (=%f)' % (e_p, delta))
 
 class TestMutualInformation(unittest.TestCase):
@@ -204,7 +204,7 @@ class TestMutualInformation(unittest.TestCase):
             self.assertAlmostEqual(mut_inf(conf), 0)
 
     def test_zero(self):
-        self.assert_(np.isnan(mut_inf(np.zeros((5, 3)))))
+        self.assertTrue(np.isnan(mut_inf(np.zeros((5, 3)))))
 
     def test_no_modification(self):
         conf = np.ones((4, 3))

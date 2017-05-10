@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import unittest, os
+import unittest
 from ..dataformats.edf import *
+from psychic import find_data_path
 
 class TestEDFBaseReader(unittest.TestCase):
   def test_synthetic_content(self):
@@ -10,7 +11,7 @@ class TestEDFBaseReader(unittest.TestCase):
     is separately tested, *but not from a real file*!.
     '''
     reader = BaseEDFReader(
-      open(os.path.join('data', 'sine3Hz_block0.2Hz.edf'), 'rb'))
+      open(find_data_path('sine3Hz_block0.2Hz.edf'), 'rb'))
     reader.read_header()
 
     h = reader.header
@@ -22,14 +23,14 @@ class TestEDFBaseReader(unittest.TestCase):
     fs = np.asarray(h['n_samples_per_record']) / h['record_length']
 
     # get records
-    recs = list(reader.records())
-    time = zip(*recs)[0]
-    signals = zip(*recs)[1]
-    annotations = list(zip(*recs)[2])
+    recs = list(zip(*reader.records()))
+    time = recs[0]
+    signals = recs[1]
+    annotations = recs[2]
 
     # check EDF+ fields that are *not present in this file*
     np.testing.assert_equal(time, np.zeros(11) * np.nan)
-    self.assertEqual(annotations, [[]] * 11)
+    self.assertEqual(annotations, tuple([[]] * 11))
 
     # check 3 Hz sine wave
     sine, block = [np.hstack(s) for s in zip(*signals)]
@@ -46,15 +47,15 @@ class TestEDFBaseReader(unittest.TestCase):
     test_unicode = '+180\x14€\x14\x00\x00'
 
     # test annotation with duration
-    self.assertEqual(tal(with_duration), [(1800.2, 25.5, [u'Apnea'])])
+    self.assertEqual(tal(with_duration), [(1800.2, 25.5, ['Apnea'])])
 
     # test multiple annotations
     self.assertEqual(tal('\x00' * 4 + with_duration * 3), 
-      [(1800.2, 25.5, [u'Apnea'])] * 3)
+      [(1800.2, 25.5, ['Apnea'])] * 3)
 
     # test multiple annotations for one time point
     self.assertEqual(tal(mult_annotations), 
-      [(180., 0., [u'Lights off', u'Close door'])])
+      [(180., 0., ['Lights off', 'Close door'])])
 
     # test unicode support
-    self.assertEqual(tal(test_unicode), [(180., 0., [u'€'])])
+    self.assertEqual(tal(test_unicode), [(180., 0., ['€'])])

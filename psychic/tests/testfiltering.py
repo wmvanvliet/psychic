@@ -6,6 +6,7 @@ from ..dataset import DataSet
 from ..plots import plot_timeseries
 from .. import filtering
 from ..nodes import OnlineFilter, Winsorize
+from functools import reduce
 
 class TestResample(unittest.TestCase):
   def setUp(self):
@@ -28,7 +29,7 @@ class TestResample(unittest.TestCase):
     # Testing the decimation itself is more difficult due to boundary
     # artifacts, and is the responsibility of Scipy.
     # We do a rough test that it should be similar to naive resampling:
-    self.assert_(np.std((d2.data - d.data[:,::2])[:, 100:-100]) < 0.6)
+    self.assertTrue(np.std((d2.data - d.data[:,::2])[:, 100:-100]) < 0.6)
 
   def test_overlapping_markers(self):
     d = self.d
@@ -99,9 +100,9 @@ class TestFilter(unittest.TestCase):
     spec = np.abs(np.fft.rfft(df.data, axis=1))
 
     # verify that there is more power in the lowest 10%
-    pass_p = np.mean(spec[:, :self.d.ninstances/10], axis=1)
-    stop_p = np.mean(spec[:, self.d.ninstances/10:], axis=1)
-    self.assert_(((pass_p/stop_p) > 20).all())
+    pass_p = np.mean(spec[:, :self.d.ninstances // 10], axis=1)
+    stop_p = np.mean(spec[:, self.d.ninstances // 10:], axis=1)
+    self.assertTrue(((pass_p/stop_p) > 20).all())
 
   def test_hp(self):
     b, a = signal.iirfilter(6, [.9], btype='high')
@@ -148,9 +149,9 @@ class TestWinsorizing(unittest.TestCase):
   def test_minimal(self):
     d = self.d
     wd = Winsorize([.01, .99]).train_apply(d)
-    self.assert_(np.all((wd.data == d.data)[:, :10]))
-    self.assert_(np.all((wd.data != d.data)[:, 10:12]))
-    self.assert_(np.all((wd.data == d.data)[:, 12:]))
+    self.assertTrue(np.all((wd.data == d.data)[:, :10]))
+    self.assertTrue(np.all((wd.data != d.data)[:, 10:12]))
+    self.assertTrue(np.all((wd.data == d.data)[:, 12:]))
 
 def ewma_ref(x, alpha, v0=0):
   x = np.atleast_1d(x).flatten()

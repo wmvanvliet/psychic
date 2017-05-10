@@ -34,7 +34,7 @@ class TestSlowSphere(unittest.TestCase):
     spec = np.log(np.abs(np.apply_along_axis(
       lambda x: np.mean(np.abs(stft(x, 256, 256)), axis=0), 0, sigs)))
 
-    self.assert_(np.mean(spec[1:10]) < np.mean(spec[10:]))
+    self.assertTrue(np.mean(spec[1:10]) < np.mean(spec[10:]))
 
     # test whiteness property 
     np.testing.assert_almost_equal(

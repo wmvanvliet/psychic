@@ -237,12 +237,12 @@ class Resample(BaseNode):
             sample_points = np.linspace(0, nsamples-1, new_len, endpoint=True)
 
             # Interpolate the signal at the sample points
-            data = np.apply_along_axis(lambda x: interp1d(range(nsamples), x)(sample_points), 1, d.data)
+            data = np.apply_along_axis(lambda x: interp1d(list(range(nsamples)), x)(sample_points), 1, d.data)
 
         if data.ndim >= 3:
             # With epoched data, resample feat_lab[1] as well
             feat_lab = list(d.feat_lab)
-            feat_lab[1] = interp1d(range(nsamples), feat_lab[1])(sample_points).tolist()
+            feat_lab[1] = interp1d(list(range(nsamples)), feat_lab[1])(sample_points).tolist()
             return DataSet(data=data, feat_lab=feat_lab, default=d)
         else:
             # With non-epoched data, sample the marker stream and index as well
@@ -250,5 +250,5 @@ class Resample(BaseNode):
             for cl in range(d.labels.shape[0]):
                  labels.append(resample_markers(d.labels[cl,:], new_len, self.max_marker_delay))
             labels = np.vstack(labels)
-            ids = interp1d(range(nsamples), d.ids[0,:])(sample_points) 
+            ids = interp1d(list(range(nsamples)), d.ids[0,:])(sample_points) 
             return DataSet(data=data, labels=labels, ids=ids, default=d)

@@ -2,10 +2,11 @@ import numpy as np
 from sklearn.covariance import (EmpiricalCovariance, ShrunkCovariance, OAS,
                                 LedoitWolf)
 
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..dataset import DataSet
 from ..trials import baseline, concatenate_trials
-from spatialfilter import SpatialFilter
+from .spatialfilter import SpatialFilter
+from functools import reduce
 
 class SpatialBeamformer(SpatialFilter):
     '''

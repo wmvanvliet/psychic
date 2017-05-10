@@ -200,7 +200,7 @@ def bad_channels(data, channels=None, thres=3, use_metrics=None):
     samplerate = psychic.get_samplerate(data)
 
     if channels is None:
-        channels = range(data.data.shape[0])
+        channels = list(range(data.data.shape[0]))
     else:
         channels = list(_ch_idx(channels, data.feat_lab[0]))
 
@@ -218,7 +218,7 @@ def bad_channels(data, channels=None, thres=3, use_metrics=None):
     }
 
     if use_metrics is None:
-        use_metrics = metrics.keys()
+        use_metrics = list(metrics.keys())
 
     # Concatenate epochs in time
     if data.data.ndim == 3:
@@ -234,7 +234,7 @@ def bad_channels(data, channels=None, thres=3, use_metrics=None):
         s = metrics[m](data.data)
         b = [data.feat_lab[0][i] for i in find_outliers(s, thres)]
         #logger.info('Bad by %s:\n\t%s' % (m, b))
-        print 'Bad by %s:\n\t%s' % (m, b)
+        print('Bad by %s:\n\t%s' % (m, b))
         bads.append(b)
 
     return np.unique(np.concatenate(bads)).tolist()
@@ -266,7 +266,7 @@ def bad_epochs(epochs, channels=None, thres=3, use_metrics=None):
         The indices of the bad epochs.
     """
     if channels is None:
-        channels = range(epochs.data.shape[0])
+        channels = list(range(epochs.data.shape[0]))
     else:
         channels = list(_ch_idx(channels, epochs.feat_lab[0]))
 
@@ -277,7 +277,7 @@ def bad_epochs(epochs, channels=None, thres=3, use_metrics=None):
     }
 
     if use_metrics is None:
-        use_metrics = metrics.keys()
+        use_metrics = list(metrics.keys())
 
     epochs = epochs.ix[channels, :, :]
 
@@ -319,7 +319,7 @@ def bad_channels_in_epochs(epochs, channels=None, thres=3, use_metrics=None):
     samplerate = psychic.get_samplerate(epochs)
 
     if channels is None:
-        channels = range(epochs.epochs.shape[0])
+        channels = list(range(epochs.epochs.shape[0]))
     else:
         channels = list(_ch_idx(channels, epochs.feat_lab[0]))
 
@@ -333,7 +333,7 @@ def bad_channels_in_epochs(epochs, channels=None, thres=3, use_metrics=None):
     }
 
     if use_metrics is None:
-        use_metrics = metrics.keys()
+        use_metrics = list(metrics.keys())
     
     epochs = epochs.ix[channels, :, :]
 
@@ -474,7 +474,7 @@ def interpolate_channels(data, channels):
 
     interpolation = _make_interpolation_matrix(from_pos, to_pos)
 
-    print 'Interpolating %d sensors' % len(to_pos)
+    print('Interpolating %d sensors' % len(to_pos))
 
     data_ = data.data.copy()
     if data.data.ndim == 2:

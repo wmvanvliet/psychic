@@ -1,5 +1,5 @@
 import numpy as np
-from basenode import BaseNode
+from .basenode import BaseNode
 from ..dataset import DataSet
 from numpy.fft import fft, ifft
 

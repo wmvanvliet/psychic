@@ -1,6 +1,7 @@
 from ..dataset import DataSet
-from basenode import BaseNode
+from .basenode import BaseNode
 import numpy as np
+from functools import reduce
 
 def _ch_idx(channels, names):
     '''Construct a set of channel indices, given a list of mixed integer indices
@@ -94,7 +95,7 @@ class EEGMontage(BaseNode):
         assert (bipolar is None or type(bipolar) == dict), \
             'Parameter bipolar should either be None or a dictionary'
         if bipolar is not None:
-            for channels in bipolar.values():
+            for channels in list(bipolar.values()):
                 assert len(channels) == 2, ('Bipolar channels should be a '
                                            'dictionary containing tuples as '
                                            'values')
@@ -160,10 +161,10 @@ class EEGMontage(BaseNode):
         # Bipolar references
         if self.bipolar is not None:
             self.bipolar_idx = {}
-            for name, channels in self.bipolar.items():
+            for name, channels in list(self.bipolar.items()):
                 self.bipolar_idx[name] = _ch_idx(channels, d.feat_lab[0])
             self.bipolar_idx_set = \
-                reduce(lambda a,b: a.union(b), self.bipolar_idx.values())
+                reduce(lambda a,b: a.union(b), list(self.bipolar_idx.values()))
         else:
             self.bipolar_idx = {}
             self.bipolar_idx_set = set([])
@@ -197,7 +198,7 @@ class EEGMontage(BaseNode):
             bipolar = None
         else:
             bipolar = {}
-            for name, channels in self.bipolar_idx.items():
+            for name, channels in list(self.bipolar_idx.items()):
                 channels = list(channels)
                 bipolar[name] = data[channels[0],:] - data[channels[1],:]
 
@@ -238,7 +239,7 @@ class EEGMontage(BaseNode):
         data = [data]
         
         if bipolar is not None:
-            for name, channel in bipolar.items():
+            for name, channel in list(bipolar.items()):
                 data.append(channel[np.newaxis, :])
                 ch_names.append(name)
 
