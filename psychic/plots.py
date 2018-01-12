@@ -450,7 +450,7 @@ def plot_erp(
         fig = plot.figure()
 
     if ncols is None:
-        ncols = max(1, num_channels/15)
+        ncols = max(1, num_channels // 15)
 
     channels_per_col = int(np.ceil(num_channels / float(ncols)))
 
