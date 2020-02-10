@@ -4,6 +4,7 @@ import numpy as np
 import scipy.linalg
 from ..dataset import DataSet
 from . import BaseNode
+from ..utils import get_samplerate
 import itertools
 
 def create_sin_cos_matrix(freqs, nharmonics, sample_rate, nsamples):
@@ -63,7 +64,7 @@ class SLIC(BaseNode) :
             assert self.sample_rate is not None, 'Cannot determine sample rate.'
         else:
             if self.sample_rate is None:
-                self.sample_rate = psychic.get_samplerate(d)
+                self.sample_rate = get_samplerate(d)
 
     def apply_(self, d):
         if d.ninstances == 0:
@@ -162,7 +163,7 @@ class SSVEPNoiseReduce(BaseNode):
             assert self.nsamples is not None, 'Cannot determine window length.'
         else:
             if self.sample_rate is None:
-                self.sample_rate = psychic.get_samplerate(d)
+                self.sample_rate = get_samplerate(d)
             if self.nsamples is None:
                 self.nsamples = d.data.shape[1]
 
@@ -266,7 +267,7 @@ try:
         interfaces. IEEE transactions on bio-medical engineering, 54(4), 742–50.
         '''
         def __init__(self, frequencies, nharmonics=2, retain=0.1, ar_order=20,
-                weights=None, sample_rate=None, nsamples=None):
+                     weights=None, sample_rate=None, nsamples=None):
             BaseNode.__init__(self)
             self.sample_rate = sample_rate
             self.frequencies = frequencies
@@ -289,8 +290,8 @@ try:
 
             # Prepare some calculations in advance and store them in matrix data
             time = np.arange(self.noise_filter.nsamples) / float(self.noise_filter.sample_rate)
-            data = np.tile( (2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
-                         [1, 2, self.nharmonics, self.nfrequencies] )
+            data = np.tile((2*np.pi*time)[:, np.newaxis, np.newaxis, np.newaxis],
+                           [1, 2, self.nharmonics, self.nfrequencies])
                 
             for i,freq in enumerate(self.frequencies):
                 data[:,:,:,i] = data[:,:,:,i] * freq
@@ -318,7 +319,7 @@ try:
                 
                 tildeS = S[...,trial].dot(self.noise_filter.SSVEPRemovalMatrix)
                 
-                Pxx = np.zeros((np.ceil((nsamples+1)/2.0), nchannels))
+                Pxx = np.zeros((int(np.ceil((nsamples + 1) / 2.0)), nchannels))
                 nPxxRows = Pxx.shape[0]
                 
                 for ch in range(nchannels):
@@ -327,12 +328,12 @@ try:
                     Pxx[:,ch] = p.psd
                     
                 sigma = np.zeros((self.nharmonics, nchannels, self.nfrequencies))
-                div = self.sample_rate / float(nsamples)
+                div = self.noise_filter.sample_rate / float(nsamples)
                 
                 for f, freq in enumerate(self.frequencies):
                     for ch in range(nchannels):
                         for h, harm in enumerate(self.harmonics):
-                            ind = round(freq * harm / div)
+                            ind = int(round(freq * harm / div))
                             sigma[h,ch,f] = np.mean(Pxx[max(0,ind-1):min(ind+2, nPxxRows-1),ch])
                             
                 SNRs = np.reshape(P / sigma, (self.nharmonics*nchannels, self.nfrequencies))
@@ -344,9 +345,9 @@ try:
                     if len(self.weights) > nSNRs:
                         self.weights = self.weights[:nSNRs]
                     elif len(self.weights) < nSNRs:
-                         raise ValueError('inconsistent weight vector size')
+                        raise ValueError('inconsistent weight vector size')
                             
-                data[:,trial] = self.weights.dot(SNRs)
+                data[:, trial] = self.weights.dot(SNRs)
 
             feat_lab = ['%d Hz' % f for f in self.frequencies] 
 
@@ -405,7 +406,7 @@ class CanonCorr(BaseNode):
             assert self.nsamples is not None, 'Cannot determine window length.'
         else:
             if self.sample_rate is None:
-                self.sample_rate = psychic.get_samplerate(d)
+                self.sample_rate = get_samplerate(d)
             if self.nsamples is None:
                 self.nsamples = d.data.shape[1]
 
@@ -505,7 +506,7 @@ class MSI(BaseNode):
             assert self.nsamples is not None, 'Cannot determine window length.'
         else:
             if self.sample_rate is None:
-                self.sample_rate = psychic.get_samplerate(d)
+                self.sample_rate = get_samplerate(d)
             if self.nsamples is None:
                 self.nsamples = d.data.shape[1]
 
